@@ -1,0 +1,46 @@
+🧠 1. Ghi nhật ký tâm trạng (Mood Tracking)
+Người dùng có thể ghi lại cảm xúc hàng ngày.
+
+Biểu đồ theo dõi theo tuần/tháng.
+
+Gợi ý nguyên nhân (ví dụ: công việc, giấc ngủ, thời tiết).
+
+🗓️ 2. Lập kế hoạch và thói quen lành mạnh
+Thiết lập thói quen ngủ, ăn uống, vận động.
+
+Nhắc nhở hàng ngày (notification).
+
+Theo dõi mục tiêu cải thiện tâm lý.
+
+🧘 3. Bài tập thiền – thư giãn
+Hướng dẫn thiền (audio/video).
+
+Bài tập thở, thư giãn cơ thể.
+
+Bài tập nhận thức chánh niệm (Mindfulness).
+
+💬 4. Trò chuyện hỗ trợ (Chat / AI / Người thật)
+Chatbot AI phản hồi cơ bản.
+
+Kết nối chuyên gia tâm lý (qua lịch hẹn).
+
+Diễn đàn cộng đồng (ẩn danh, kiểm duyệt).
+
+🧑‍⚕️ 5. Hỗ trợ khẩn cấp
+Nút "SOS" liên hệ người thân/chuyên gia/người hỗ trợ.
+
+Danh sách hotline tâm lý tại địa phương.
+
+📊 6. Thống kê & phân tích tâm lý cá nhân
+Biểu đồ cảm xúc theo thời gian.
+
+Phân tích mối liên hệ giữa cảm xúc và hành vi.
+
+Gợi ý cải thiện cá nhân hóa.
+
+🛡️ 7. Bảo mật & quyền riêng tư
+Bảo vệ thông tin bằng mật khẩu, vân tay, Face ID.
+
+Tùy chọn ẩn danh khi sử dụng.
+
+Chính sách bảo mật rõ ràng.
