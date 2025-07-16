@@ -5,9 +5,14 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './db/schema.js';
 import { eq } from 'drizzle-orm';
+import job from './config/cron.js';
 
 const app = express();
 const PORT = ENV.PORT || 5001;
+
+// Start the cron job
+if (ENV.NODE_ENV === "production") job.start();
+
 app.use(bodyParser.json());
 
 // PostgreSQL + Drizzle
