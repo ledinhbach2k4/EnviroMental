@@ -1,6 +1,6 @@
 import { pgTable, serial, text, timestamp, integer, boolean, real, date } from "drizzle-orm/pg-core";
 
-/* ---------- Người dùng ---------- */
+/* ---------- Users ---------- */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -9,7 +9,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-/* ---------- Ghi nhật ký tâm trạng ---------- */
+/* ---------- Mood Entries ---------- */
 export const moodEntries = pgTable("mood_entries", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -18,7 +18,7 @@ export const moodEntries = pgTable("mood_entries", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-/* ---------- Thói quen ---------- */
+/* ---------- Habits ---------- */
 export const habits = pgTable("habits", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -28,7 +28,7 @@ export const habits = pgTable("habits", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-/* ---------- Nhật ký thực hiện thói quen ---------- */
+/* ---------- Habit Logs ---------- */
 export const habitLogs = pgTable("habit_logs", {
   id: serial("id").primaryKey(),
   habitId: integer("habit_id").references(() => habits.id),
@@ -36,7 +36,7 @@ export const habitLogs = pgTable("habit_logs", {
   completed: boolean("completed").default(false),
 });
 
-/* ---------- Dữ liệu môi trường từ IoT ---------- */
+/* ---------- Environmental data from IoT ---------- */
 export const environmentData = pgTable("environment_data", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -48,7 +48,7 @@ export const environmentData = pgTable("environment_data", {
   recordedAt: timestamp("recorded_at").defaultNow(),
 });
 
-/* ---------- Danh bạ khẩn cấp ---------- */
+/* ---------- Emergency Contacts ---------- */
 export const emergencyContacts = pgTable("emergency_contacts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -57,7 +57,7 @@ export const emergencyContacts = pgTable("emergency_contacts", {
   relation: text("relation"),
 });
 
-/* ---------- Trò chuyện (AI, chuyên gia) ---------- */
+/* ---------- Chat Logs (AI, Therapist) ---------- */
 export const chatLogs = pgTable("chat_logs", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -66,7 +66,7 @@ export const chatLogs = pgTable("chat_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-/* ---------- Mục tiêu cải thiện ---------- */
+/* ---------- Goals ---------- */
 export const goals = pgTable("goals", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -76,7 +76,7 @@ export const goals = pgTable("goals", {
   isCompleted: boolean("is_completed").default(false),
 });
 
-/* ---------- Nhắc nhở ---------- */
+/* ---------- Notifications ---------- */
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -85,7 +85,7 @@ export const notifications = pgTable("notifications", {
   scheduledAt: timestamp("scheduled_at"),
 });
 
-/* ---------- Bài thiền (Meditation) ---------- */
+/* ---------- Meditations ---------- */
 export const meditations = pgTable("meditations", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -96,7 +96,7 @@ export const meditations = pgTable("meditations", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-/* ---------- Bài tập chánh niệm ---------- */
+/* ---------- Mindfulness exercises ---------- */
 export const mindfulnessExercises = pgTable("mindfulness_exercises", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -105,7 +105,7 @@ export const mindfulnessExercises = pgTable("mindfulness_exercises", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-/* ---------- Bài đăng diễn đàn ---------- */
+/* ---------- Forum Posts ---------- */
 export const forumPosts = pgTable("forum_posts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -115,7 +115,7 @@ export const forumPosts = pgTable("forum_posts", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-/* ---------- Bình luận bài viết ---------- */
+/* ---------- Forum Comments ---------- */
 export const forumComments = pgTable("forum_comments", {
   id: serial("id").primaryKey(),
   postId: integer("post_id").references(() => forumPosts.id),
@@ -124,7 +124,7 @@ export const forumComments = pgTable("forum_comments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-/* ---------- Hotline hỗ trợ ---------- */
+/* ---------- Support Hotline ---------- */
 export const hotlines = pgTable("hotlines", {
   id: serial("id").primaryKey(),
   country: text("country"),
@@ -134,7 +134,7 @@ export const hotlines = pgTable("hotlines", {
   description: text("description"),
 });
 
-/* ---------- Gợi ý cải thiện cá nhân ---------- */
+/* ---------- Personal Improvement Suggestions ---------- */
 export const suggestions = pgTable("suggestions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -142,7 +142,7 @@ export const suggestions = pgTable("suggestions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-/* ---------- Lịch hẹn với chuyên gia ---------- */
+/* ---------- Appointments with Specialists ---------- */
 export const appointments = pgTable("appointments", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
