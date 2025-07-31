@@ -1,6 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
+<<<<<<< HEAD
   "description": "",
   "main": "src/server.js",
   "type": "module",
@@ -13,6 +14,18 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+=======
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js"
+  },
+  "keywords": [],
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "description": "",
+>>>>>>> de368f6aef3c9a55002df5a245cc5b7285e13495
   "dependencies": {
     "@neondatabase/serverless": "^1.0.0",
     "cors": "^2.8.5",
@@ -20,6 +33,7 @@
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.44.2",
     "express": "^5.1.0",
+<<<<<<< HEAD
     "module-alias": "^2.2.3",
     "pg": "^8.16.3"
   },
@@ -32,5 +46,12 @@
   },
   "_moduleAliases": {
     "@": "./src"
+=======
+    "pg": "^8.11.1"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.1",
+    "nodemon": "^3.1.10"
+>>>>>>> de368f6aef3c9a55002df5a245cc5b7285e13495
   }
 }
