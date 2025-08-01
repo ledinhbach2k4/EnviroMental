@@ -25,7 +25,7 @@ import suggestionRoutes from './routes/suggestions.routes.js';
 import environmentRoutes from './routes/environment.routes.js';
 
 const app = express();
-
+// Start the cron job
 if (ENV.NODE_ENV === 'production') job.start();
 
 app.use(cors());
