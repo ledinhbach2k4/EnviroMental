@@ -29,7 +29,7 @@ export const gradients = {
   secondary: ['#DDB892', '#E8C4A0'],
   accent: ['#F4A261', '#F7B267'],
   wellness: ['#81C784', '#A5D6A7'],
-  calm: ['#B39DDB', '#C5CAE9'],
+  calm: ['#B39DDB', '#C5CAE9']as const,
 };
 
 export const buttonStyles = StyleSheet.create({

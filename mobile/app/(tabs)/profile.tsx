@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
 import { commonStyles, textStyles, colors, gradients } from '../../assets/styles/commonStyles';
-import Icon from '../../components/Icon';
+import { Image } from 'expo-image';
 import Button from '../../components/Button';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLogout } from '../../hooks/useLogout';
-import { useAuth } from '@clerk/clerk-expo';
+import { useUser } from '@clerk/clerk-expo';
 import { router } from 'expo-router';
+import Icon from '@/components/Icon';
 
 interface UserStats {
   totalMoodEntries: number;
@@ -24,6 +24,15 @@ export default function Profile() {
     meditationMinutes: 0,
     habitsCompleted: 0,
   });
+
+  // Lấy thông tin người dùng từ Clerk
+  const { user } = useUser();
+  // Sử dụng firstName từ Clerk, fallback là 'User' nếu không có
+  const userName = user?.firstName || 'User';
+  // Lấy URL avatar từ Clerk, fallback là hình ảnh placeholder
+  const userAvatar = user?.imageUrl || 'https://www.gravatar.com/avatar?d=mp';
+
+  const { logout } = useLogout();
 
   const loadUserStats = useCallback(async () => {
     try {
@@ -104,6 +113,50 @@ export default function Profile() {
     );
   };
 
+  const deleteAccount = async () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Xóa dữ liệu cục bộ
+              await AsyncStorage.multiRemove(['moodEntries', 'habits']);
+              
+              // Xóa tài khoản người dùng từ Clerk
+              if (user) {
+                await user.delete();
+              }
+
+              // Cập nhật trạng thái người dùng
+              setUserStats({
+                totalMoodEntries: 0,
+                currentStreak: 0,
+                meditationMinutes: 0,
+                habitsCompleted: 0,
+              });
+
+              // Đăng xuất người dùng
+              await logout();
+
+              Alert.alert('Account Deleted', 'Your account has been deleted successfully.');
+              
+              // Điều hướng về màn hình đăng nhập
+              router.replace('/(auth)/sign-in');
+            } catch (error) {
+              console.log('Error deleting account:', error);
+              Alert.alert('Error', 'Failed to delete account.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const exportData = () => {
     Alert.alert(
       'Export Data',
@@ -120,13 +173,11 @@ export default function Profile() {
     );
   };
 
-  const { logout } = useLogout();
-
   return (
     <View style={commonStyles.container}>
       <ScrollView style={commonStyles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginTop: 20, marginBottom: 30 }}>
-          <Text style={[textStyles.h1, { color: colors.primary }]}>Profile 👤</Text>
+          <Text style={[textStyles.h1, { color: colors.primary }]}>Hello, {userName} 👤</Text>
           <Text style={textStyles.bodyLight}>Your wellness journey overview</Text>
         </View>
 
@@ -142,11 +193,16 @@ export default function Profile() {
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: 16,
+            overflow: 'hidden',
           }}>
-            <Icon name="person" size={40} style={{ color: colors.primary }} />
+            <Image
+              source={{ uri: userAvatar }}
+              style={{ width: '100%', height: '100%' }}
+              contentFit="cover"
+            />
           </View>
           <Text style={[textStyles.h2, { color: colors.backgroundAlt, marginBottom: 8 }]}>
-            Welcome Back!
+            Welcome Back, {userName}!
           </Text>
           <Text style={[textStyles.body, { color: colors.backgroundAlt, textAlign: 'center' }]}>
             You&apos;re doing great on your wellness journey. Keep up the amazing work!
@@ -299,6 +355,11 @@ export default function Profile() {
           <Button
             text="Clear All Data"
             onPress={clearAllData}
+            style={[{ backgroundColor: colors.danger, width: '100%', marginBottom: 12 }]}
+          />
+          <Button
+            text="Delete Account"
+            onPress={deleteAccount}
             style={[{ backgroundColor: colors.danger, width: '100%', marginBottom: 12 }]}
           />
           <Button

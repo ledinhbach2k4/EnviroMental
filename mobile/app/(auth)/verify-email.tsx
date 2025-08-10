@@ -1,4 +1,4 @@
-import { useSignUp } from "@clerk/clerk-expo";
+import { useUser, useSignUp } from '@clerk/clerk-expo';
 import { useState } from "react";
 import {
   View,
@@ -17,11 +17,15 @@ import { COLORS } from "../../constants/colors";
 
 interface VerifyEmailProps {
   email: string;
+  username: string;
+  firstName: string;
+  lastName: string;
   onBack: () => void;
 }
 
-const VerifyEmail: React.FC<VerifyEmailProps> = ({ email, onBack }) => {
+const VerifyEmail: React.FC<VerifyEmailProps> = ({ email, username, firstName, lastName, onBack }) => {
   const { isLoaded, signUp, setActive } = useSignUp();
+  const { user } = useUser();
   const [code, setCode] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -34,6 +38,12 @@ const VerifyEmail: React.FC<VerifyEmailProps> = ({ email, onBack }) => {
 
       if (signUpAttempt.status === "complete") {
         await setActive({ session: signUpAttempt.createdSessionId });
+
+        await signUp.update({
+          username,
+          firstName,
+          lastName
+        });
       } else {
         Alert.alert("Error", "Verification failed. Please try again.");
         console.error(JSON.stringify(signUpAttempt, null, 2));

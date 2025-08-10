@@ -23,6 +23,8 @@ const SignUpScreen = () => {
   const { isLoaded, signUp } = useSignUp();
 
   const [email, setEmail] = useState<string>("");
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [rePassword, setRePassword] = useState<string>("");
@@ -31,11 +33,11 @@ const SignUpScreen = () => {
   const [pendingVerification, setPendingVerification] = useState<boolean>(false);
 
   const handleSignUp = async (): Promise<void> => {
-    if (!email || !username || !password || !rePassword) {
+    if (!email || !firstName || !lastName || !username || !password || !rePassword) {
       return Alert.alert("Error", "Please fill in all fields");
     }
 
-    if (email.length > 50 || username.length > 50 || password.length > 50 || rePassword.length > 50) {
+    if (email.length > 50 || firstName.length > 50 || lastName.length > 50 || username.length > 50 || password.length > 50 || rePassword.length > 50) {
       return Alert.alert("Error", "Fields cannot exceed 50 characters");
     }
 
@@ -54,8 +56,10 @@ const SignUpScreen = () => {
     try {
       await signUp.create({
         emailAddress: email,
+        firstName,
+        lastName,
+        username,
         password,
-        // Clerk không luôn hỗ trợ username trực tiếp, bạn có thể lưu nó sau xác minh
       });
 
       await signUp.prepareEmailAddressVerification({
@@ -72,7 +76,7 @@ const SignUpScreen = () => {
   };
 
   if (pendingVerification) {
-    return <VerifyEmail email={email} onBack={() => setPendingVerification(false)} />;
+    return <VerifyEmail email={email} username={username} firstName={firstName} lastName={lastName} onBack={() => setPendingVerification(false)} />;
   }
 
   return (
@@ -98,30 +102,76 @@ const SignUpScreen = () => {
           <Text style={authStyles.title}>Create Account</Text>
 
           <View style={authStyles.formContainer}>
+            {/* First Name */}
+            <View style={authStyles.inputContainer}>
+              <TextInput
+                style={authStyles.textInput}
+                placeholder="Enter first name"
+                placeholderTextColor={COLORS.textLight}
+                value={firstName}
+                onChangeText={setFirstName}
+                autoCapitalize="words"
+                maxLength={50}
+              />
+              <Text
+                style={{
+                  position: "absolute",
+                  bottom: 8,
+                  right: 12,
+                  fontSize: 12,
+                  color: COLORS.textLight,
+                }}
+              >
+                {firstName.length}/50
+              </Text>
+            </View>
+
+            {/* Last Name */}
+            <View style={authStyles.inputContainer}>
+              <TextInput
+                style={authStyles.textInput}
+                placeholder="Enter last name"
+                placeholderTextColor={COLORS.textLight}
+                value={lastName}
+                onChangeText={setLastName}
+                autoCapitalize="words"
+                maxLength={50}
+              />
+              <Text
+                style={{
+                  position: "absolute",
+                  bottom: 8,
+                  right: 12,
+                  fontSize: 12,
+                  color: COLORS.textLight,
+                }}
+              >
+                {lastName.length}/50
+              </Text>
+            </View>
+
             {/* Username */}
             <View style={authStyles.inputContainer}>
-                <TextInput
-                    style={authStyles.textInput}
-                    placeholder="Enter username"
-                    placeholderTextColor={COLORS.textLight}
-                    value={username}
-                    onChangeText={setUsername}
-                    autoCapitalize="none"
-                    maxLength={50}
-                />
-
-                {/* Character Counter */}
-                <Text
-                    style={{
-                    position: "absolute",
-                    bottom: 8,
-                    right: 12,
-                    fontSize: 12,
-                    color: COLORS.textLight,
-                    }}
-                >
-                    {username.length}/50
-                </Text>
+              <TextInput
+                style={authStyles.textInput}
+                placeholder="Enter username"
+                placeholderTextColor={COLORS.textLight}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                maxLength={50}
+              />
+              <Text
+                style={{
+                  position: "absolute",
+                  bottom: 8,
+                  right: 12,
+                  fontSize: 12,
+                  color: COLORS.textLight,
+                }}
+              >
+                {username.length}/50
+              </Text>
             </View>
 
             {/* Email */}
@@ -136,6 +186,17 @@ const SignUpScreen = () => {
                 autoCapitalize="none"
                 maxLength={50}
               />
+              <Text
+                style={{
+                  position: "absolute",
+                  bottom: 8,
+                  right: 12,
+                  fontSize: 12,
+                  color: COLORS.textLight,
+                }}
+              >
+                {email.length}/50
+              </Text>
             </View>
 
             {/* Password */}

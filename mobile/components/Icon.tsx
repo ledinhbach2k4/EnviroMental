@@ -5,14 +5,13 @@ import { colors } from '../assets/styles/commonStyles';
 interface IconProps {
   name: keyof typeof Ionicons.glyphMap;
   size?: number;
-  style?: ViewStyle & { color?: string }; // Hỗ trợ color truyền từ tab
+  color?: string;
+  style?: ViewStyle; // Chỉ chứa style hợp lệ
 }
 
-export default function Icon({ name, size = 40, style = {} }: IconProps) {
-  const { color = colors.primary, ...restStyle } = style || {};
-
+export default function Icon({ name, size = 40, color = colors.primary, style = {} }: IconProps) {
   return (
-    <View style={[styles.iconContainer, restStyle]}>
+    <View style={[styles.iconContainer, style]}>
       <Ionicons name={name} size={size} color={color} />
     </View>
   );
