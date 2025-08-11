@@ -1,10 +1,45 @@
-import { StyleSheet, Dimensions } from "react-native";
+import { StyleSheet, Dimensions, ViewStyle, TextStyle, ImageStyle } from "react-native";
 import { COLORS } from "../../constants/colors";
 
 const { width } = Dimensions.get("window");
 const cardWidth = (width - 48) / 2;
 
-export const homeStyles = StyleSheet.create({
+type HomeStyles = {
+  container: ViewStyle;
+  scrollContent: ViewStyle;
+  welcomeSection: ViewStyle;
+  welcomeText: TextStyle;
+  featuredSection: ViewStyle;
+  featuredCard: ViewStyle;
+  featuredImageContainer: ViewStyle;
+  featuredImage: ImageStyle;
+  featuredOverlay: ViewStyle;
+  featuredBadge: ViewStyle;
+  featuredBadgeText: TextStyle;
+  featuredContent: ViewStyle;
+  featuredTitle: TextStyle;
+  featuredMeta: ViewStyle;
+  metaItem: ViewStyle;
+  metaText: TextStyle;
+  recipesSection: ViewStyle;
+  sectionHeader: ViewStyle;
+  sectionTitle: TextStyle;
+  recipesGrid: ViewStyle;
+  row: ViewStyle;
+  emptyState: ViewStyle;
+  emptyTitle: TextStyle;
+  emptyDescription: TextStyle;
+  categoryFilterContainer: ViewStyle;
+  categoryFilterScrollContent: ViewStyle;
+  categoryButton: ViewStyle;
+  selectedCategory: ViewStyle;
+  categoryImage: ImageStyle;
+  selectedCategoryImage: ViewStyle;
+  categoryText: TextStyle;
+  selectedCategoryText: TextStyle;
+};
+
+export const homeStyles = StyleSheet.create<HomeStyles>({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -187,7 +222,21 @@ export const homeStyles = StyleSheet.create({
   },
 });
 
-export const recipeCardStyles = StyleSheet.create({
+type RecipeCardStyles = {
+  container: ViewStyle;
+  imageContainer: ViewStyle;
+  image: ImageStyle;
+  content: ViewStyle;
+  title: TextStyle;
+  description: TextStyle;
+  footer: ViewStyle;
+  timeContainer: ViewStyle;
+  timeText: TextStyle;
+  servingsContainer: ViewStyle;
+  servingsText: TextStyle;
+};
+
+export const recipeCardStyles = StyleSheet.create<RecipeCardStyles>({
   container: {
     width: cardWidth,
     backgroundColor: COLORS.card,

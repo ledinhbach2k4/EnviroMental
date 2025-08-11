@@ -7,10 +7,13 @@ import axios from "axios";
 
 const router = express.Router();
 
-// 🔐 Load API key từ biến môi trường (đừng hardcode key!)
+// Load the API key from environment variables (do not hardcode the key)
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// ✅ Lấy tất cả tin nhắn của người dùng
+/**
+ * GET /
+ * Retrieve all chat messages for the authenticated user.
+ */
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const messages = await db
@@ -25,7 +28,10 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Gửi tin nhắn mới và nhận phản hồi từ OpenAI
+/**
+ * POST /
+ * Send a new message and receive a response from the OpenAI API.
+ */
 router.post("/", authMiddleware, async (req, res) => {
   const { message } = req.body;
 
@@ -34,7 +40,7 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 
   try {
-    // 🧠 Gửi message đến OpenAI
+    // Send the user message to OpenAI
     const response = await axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -43,7 +49,7 @@ router.post("/", authMiddleware, async (req, res) => {
           {
             role: "system",
             content:
-              "Bạn là chuyên gia sức khỏe tâm thần trong ứng dụng EnviroMental. Chỉ trả lời các câu hỏi liên quan đến cảm xúc, stress, thiền, môi trường sống và tâm lý.",
+              "You are a mental health expert in the EnviroMental application. Only answer questions related to emotions, stress, meditation, living environment, and psychology.",
           },
           { role: "user", content: message },
         ],
@@ -58,14 +64,14 @@ router.post("/", authMiddleware, async (req, res) => {
 
     const aiReply = response.data.choices[0].message.content;
 
-    // 💾 Lưu câu hỏi của người dùng
+    // Save the user's message to the database
     await db.insert(schema.chatLogs).values({
       userId: req.userId,
       sender: "user",
       message,
     });
 
-    // 💾 Lưu câu trả lời của AI
+    // Save the AI's response to the database
     const [savedAIMessage] = await db.insert(schema.chatLogs).values({
       userId: req.userId,
       sender: "ai",

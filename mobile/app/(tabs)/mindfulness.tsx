@@ -210,7 +210,6 @@ export default function Mindfulness() {
                 style={[commonStyles.cardSmall, { 
                   width: '48%', 
                   alignItems: 'center',
-                  backgroundColor: colors.success + '15',
                   borderColor: colors.success + '30',
                 }]}
                 onPress={() => startSession(meditationSessions[1])} // Breathing exercise
@@ -226,7 +225,6 @@ export default function Mindfulness() {
                 style={[commonStyles.cardSmall, { 
                   width: '48%', 
                   alignItems: 'center',
-                  backgroundColor: colors.primary + '15',
                   borderColor: colors.primary + '30',
                 }]}
                 onPress={() => startSession(meditationSessions[0])} // Morning mindfulness

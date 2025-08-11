@@ -1,9 +1,29 @@
-import { StyleSheet, Dimensions } from "react-native";
+import { StyleSheet, Dimensions, ViewStyle, TextStyle, ImageStyle } from "react-native";
 import { COLORS } from "../../constants/colors";
 
 const { height } = Dimensions.get("window");
 
-export const authStyles = StyleSheet.create({
+interface AuthStyles {
+  container: ViewStyle;
+  keyboardView: ViewStyle;
+  scrollContent: ViewStyle;
+  imageContainer: ViewStyle;
+  image: ImageStyle;
+  title: TextStyle;
+  subtitle: TextStyle;
+  formContainer: ViewStyle;
+  inputContainer: ViewStyle;
+  textInput: TextStyle;
+  eyeButton: ViewStyle;
+  authButton: ViewStyle;
+  buttonDisabled: ViewStyle;
+  buttonText: TextStyle;
+  linkContainer: ViewStyle;
+  linkText: TextStyle;
+  link: TextStyle;
+}
+
+export const authStyles = StyleSheet.create<AuthStyles>({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

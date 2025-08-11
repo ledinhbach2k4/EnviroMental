@@ -1,68 +1,118 @@
-# 🌱 EnviroMental App
+<p align="center">
+  <img width="200" alt="EnviroMental App Logo" src="mobile/assets/icon.png" />
+</p>
 
-The **EnviroMental** app helps track the environmental impact on mental health.
-It is built with **React Native (Expo)** for the mobile frontend and **Node.js + Express** for the backend, with **PostgreSQL** + **Drizzle ORM** for data management.
+<h1 align="center">🌱 EnviroMental App</h1>
+
+<p align="center">
+  <i>Track how your environment affects your mental well-being.</i>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License" /></a>
+  <a href="https://expo.dev/"><img src="https://img.shields.io/badge/Expo-%5E49.0.0-blue?logo=expo" alt="Expo" /></a>
+</p>
+
+---
+
+## 🧠 About the Project
+
+**EnviroMental** is a cross-platform mobile app designed to help users understand how environmental factors (such as location, weather, and pollution) impact their mental health.
+
+Built with **React Native (Expo)** on the frontend and **Node.js + Express** on the backend, the app combines geolocation, mood tracking, and environmental data to provide personalized insights and trends over time.
+
+---
+
+## ✨ Features
+
+- 📍 Tracks your location and current environmental data (weather, air quality, etc.)
+- 🧠 Mood journaling and emotional reflection
+- 📊 Analytics to correlate environment and mental states
+- 🔐 Secure authentication using Clerk
+- 🔁 Scheduled tasks and background jobs
+- ☁️ PostgreSQL database with Drizzle ORM
+- 📱 Mobile app built with Expo (iOS, Android)
 
 ---
 
 ## 📂 Project Structure
 
 ```
+
 .
 ├── backend/                  # API server (Node.js + Express + Drizzle ORM)
 │   ├── src/                  # Backend source code
 │   ├── drizzle.config.js     # Drizzle configuration
 │   ├── package.json          # Backend dependencies
 │   └── ...
-├── frontend/ (environmental) # Mobile application (React Native + Expo Router)
+├── frontend/ (environmental) # Mobile app (React Native + Expo Router)
 │   ├── app/                  # Screens and routing
 │   ├── assets/               # Images, icons, fonts
 │   ├── package.json          # Frontend dependencies
 │   └── ...
 ├── README.md
 └── ...
-```
+
+````
 
 ---
 
 ## 🚀 Technologies Used
 
 ### Frontend (Mobile App)
-
-* **React Native (Expo)**
-* **Expo Router** for navigation
-* **Clerk** for user authentication
-* **Axios** for API calls
-* Device APIs: `expo-location`, `expo-secure-store`, `expo-linear-gradient`, etc.
+- **React Native (Expo)**
+- **Expo Router** for navigation
+- **Clerk** for authentication
+- **Axios** for HTTP requests
+- Device APIs: `expo-location`, `expo-secure-store`, `expo-linear-gradient`, etc.
 
 ### Backend (API Server)
-
-* **Node.js + Express**
-* **Drizzle ORM** + **PostgreSQL**
-* **dotenv** for environment variable management
-* **Clerk SDK Node** for authentication
-* **Cron** for scheduled tasks
+- **Node.js + Express**
+- **Drizzle ORM** + **PostgreSQL**
+- **dotenv** for environment variables
+- **Clerk SDK (Node)** for server-side auth
+- **cron** for scheduled background tasks
 
 ---
 
-## ⚙️ Installation
+## ⚙️ Environment Configuration
 
-### 1️⃣ Backend
+### Backend (`backend/.env`)
+```env
+DATABASE_URL=postgresql://your-db-url
+CLERK_SECRET_KEY=your-clerk-secret
+PORT=4000
+````
+
+### Frontend (`frontend/.env`)
+
+```env
+API_URL=http://localhost:4000
+CLERK_PUBLISHABLE_KEY=your-clerk-publishable-key
+```
+
+> You can copy from `.env.example` in each folder and adjust the values accordingly.
+
+---
+
+## 🔧 Installation & Setup
+
+### 1️⃣ Backend Setup
 
 ```bash
 cd backend
 npm install
-cp .env.example .env   # Create an environment file and configure DB, API keys, etc.
-npm run dev            # Start server in development mode
+cp .env.example .env  # Add DB connection, Clerk secret, etc.
+npm run dev           # Start development server
 ```
 
-### 2️⃣ Frontend
+### 2️⃣ Frontend Setup
 
 ```bash
-cd environmental
+cd frontend
 npm install
-cp .env.example .env   # Add backend API URL and required keys
-npm run start          # Launch Expo Dev Tools
+cp .env.example .env  # Add backend API URL and Clerk keys
+npm run start         # Launch Expo Dev Tools
 ```
 
 ---
@@ -71,27 +121,80 @@ npm run start          # Launch Expo Dev Tools
 
 ### Backend
 
-* `npm run dev` — Run the server with nodemon
-* `npm start` — Run the server in production
-* `npm run test` — Run tests with Vitest
+* `npm run dev` — Start dev server with nodemon
+* `npm start` — Start production server
+* `npm run test` — Run tests using Vitest
 
 ### Frontend
 
-* `npm run start` — Start the Expo app
-* `npm run android` — Run the app on Android emulator/device
-* `npm run ios` — Run the app on iOS simulator
-* `npm run web` — Run the app in the browser
+* `npm run start` — Launch Expo dev tools
+* `npm run android` — Run app on Android device/emulator
+* `npm run ios` — Run app on iOS simulator
+* `npm run web` — Run app in browser
+
+---
+
+## 🧪 Running Tests
+
+### Backend
+
+```bash
+cd backend
+npm run test
+```
+
+> Tests are powered by [Vitest](https://vitest.dev) and cover key routes and logic.
 
 ---
 
 ## 🌐 API & Database
 
-* **Database:** PostgreSQL (Neon Serverless)
+* **Database:** PostgreSQL (hosted on [Neon](https://neon.tech) or similar)
 * **ORM:** Drizzle ORM
-* **Authentication:** Clerk
+* **Authentication:** Clerk (Frontend & Backend)
+
+---
+
+## 🚀 Deployment
+
+### Backend (Render / Railway / Vercel)
+
+* Set environment variables from `.env`.
+* Deploy from the `backend/` directory.
+* Ensure DB access and authentication keys are set.
+
+### Frontend (Expo)
+
+* Use `eas build` to build for production.
+* Use `eas update` for OTA updates.
+* Configure `CLERK_PUBLISHABLE_KEY` in `.env`.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from developers, designers, and researchers.
+
+### How to Contribute
+
+* ⭐ Star the repo
+* 🐛 Report issues or bugs
+* 🔧 Suggest new features
+* 📦 Submit pull requests
+
+> Contribution guidelines coming soon.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
+
+> Please note that any third-party services (like Clerk, Expo, or Neon) may have their own terms of use.
+
+---
+
+<p align="center">🌿 Made with care for mind and environment 🌍</p>
+```
+
+---

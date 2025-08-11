@@ -207,4 +207,74 @@ export const commonStyles = StyleSheet.create({
     boxShadow: `0px 6px 16px ${colors.shadow}`,
     elevation: 6,
   },
+
+});
+
+export const chatStyles = StyleSheet.create({
+  chatBalloon: {
+    position: 'absolute',
+    right: 20,
+    backgroundColor: '#F1F1F1',
+    borderRadius: 50,
+    padding: 12,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 3.5,
+    zIndex: 9999,
+  },
+  modal: {
+    margin: 0,
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    padding: 20,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    height: '60%',
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  chatTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  messageBubble: {
+    borderRadius: 10,
+    padding: 10,
+    marginVertical: 4,
+    maxWidth: '80%',
+  },
+  userMessage: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#dff0ff',
+  },
+  aiMessage: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#e9e9e9',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  inputBox: {
+    flex: 1,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'white',
+  },
+  sendIcon: {
+    marginLeft: 8,
+  },
 });

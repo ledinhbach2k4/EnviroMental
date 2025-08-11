@@ -127,7 +127,6 @@ export default function Home() {
                   {
                     width: '48%',
                     alignItems: 'center',
-                    backgroundColor: stat.color + '15',
                     borderColor: stat.color + '30',
                   },
                 ]}>
@@ -193,7 +192,6 @@ export default function Home() {
           style={[
             commonStyles.card,
             {
-              backgroundColor: colors.danger + '10',
               borderColor: colors.danger + '30',
               marginBottom: 30,
             },

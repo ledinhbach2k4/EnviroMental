@@ -172,7 +172,6 @@ export default function HabitsTracker() {
               style={[
                 commonStyles.cardSmall,
                 {
-                  backgroundColor: habit.completedToday ? habit.color + '15' : colors.backgroundAlt,
                   borderColor: habit.completedToday ? habit.color : colors.border,
                   marginBottom: 12,
                 }
@@ -191,9 +190,9 @@ export default function HabitsTracker() {
                     marginRight: 12,
                   }}>
                     {habit.completedToday ? (
-                      <Icon name="checkmark" size={20} style={{ color: colors.backgroundAlt }} />
+                      <Icon name="checkmark" size={20} color={colors.backgroundAlt} />
                     ) : (
-                      <Icon name={habit.icon as any} size={20} style={{ color: habit.color }} />
+                      <Icon name={habit.icon} size={20} color={habit.color} />
                     )}
                   </View>
                   <View style={{ flex: 1 }}>

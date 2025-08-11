@@ -2,20 +2,19 @@ import React, { useState } from 'react';
 import {
   TouchableOpacity,
   View,
-  StyleSheet,
-  Platform,
   Text,
   FlatList,
   TextInput,
   KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Redirect, Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
-import Icon from '../../components/Icon';
 import Modal from 'react-native-modal';
 import axios from 'axios';
-import { colors } from '../../assets/styles/commonStyles';
+import { FontAwesome5 } from '@expo/vector-icons';
+import { colors, commonStyles, chatStyles } from '../../assets/styles/commonStyles';
 
 export default function TabLayout() {
   const { isSignedIn, isLoaded, getToken } = useAuth();
@@ -40,15 +39,12 @@ export default function TabLayout() {
     setIsLoading(true);
 
     try {
-      const token = await getToken(); // Lấy JWT token từ Clerk
-
+      const token = await getToken();
       const res = await axios.post(
         'http://192.168.1.3:5001/api/chat',
         { message: input.trim() },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -56,7 +52,7 @@ export default function TabLayout() {
       setMessages(prev => [...prev, { role: 'assistant', content: aiMessage.message }]);
     } catch (err) {
       console.error('Chat error:', err);
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Xin lỗi, có lỗi xảy ra.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, an error occurred.' }]);
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +62,7 @@ export default function TabLayout() {
     <>
       {/* Tabs */}
       <Tabs
-        screenOptions={{
+        screenOptions={({ route }) => ({
           headerShown: false,
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textLight,
@@ -78,21 +74,33 @@ export default function TabLayout() {
             paddingTop: 10,
             height: (Platform.OS === 'ios' ? 70 : 60) + (insets.bottom || 0),
           },
-          tabBarLabelStyle: {
-            fontSize: 12,
-            fontWeight: '500',
+          tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
+          tabBarIcon: ({ color, size }) => {
+            const icons: Record<string, string> = {
+              home: 'home',
+              mood: 'smile',
+              habits: 'check-circle',
+              profile: 'user',
+              mindfulness: 'leaf',
+            };
+            const iconName = icons[route.name] || 'question';
+            return <FontAwesome5 name={iconName as any} size={size} color={color} solid />;
           },
-        }}
+        })}
       >
-        {/* Tabs list... */}
+        <Tabs.Screen name="home" options={{ title: 'Home' }} />
+        <Tabs.Screen name="mood" options={{ title: 'Mood' }} />
+        <Tabs.Screen name="habits" options={{ title: 'Habits' }} />
+        <Tabs.Screen name="mindfulness" options={{ title: 'Mindfulness' }} />
+        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
       </Tabs>
 
-      {/* Chat Icon Button */}
+      {/* Chat Icon */}
       <TouchableOpacity
-        style={[styles.chatBalloon, { bottom: insets.bottom + 80 }]}
+        style={[chatStyles.chatBalloon, { bottom: insets.bottom + 80 }]}
         onPress={openChat}
       >
-        <Icon name="chatbubbles" size={30} color={colors.primary} />
+        <FontAwesome5 name="robot" size={24} color={colors.primary} />
       </TouchableOpacity>
 
       {/* Chat Modal */}
@@ -100,14 +108,14 @@ export default function TabLayout() {
         isVisible={isModalVisible}
         onBackdropPress={closeChat}
         onBackButtonPress={closeChat}
-        style={styles.modal}
+        style={chatStyles.modal}
       >
-        <KeyboardAvoidingView behavior="padding" style={styles.modalContent}>
-          <View style={styles.chatHeader}>
-            <Icon name="chatbubbles" size={25} color={colors.primary} />
-            <Text style={styles.chatTitle}>Tư vấn cùng AI</Text>
+        <KeyboardAvoidingView behavior="padding" style={chatStyles.modalContent}>
+          <View style={chatStyles.chatHeader}>
+            <FontAwesome5 name="robot" size={20} color={colors.primary} />
+            <Text style={chatStyles.chatTitle}>Consult with AI</Text>
             <TouchableOpacity onPress={closeChat}>
-              <Icon name="close" size={25} color={colors.textLight} />
+              <FontAwesome5 name="times" size={20} color={colors.textLight} />
             </TouchableOpacity>
           </View>
 
@@ -117,43 +125,31 @@ export default function TabLayout() {
             keyExtractor={(_, index) => index.toString()}
             renderItem={({ item }) => (
               <View
-                style={{
-                  alignSelf: item.role === 'user' ? 'flex-end' : 'flex-start',
-                  backgroundColor: item.role === 'user' ? '#dff0ff' : '#e9e9e9',
-                  borderRadius: 10,
-                  padding: 10,
-                  marginVertical: 4,
-                  maxWidth: '80%',
-                }}
+                style={[
+                  chatStyles.messageBubble,
+                  item.role === 'user' ? chatStyles.userMessage : chatStyles.aiMessage,
+                ]}
               >
                 <Text>{item.content}</Text>
               </View>
             )}
           />
 
-          {/* Input box */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+          {/* Input */}
+          <View style={chatStyles.inputRow}>
             <TextInput
-              style={{
-                flex: 1,
-                borderColor: colors.border,
-                borderWidth: 1,
-                borderRadius: 8,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                backgroundColor: 'white',
-              }}
-              placeholder="Nhập câu hỏi..."
+              style={chatStyles.inputBox}
+              placeholder="Enter your question..."
               value={input}
               onChangeText={setInput}
               editable={!isLoading}
             />
             <TouchableOpacity onPress={sendMessage} disabled={isLoading || !input.trim()}>
-              <Icon
-                name="send"
-                size={24}
+              <FontAwesome5
+                name="paper-plane"
+                size={20}
                 color={isLoading ? colors.textLight : colors.primary}
-                style={{ marginLeft: 8 }}
+                style={chatStyles.sendIcon}
               />
             </TouchableOpacity>
           </View>
@@ -162,41 +158,3 @@ export default function TabLayout() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  chatBalloon: {
-    position: 'absolute',
-    right: 20,
-    backgroundColor: '#F1F1F1',
-    borderRadius: 50,
-    padding: 10,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3.5,
-    zIndex: 9999,
-  },
-  modal: {
-    margin: 0,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.background,
-    padding: 20,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-    height: '60%',
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  chatTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-});
