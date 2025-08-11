@@ -182,15 +182,11 @@ We welcome contributions from developers, designers, and researchers.
 * 🔧 Suggest new features
 * 📦 Submit pull requests
 
-> Contribution guidelines coming soon.
-
 ---
 
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
-
-> Please note that any third-party services (like Clerk, Expo, or Neon) may have their own terms of use.
 
 ---
 
