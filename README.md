@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENCE"><img src="https://img.shields.io/badge/licence-MIT-green.svg" alt="MIT Licence" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-green.svg" alt="MIT License" /></a>
   <a href="https://expo.dev/"><img src="https://img.shields.io/badge/Expo-%5E49.0.0-blue?logo=expo" alt="Expo" /></a>
 </p>
 
@@ -186,9 +186,9 @@ We welcome contributions from developers, designers, and researchers.
 
 ---
 
-## 📄 Licence
+## 📄 License
 
-This project is licensed under the [MIT Licence](LICENCE).
+This project is licensed under the [MIT License](LICENSE).
 
 > Please note that any third-party services (like Clerk, Expo, or Neon) may have their own terms of use.
 
