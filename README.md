@@ -188,7 +188,7 @@ We welcome contributions from developers, designers, and researchers.
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT Licence](LICENCE).
 
 > Please note that any third-party services (like Clerk, Expo, or Neon) may have their own terms of use.
 
