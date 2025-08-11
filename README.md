@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License" /></a>
+  <a href="LICENCE"><img src="https://img.shields.io/badge/licence-MIT-green.svg" alt="MIT Licence" /></a>
   <a href="https://expo.dev/"><img src="https://img.shields.io/badge/Expo-%5E49.0.0-blue?logo=expo" alt="Expo" /></a>
 </p>
 
@@ -186,7 +186,7 @@ We welcome contributions from developers, designers, and researchers.
 
 ---
 
-## 📄 License
+## 📄 Licence
 
 This project is licensed under the [MIT Licence](LICENCE).
 
