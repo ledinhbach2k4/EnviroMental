@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="200" alt="EnviroMental App Logo" src="mobile/assets/icon.png" />
+  <img width="200" alt="EnviroMental App Logo" src="mobile/assets/images/icon.png" />
 </p>
 
 <h1 align="center">🌱 EnviroMental App</h1>
@@ -197,4 +197,3 @@ This project is licensed under the [MIT License](LICENSE).
 <p align="center">🌿 Made with care for mind and environment 🌍</p>
 ```
 
----
