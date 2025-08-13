@@ -1,4 +1,15 @@
-const coffeeTheme = {
+export interface Theme {
+  primary: string;
+  background: string;
+  text: string;
+  border: string;
+  white: string;
+  textLight: string;
+  card: string;
+  shadow: string;
+}
+
+const coffeeTheme: Theme = {
   primary: "#8B593E",
   background: "#FFF8F3",
   text: "#4A3428",
@@ -9,7 +20,7 @@ const coffeeTheme = {
   shadow: "#000000",
 };
 
-const forestTheme = {
+const forestTheme: Theme = {
   primary: "#2E7D32",
   background: "#E8F5E9",
   text: "#1B5E20",
@@ -20,7 +31,7 @@ const forestTheme = {
   shadow: "#000000",
 };
 
-const purpleTheme = {
+const purpleTheme: Theme = {
   primary: "#6A1B9A",
   background: "#F3E5F5",
   text: "#4A148C",
@@ -31,7 +42,7 @@ const purpleTheme = {
   shadow: "#000000",
 };
 
-const oceanTheme = {
+const oceanTheme: Theme = {
   primary: "#0277BD",
   background: "#E1F5FE",
   text: "#01579B",
@@ -42,7 +53,7 @@ const oceanTheme = {
   shadow: "#000000",
 };
 
-const sunsetTheme = {
+const sunsetTheme: Theme = {
   primary: "#FF7E67",
   background: "#FFF3F0",
   text: "#2C1810",
@@ -53,7 +64,7 @@ const sunsetTheme = {
   shadow: "#000000",
 };
 
-const mintTheme = {
+const mintTheme: Theme = {
   primary: "#00B5B5",
   background: "#E8F6F6",
   text: "#006666",
@@ -64,7 +75,7 @@ const mintTheme = {
   shadow: "#000000",
 };
 
-const midnightTheme = {
+const midnightTheme: Theme = {
   primary: "#2C3E50",
   background: "#F4F6F7",
   text: "#1A2530",
@@ -75,7 +86,7 @@ const midnightTheme = {
   shadow: "#000000",
 };
 
-const roseGoldTheme = {
+const roseGoldTheme: Theme = {
   primary: "#E0BFB8",
   background: "#FDF6F5",
   text: "#4A3B38",
@@ -86,7 +97,7 @@ const roseGoldTheme = {
   shadow: "#000000",
 };
 
-export const THEMES = {
+export const THEMES: Record<string, Theme> = {
   coffee: coffeeTheme,
   forest: forestTheme,
   purple: purpleTheme,
@@ -98,4 +109,4 @@ export const THEMES = {
 };
 
 // 👇 change this to switch theme
-export const COLORS = THEMES.ocean;
+export const COLORS: Theme = THEMES.ocean;

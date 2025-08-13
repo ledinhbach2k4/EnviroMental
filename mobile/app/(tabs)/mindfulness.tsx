@@ -136,7 +136,8 @@ export default function Mindfulness() {
               <Icon 
                 name={currentSession.icon as any} 
                 size={48} 
-                style={{ color: currentSession.color, marginBottom: 16 }} 
+                color={currentSession.color}
+                style={{ marginBottom: 16 }} 
               />
               <Text style={[textStyles.h3, { marginBottom: 8, textAlign: 'center' }]}>
                 {currentSession.title}
@@ -178,7 +179,7 @@ export default function Mindfulness() {
                   <Icon 
                     name={isPlaying ? "pause" : "play"} 
                     size={24} 
-                    style={{ color: colors.backgroundAlt }} 
+                    color={colors.backgroundAlt}
                   />
                 </TouchableOpacity>
                 
@@ -193,7 +194,7 @@ export default function Mindfulness() {
                   }}
                   onPress={stopSession}
                 >
-                  <Icon name="stop" size={24} style={{ color: colors.text }} />
+                  <Icon name="stop" size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -212,9 +213,9 @@ export default function Mindfulness() {
                   alignItems: 'center',
                   borderColor: colors.success + '30',
                 }]}
-                onPress={() => startSession(meditationSessions[1])} // Breathing exercise
+                onPress={() => startSession(meditationSessions[1])}
               >
-                <Icon name="leaf" size={32} style={{ color: colors.success, marginBottom: 8 }} />
+                <Icon name="leaf" size={32} color={colors.success} style={{ marginBottom: 8 }} />
                 <Text style={[textStyles.body, { textAlign: 'center' }]}>
                   Quick Breathing
                 </Text>
@@ -227,9 +228,9 @@ export default function Mindfulness() {
                   alignItems: 'center',
                   borderColor: colors.primary + '30',
                 }]}
-                onPress={() => startSession(meditationSessions[0])} // Morning mindfulness
+                onPress={() => startSession(meditationSessions[0])}
               >
-                <Icon name="sunny" size={32} style={{ color: colors.warning, marginBottom: 8 }} />
+                <Icon name="sunny" size={32} color={colors.warning} style={{ marginBottom: 8 }} />
                 <Text style={[textStyles.body, { textAlign: 'center' }]}>
                   Morning Focus
                 </Text>
@@ -261,7 +262,7 @@ export default function Mindfulness() {
                       justifyContent: 'center',
                       marginRight: 12,
                     }}>
-                      <Icon name={session.icon as any} size={24} style={{ color: session.color }} />
+                      <Icon name={session.icon as any} size={24} color={session.color} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={textStyles.body}>{session.title}</Text>
@@ -273,7 +274,7 @@ export default function Mindfulness() {
                       </View>
                     </View>
                   </View>
-                  <Icon name="play" size={20} style={{ color: colors.textLight }} />
+                  <Icon name="play" size={20} color={colors.textLight} />
                 </View>
               </TouchableOpacity>
             ))}
@@ -285,7 +286,7 @@ export default function Mindfulness() {
           colors={gradients.wellness}
           style={[commonStyles.card, { marginBottom: 30 }]}
         >
-          <Icon name="heart" size={24} style={{ color: colors.backgroundAlt, marginBottom: 8 }} />
+          <Icon name="heart" size={24} color={colors.backgroundAlt} style={{ marginBottom: 8 }} />
           <Text style={[textStyles.h3, { color: colors.backgroundAlt, marginBottom: 8 }]}>
             Benefits of Meditation
           </Text>
@@ -300,7 +301,7 @@ export default function Mindfulness() {
 
         {/* Tips */}
         <View style={[commonStyles.card, { marginBottom: 30 }]}>
-          <Icon name="bulb" size={24} style={{ color: colors.warning, marginBottom: 8 }} />
+          <Icon name="bulb" size={24} color={colors.warning} style={{ marginBottom: 8 }} />
           <Text style={[textStyles.h3, { marginBottom: 8 }]}>Meditation Tip</Text>
           <Text style={textStyles.body}>
             Find a quiet, comfortable space where you won&apos;t be disturbed. 

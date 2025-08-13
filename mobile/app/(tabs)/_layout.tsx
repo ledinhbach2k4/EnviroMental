@@ -14,7 +14,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import Modal from 'react-native-modal';
 import axios from 'axios';
 import { FontAwesome5 } from '@expo/vector-icons';
-import { colors, commonStyles, chatStyles } from '../../assets/styles/commonStyles';
+import { colors, commonStyles, chatStyles } from '@/assets/styles/commonStyles';
 
 export default function TabLayout() {
   const { isSignedIn, isLoaded, getToken } = useAuth();

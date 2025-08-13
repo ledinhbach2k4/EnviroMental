@@ -6,7 +6,7 @@ interface IconProps {
   name: keyof typeof Ionicons.glyphMap;
   size?: number;
   color?: string;
-  style?: ViewStyle; // Chỉ chứa style hợp lệ
+  style?: ViewStyle;
 }
 
 export default function Icon({ name, size = 40, color = colors.primary, style = {} }: IconProps) {
