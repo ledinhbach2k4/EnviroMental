@@ -97,7 +97,7 @@ export default function TabLayout() {
 
       {/* Chat Icon */}
       <TouchableOpacity
-        style={[chatStyles.chatBalloon, { bottom: insets.bottom + 80 }]}
+        style={[chatStyles.chatBalloon, { bottom: insets.bottom + 100 }]}
         onPress={openChat}
       >
         <FontAwesome5 name="robot" size={24} color={colors.primary} />

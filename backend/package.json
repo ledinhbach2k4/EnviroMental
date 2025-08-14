@@ -7,7 +7,6 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "prepare": "node -r module-alias/register",
     "test": "vitest run"
   },
   "keywords": [],
