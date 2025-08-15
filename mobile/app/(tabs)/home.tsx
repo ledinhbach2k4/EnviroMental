@@ -1,12 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useState, useEffect } from 'react';
-import { LinearGradient } from 'expo-linear-gradient';
-import { commonStyles, textStyles, colors, gradients } from '../../assets/styles/commonStyles';
-import Icon from '../../components/Icon';
-import Button from '../../components/Button';
-import { router } from 'expo-router';
-import * as Location from 'expo-location';
 import Constants from 'expo-constants';
+import * as Location from 'expo-location';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { colors, commonStyles, textStyles } from '../../assets/styles/commonStyles';
+import Button from '../../components/Button';
+import Icon from '../../components/Icon';
 
 interface QuickStat {
   title: string;
@@ -39,7 +38,7 @@ export default function Home() {
     }
 
     setQuickStats([
-      { title: "Today&apos;s Mood", value: '😊', icon: 'happy', color: colors.moodHappy },
+      { title: "Today's Mood", value: '😊', icon: 'happy', color: colors.moodHappy },
       { title: 'Habits Done', value: '3/5', icon: 'checkmark-circle', color: colors.success },
       { title: 'Meditation', value: '10 min', icon: 'leaf', color: colors.primary },
       { title: 'Sleep Score', value: '85%', icon: 'moon', color: colors.secondary },
@@ -208,13 +207,6 @@ export default function Home() {
           </View>
         </View>
 
-        {/* Daily Inspiration */}
-        <LinearGradient colors={gradients.calm} style={[commonStyles.card, { marginBottom: 30 }]}>
-          <Text style={[textStyles.h3, { color: colors.backgroundAlt, marginBottom: 8 }]}>Daily Inspiration</Text>
-          <Text style={[textStyles.body, { color: colors.backgroundAlt }]}>
-            &quot;The present moment is the only time over which we have dominion.&quot; - Test
-          </Text>
-        </LinearGradient>
       </ScrollView>
     </View>
   );
