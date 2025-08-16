@@ -209,12 +209,13 @@ export default function HabitsTracker() {
                       {habit.streak} day streak
                     </Text>
                   </View>
-                </View>
                 <Icon 
                   name={habit.completedToday ? "checkmark-circle" : "ellipse-outline"} 
                   size={24} 
                   style={{ color: habit.completedToday ? habit.color : colors.border }} 
                 />
+                </View>
+
               </View>
             </TouchableOpacity>
           ))}
