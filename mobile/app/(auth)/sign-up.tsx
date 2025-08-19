@@ -33,11 +33,13 @@ const SignUpScreen = () => {
   const [pendingVerification, setPendingVerification] = useState<boolean>(false);
 
   const handleSignUp = async (): Promise<void> => {
-    if (!email || !firstName || !lastName || !username || !password || !rePassword) {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !firstName || !lastName || !username || !password || !rePassword) {
       return Alert.alert("Error", "Please fill in all fields");
     }
 
-    if (email.length > 50 || firstName.length > 50 || lastName.length > 50 || username.length > 50 || password.length > 50 || rePassword.length > 50) {
+    if (trimmedEmail.length > 50 || firstName.length > 50 || lastName.length > 50 || username.length > 50 || password.length > 50 || rePassword.length > 50) {
       return Alert.alert("Error", "Fields cannot exceed 50 characters");
     }
 
@@ -55,7 +57,7 @@ const SignUpScreen = () => {
 
     try {
       await signUp.create({
-        emailAddress: email,
+        emailAddress: trimmedEmail,
         firstName,
         lastName,
         username,
@@ -181,7 +183,7 @@ const SignUpScreen = () => {
                 placeholder="Enter email"
                 placeholderTextColor={COLORS.textLight}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => setEmail(text.trim())} // Trim dấu cách ngay khi nhập
                 keyboardType="email-address"
                 autoCapitalize="none"
                 maxLength={50}

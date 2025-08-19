@@ -27,12 +27,14 @@ const SignInScreen = () => {
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleSignIn = async (): Promise<void> => {
-    if (!email || !password) {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !password) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
 
-    if (email.length > 50 || password.length > 50) {
+    if (trimmedEmail.length > 50 || password.length > 50) {
       Alert.alert("Error", "Email or password exceeds 50 characters");
       return;
     }
@@ -43,7 +45,7 @@ const SignInScreen = () => {
 
     try {
       const signInAttempt = await signIn.create({
-        identifier: email,
+        identifier: trimmedEmail,
         password,
       });
 
@@ -92,7 +94,7 @@ const SignInScreen = () => {
                 placeholder="Enter email"
                 placeholderTextColor={COLORS.textLight}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => setEmail(text.trim())} // Trim dấu cách ngay khi nhập
                 keyboardType="email-address"
                 autoCapitalize="none"
                 maxLength={50}

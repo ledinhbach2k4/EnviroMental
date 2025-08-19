@@ -41,7 +41,7 @@ export default function TabLayout() {
     try {
       const token = await getToken();
       const res = await axios.post(
-        'http://192.168.1.3:5001/api/chat',
+        'http://10.0.2.2:5001/api/chat',
         { message: input.trim() },
         {
           headers: { Authorization: `Bearer ${token}` },

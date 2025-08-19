@@ -38,7 +38,14 @@ router.post("/", authMiddleware, async (req, res) => {
   if (!message) {
     return res.status(400).json({ error: "Message is required" });
   }
+  if (!OPENAI_API_KEY) {
+    return res.status(500).json({
+      error: "Server misconfiguration",
+      detail: "OPENAI_API_KEY is missing on the server",
+    });
+  }
 
+  let aiReply;
   try {
     // Send the user message to OpenAI
     const response = await axios.post(
@@ -62,26 +69,42 @@ router.post("/", authMiddleware, async (req, res) => {
       }
     );
 
-    const aiReply = response.data.choices[0].message.content;
+    aiReply = response.data.choices?.[0]?.message?.content ?? "";
+  } catch (err) {
+    const status = err.response?.status;
+    const data = err.response?.data;
+    console.error("OpenAI API error:", status, data || err.message);
+    return res.status(500).json({
+      error: "Failed to get AI response from OpenAI",
+      detail: data || err.message,
+    });
+  }
 
-    // Save the user's message to the database
+  // Try to save chat logs; if DB fails, still return AI message
+  try {
     await db.insert(schema.chatLogs).values({
       userId: req.userId,
       sender: "user",
       message,
     });
 
-    // Save the AI's response to the database
-    const [savedAIMessage] = await db.insert(schema.chatLogs).values({
-      userId: req.userId,
+    const [savedAIMessage] = await db
+      .insert(schema.chatLogs)
+      .values({
+        userId: req.userId,
+        sender: "ai",
+        message: aiReply,
+      })
+      .returning();
+
+    return res.status(201).json(savedAIMessage);
+  } catch (err) {
+    console.error("DB save error:", err.message);
+    return res.status(201).json({
       sender: "ai",
       message: aiReply,
-    }).returning();
-
-    res.status(201).json(savedAIMessage);
-  } catch (err) {
-    console.error("OpenAI error:", err.message);
-    res.status(500).json({ error: "Failed to get AI response", detail: err.message });
+      saved: false,
+    });
   }
 });
 
