@@ -46,7 +46,5 @@ app.use('/api/emergency-contacts', emergencyRoutes);
 app.use('/api/hotlines', hotlineRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/environment', environmentRoutes);
-//cronjob
-app.get('/api/test', (req, res) => res.json({ success: true }));
 
 export default app;
