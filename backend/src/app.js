@@ -23,6 +23,8 @@ import emergencyRoutes from './routes/emergency.routes.js';
 import hotlineRoutes from './routes/hotlines.routes.js';
 import suggestionRoutes from './routes/suggestions.routes.js';
 import environmentRoutes from './routes/environment.routes.js';
+//cron test
+import testRoutes from './routes/test.routes.js';
 
 const app = express();
 // Start the cron job
@@ -51,6 +53,7 @@ app.use('/api/emergency-contacts', emergencyRoutes);
 app.use('/api/hotlines', hotlineRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/environment', environmentRoutes);
-
+//cronjob
+app.use('/api/test', testRoutes);
 
 export default app;

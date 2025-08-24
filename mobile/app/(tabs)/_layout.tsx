@@ -41,18 +41,28 @@ export default function TabLayout() {
     try {
       const token = await getToken();
       const res = await axios.post(
-        'http://10.0.2.2:5001/api/chat',
+        'https://enviromental-app-api.onrender.com/api/chat',
         { message: input.trim() },
         {
           headers: { Authorization: `Bearer ${token}` },
+          timeout: 20000,
         }
       );
 
       const aiMessage = res.data;
       setMessages(prev => [...prev, { role: 'assistant', content: aiMessage.message }]);
-    } catch (err) {
-      console.error('Chat error:', err);
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, an error occurred.' }]);
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      console.error('Chat error:', status, data || err?.message);
+      let userMsg = 'Sorry, an error occurred.';
+      if (status === 401 || status === 403) {
+        userMsg = 'Authentication error. Please sign in again.';
+      } else if (status === 500 && (data?.detail || data?.error)) {
+        const detail = data.detail || data.error;
+        userMsg = typeof detail === 'string' ? detail : JSON.stringify(detail);
+      }
+      setMessages(prev => [...prev, { role: 'assistant', content: userMsg }]);
     } finally {
       setIsLoading(false);
     }
