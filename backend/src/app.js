@@ -36,7 +36,6 @@ const pool = new Pool({ connectionString: ENV.DATABASE_URL });
 export const db = drizzle(pool, { schema });
 
 // Routes
-app.get('/api/health', (req, res) => res.json({ success: true }));
 app.use('/api/users', authRoutes);
 app.use('/api/moods', moodRoutes);
 app.use('/api/habits', habitRoutes);
@@ -52,6 +51,6 @@ app.use('/api/hotlines', hotlineRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/environment', environmentRoutes);
 //cronjob
-app.use('/api/test', (req, res) => res.json({ success: true }));
+app.get('/api/test', (req, res) => res.json({ success: true }));
 
 export default app;
