@@ -8,7 +8,6 @@ import { ENV } from './config/env.js';
 
 
 const PORT = ENV.PORT || 5001;
-const app = express();
 // Start the cron job
 if (ENV.NODE_ENV === 'production') job.start();
 
