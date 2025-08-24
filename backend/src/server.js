@@ -1,4 +1,3 @@
-import express from "express";
 import dotenv from 'dotenv';
 import job from "./config/cron.js";
 dotenv.config();
@@ -6,8 +5,8 @@ dotenv.config();
 import app from './app.js';
 import { ENV } from './config/env.js';
 
-const app = express();
 const PORT = ENV.PORT || 5001;
+
 // Start the cron job
 if (ENV.NODE_ENV === 'production') job.start();
 
@@ -19,4 +18,5 @@ app.get('/api/test', (req, res) => res.json({ success: true }));
 app.listen(PORT, () => {
   console.log("✅ Server is running on port:", PORT);
 });
-export default app
+
+export default app;
