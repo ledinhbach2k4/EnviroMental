@@ -25,9 +25,7 @@ import suggestionRoutes from './routes/suggestions.routes.js';
 import environmentRoutes from './routes/environment.routes.js';
 
 
-
-app.use(cors());
-app.use(bodyParser.json());
+const app = express(); 
 
 // DB setup
 const pool = new Pool({ connectionString: ENV.DATABASE_URL });
