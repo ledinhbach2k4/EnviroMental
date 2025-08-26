@@ -94,7 +94,7 @@ const SignInScreen = () => {
                 placeholder="Enter email"
                 placeholderTextColor={COLORS.textLight}
                 value={email}
-                onChangeText={(text) => setEmail(text.trim())} // Trim dấu cách ngay khi nhập
+                onChangeText={(text) => setEmail(text.trim())}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 maxLength={50}
