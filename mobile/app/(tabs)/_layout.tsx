@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_URL } from '@/constants/api'; 
 import {
   TouchableOpacity,
   View,
@@ -41,7 +42,7 @@ export default function TabLayout() {
     try {
       const token = await getToken();
       const res = await axios.post(
-        'https://enviromental-app-api.onrender.com/api/chat',
+        `${API_URL}/chat`,
         { message: input.trim() },
         {
           headers: { Authorization: `Bearer ${token}` },

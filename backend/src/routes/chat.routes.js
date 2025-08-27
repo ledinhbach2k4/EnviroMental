@@ -8,7 +8,7 @@ import axios from "axios";
 const router = express.Router();
 
 // Load the API key from environment variables (do not hardcode the key)
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
 /**
  * GET /
@@ -30,7 +30,7 @@ router.get("/", authMiddleware, async (req, res) => {
 
 /**
  * POST /
- * Send a new message and receive a response from the OpenAI API.
+ * Send a new message and receive a response from the Groq API.
  */
 router.post("/", authMiddleware, async (req, res) => {
   const { message } = req.body;
@@ -38,20 +38,20 @@ router.post("/", authMiddleware, async (req, res) => {
   if (!message) {
     return res.status(400).json({ error: "Message is required" });
   }
-  if (!OPENAI_API_KEY) {
+  if (!GROQ_API_KEY) {
     return res.status(500).json({
       error: "Server misconfiguration",
-      detail: "OPENAI_API_KEY is missing on the server",
+      detail: "GROQ_API_KEY is missing on the server",
     });
   }
 
   let aiReply;
   try {
-    // Send the user message to OpenAI
+    // Send the user message to Groq
     const response = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+      "https://api.groq.com/openai/v1/chat/completions",
       {
-        model: "gpt-3.5-turbo",
+        model: "llama3-8b-8192",
         messages: [
           {
             role: "system",
@@ -63,7 +63,7 @@ router.post("/", authMiddleware, async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${GROQ_API_KEY}`,
           "Content-Type": "application/json",
         },
       }
@@ -73,9 +73,9 @@ router.post("/", authMiddleware, async (req, res) => {
   } catch (err) {
     const status = err.response?.status;
     const data = err.response?.data;
-    console.error("OpenAI API error:", status, data || err.message);
+    console.error("Groq API error:", status, data || err.message);
     return res.status(500).json({
-      error: "Failed to get AI response from OpenAI",
+      error: "Failed to get AI response from Groq",
       detail: data || err.message,
     });
   }
