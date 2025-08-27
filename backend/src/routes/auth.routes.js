@@ -1,6 +1,6 @@
 // routes/auth.routes.js
 import express from "express";
-import { ClerkExpressRequireAuth, clerkClient } from "@clerk/express";
+import { requireAuth, clerkClient } from "@clerk/express";
 import { db } from "../config/db.js";
 import { users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
@@ -12,7 +12,7 @@ const router = express.Router();
  * - Requires authentication with Clerk
  * - Returns the current logged-in user's information from Clerk
  */
-router.get("/me", ClerkExpressRequireAuth(), async (req, res) => {
+router.get("/me", requireAuth(), async (req, res) => {
   const { userId } = req.auth; // Clerk adds this after successful auth
 
   try {
@@ -31,7 +31,7 @@ router.get("/me", ClerkExpressRequireAuth(), async (req, res) => {
  * - Syncs the Clerk user to your local database (if not already present)
  * - If user exists, updates their info (e.g., name)
  */
-router.post("/sync-user", ClerkExpressRequireAuth(), async (req, res) => {
+router.post("/sync-user", requireAuth(), async (req, res) => {
   const { userId } = req.auth;
 
   try {

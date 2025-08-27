@@ -252,7 +252,7 @@ export default function Mindfulness() {
                 onPress={() => startSession(session)}
               >
                 <View style={commonStyles.spaceBetween}>
-                  <View style={commonStyles.row}>
+                  <View style={[commonStyles.row, { flexShrink: 1, marginRight: 8 }]}>
                     <View style={{
                       width: 48,
                       height: 48,

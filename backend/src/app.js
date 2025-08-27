@@ -24,8 +24,13 @@ import hotlineRoutes from './routes/hotlines.routes.js';
 import suggestionRoutes from './routes/suggestions.routes.js';
 import environmentRoutes from './routes/environment.routes.js';
 
-
 const app = express(); 
+
+// Add a middleware to log all incoming requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // DB setup
 const pool = new Pool({ connectionString: ENV.DATABASE_URL });

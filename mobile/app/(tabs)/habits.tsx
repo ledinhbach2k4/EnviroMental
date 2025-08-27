@@ -179,7 +179,7 @@ export default function HabitsTracker() {
               onPress={() => toggleHabit(habit.id)}
             >
               <View style={commonStyles.spaceBetween}>
-                <View style={commonStyles.row}>
+                <View style={[commonStyles.row, { flex: 1, flexShrink: 1 }]}>
                   <View style={{
                     width: 40,
                     height: 40,
@@ -209,13 +209,12 @@ export default function HabitsTracker() {
                       {habit.streak} day streak
                     </Text>
                   </View>
+                </View>
                 <Icon 
-                  name={habit.completedToday ? "checkmark-circle" : "ellipse-outline"} 
+                  name={habit.completedToday ? "checkmark-circle" : "ellipse-outline"}
                   size={24} 
                   style={{ color: habit.completedToday ? habit.color : colors.border }} 
                 />
-                </View>
-
               </View>
             </TouchableOpacity>
           ))}

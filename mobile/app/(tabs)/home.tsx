@@ -28,6 +28,7 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log("Home screen useEffect started");
     const hour = new Date().getHours();
     if (hour < 12) {
       setGreeting('Good Morning');

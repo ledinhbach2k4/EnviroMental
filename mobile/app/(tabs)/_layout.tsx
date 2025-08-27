@@ -124,7 +124,7 @@ export default function TabLayout() {
         <KeyboardAvoidingView behavior="padding" style={chatStyles.modalContent}>
           <View style={chatStyles.chatHeader}>
             <FontAwesome5 name="robot" size={20} color={colors.primary} />
-            <Text style={chatStyles.chatTitle}>Consult with AI</Text>
+            <Text style={chatStyles.chatTitle}>Chat with AI</Text>
             <TouchableOpacity onPress={closeChat}>
               <FontAwesome5 name="times" size={20} color={colors.textLight} />
             </TouchableOpacity>
