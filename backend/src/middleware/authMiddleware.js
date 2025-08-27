@@ -1,4 +1,4 @@
-import { ClerkExpressRequireAuth } from "@clerk/clerk-sdk-node";
+import { ClerkExpressRequireAuth } from "@clerk/express";
 import { ENV } from "../config/env.js";
 
 // Ensure Clerk has a publishable key available (dev fallback)

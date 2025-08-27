@@ -1,7 +1,6 @@
 // routes/auth.routes.js
 import express from "express";
-import { ClerkExpressRequireAuth } from "@clerk/clerk-sdk-node";
-import { clerkClient } from "@clerk/clerk-sdk-node";
+import { ClerkExpressRequireAuth, clerkClient } from "@clerk/express";
 import { db } from "../config/db.js";
 import { users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
