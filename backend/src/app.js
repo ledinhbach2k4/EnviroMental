@@ -25,6 +25,7 @@ import suggestionRoutes from './routes/suggestions.routes.js';
 import environmentRoutes from './routes/environment.routes.js';
 
 const app = express(); 
+app.use(express.json()); 
 
 // CORS configuration
 const allowedOrigins = ['http://192.168.1.3:8081', 'http://localhost:8081'];
