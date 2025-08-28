@@ -4,13 +4,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { commonStyles, textStyles, colors } from '../../assets/styles/commonStyles';
 import Icon from '../../components/Icon';
 import Button from '../../components/Button';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@clerk/clerk-expo';
+import { API_URL } from '../../constants/api';
 
 interface MoodEntry {
   id: string;
-  mood: number;
+  moodLevel: number;
   note: string;
-  date: string;
+  createdAt: string;
   factors: string[];
 }
 
@@ -28,6 +29,7 @@ export default function MoodTracker() {
   const [moodNote, setMoodNote] = useState('');
   const [recentEntries, setRecentEntries] = useState<MoodEntry[]>([]);
   const [todayLogged, setTodayLogged] = useState(false);
+  const { getToken } = useAuth();
 
   useEffect(() => {
     loadMoodData();
@@ -35,19 +37,21 @@ export default function MoodTracker() {
 
   const loadMoodData = async () => {
     try {
-      const stored = await AsyncStorage.getItem('moodEntries');
-      console.log('Stored data:', stored);
-      if (stored) {
-        const entries = JSON.parse(stored);
-        setRecentEntries(entries.slice(-7)); // Last 7 entries
-        
-        // Check if today's mood is already logged
-        const today = new Date().toDateString();
-        const todayEntry = entries.find((entry: MoodEntry) => 
-          new Date(entry.date).toDateString() === today
-        );
-        setTodayLogged(!!todayEntry);
-      }
+      const token = await getToken();
+      const res = await fetch(`${API_URL}/moods`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const entries = await res.json();
+      setRecentEntries(entries.slice(-7)); // Last 7 entries
+
+      // Check if today's mood is already logged
+      const today = new Date().toDateString();
+      const todayEntry = entries.find((entry: MoodEntry) =>
+        new Date(entry.createdAt).toDateString() === today
+      );
+      setTodayLogged(!!todayEntry);
     } catch (error) {
       console.log('Error loading mood data:', error);
     }
@@ -59,33 +63,23 @@ export default function MoodTracker() {
       return;
     }
 
-    const newEntry: MoodEntry = {
-      id: Date.now().toString(),
-      mood: selectedMood,
+    const newEntry = {
+      moodLevel: selectedMood,
       note: moodNote,
-      date: new Date().toISOString(),
       factors: selectedFactors,
     };
 
     try {
-      const stored = await AsyncStorage.getItem('moodEntries');
-      console.log('Stored data:', stored);
-      const entries = stored ? JSON.parse(stored) : [];
-      
-      // Check if today's entry exists and replace it
-      const today = new Date().toDateString();
-      const existingIndex = entries.findIndex((entry: MoodEntry) => 
-        new Date(entry.date).toDateString() === today
-      );
-      
-      if (existingIndex >= 0) {
-        entries[existingIndex] = newEntry;
-      } else {
-        entries.push(newEntry);
-      }
-      
-      await AsyncStorage.setItem('moodEntries', JSON.stringify(entries));
-      
+      const token = await getToken();
+      await fetch(`${API_URL}/moods`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newEntry),
+      });
+
       Alert.alert('Mood Saved!', 'Your mood has been recorded for today');
       setSelectedMood(null);
       setSelectedFactors([]);
@@ -98,8 +92,8 @@ export default function MoodTracker() {
   };
 
   const toggleFactor = (factor: string) => {
-    setSelectedFactors(prev => 
-      prev.includes(factor) 
+    setSelectedFactors(prev =>
+      prev.includes(factor)
         ? prev.filter(f => f !== factor)
         : [...prev, factor]
     );
@@ -107,7 +101,7 @@ export default function MoodTracker() {
 
   const getAverageMood = () => {
     if (recentEntries.length === 0) return 0;
-    const sum = recentEntries.reduce((acc, entry) => acc + entry.mood, 0);
+    const sum = recentEntries.reduce((acc, entry) => acc + entry.moodLevel, 0);
     return sum / recentEntries.length;
   };
 
@@ -128,7 +122,7 @@ export default function MoodTracker() {
         {!todayLogged && (
           <View style={[commonStyles.card, { marginBottom: 30 }]}>
             <Text style={[textStyles.h3, { marginBottom: 20 }]}>Log Today&apos;s Mood</Text>
-            
+
             {/* Mood Selection */}
             <View style={{ marginBottom: 20 }}>
               <Text style={[textStyles.body, { marginBottom: 12 }]}>How do you feel?</Text>
@@ -205,7 +199,7 @@ export default function MoodTracker() {
         {recentEntries.length > 0 && (
           <View style={[commonStyles.card, { marginBottom: 30 }]}>
             <Text style={[textStyles.h3, { marginBottom: 16 }]}>Your Mood Insights</Text>
-            
+
             <View style={[commonStyles.cardSmall, { backgroundColor: colors.primary + '10' }]}>
               <View style={commonStyles.spaceBetween}>
                 <Text style={textStyles.body}>Average Mood (7 days)</Text>
@@ -232,16 +226,16 @@ export default function MoodTracker() {
                   <View>
                     <View style={[commonStyles.row, { marginBottom: 4 }]}>
                       <Text style={{ fontSize: 20, marginRight: 8 }}>
-                        {moodEmojis[entry.mood]}
+                        {moodEmojis[entry.moodLevel]}
                       </Text>
                       <Text style={textStyles.body}>
-                        {moodLabels[entry.mood]}
+                        {moodLabels[entry.moodLevel]}
                       </Text>
                     </View>
                     <Text style={textStyles.caption}>
-                      {new Date(entry.date).toLocaleDateString()}
+                      {new Date(entry.createdAt).toLocaleDateString()}
                     </Text>
-                    {entry.factors.length > 0 && (
+                    {entry.factors && entry.factors.length > 0 && (
                       <Text style={[textStyles.caption, { marginTop: 4 }]}>
                         Factors: {entry.factors.join(', ')}
                       </Text>

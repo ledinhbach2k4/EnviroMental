@@ -22,13 +22,14 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 // Create a new mood entry
+// Create a new mood entry
 router.post("/", authMiddleware, async (req, res) => {
-  const { moodLevel, note } = req.body;
+  const { moodLevel, note, factors } = req.body;
 
   try {
     const [entry] = await db
       .insert(schema.moodEntries)
-      .values({ userId: req.userId, moodLevel, note })
+      .values({ userId: req.userId, moodLevel, note, factors })
       .returning();
 
     res.status(201).json(entry);

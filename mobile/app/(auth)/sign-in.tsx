@@ -16,6 +16,7 @@ import { Image } from "expo-image";
 
 import { authStyles } from "../../assets/styles/auth.styles";
 import { COLORS } from "../../constants/colors";
+import { textStyles } from '../../assets/styles/commonStyles';
 
 const SignInScreen = () => {
   const router = useRouter();
@@ -67,7 +68,7 @@ const SignInScreen = () => {
   return (
     <View style={authStyles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior="padding"
         style={authStyles.keyboardView}
         keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
       >
@@ -83,7 +84,10 @@ const SignInScreen = () => {
             />
           </View>
 
-          <Text style={authStyles.title}>Welcome Back</Text>
+          <Text style={[authStyles.title, { marginBottom: 8 }]}>Welcome to EnviroMental</Text>
+          <Text style={[textStyles.body, { color: COLORS.textLight, textAlign: 'center', marginBottom: 40 }]}>
+            Sign in to continue your wellness journey.
+          </Text>
 
           {/* FORM CONTAINER */}
           <View style={authStyles.formContainer}>

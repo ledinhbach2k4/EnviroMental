@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean, real, date } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean, real, date, json } from "drizzle-orm/pg-core";
 
 /* ---------- Users ---------- */
 export const users = pgTable("users", {
@@ -15,6 +15,7 @@ export const moodEntries = pgTable("mood_entries", {
   userId: integer("user_id").references(() => users.id),
   moodLevel: integer("mood_level").notNull(), // 1-10
   note: text("note"),
+  factors: json("factors"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
