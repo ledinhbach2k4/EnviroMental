@@ -13,7 +13,7 @@ router.get("/", authMiddleware, async (req, res) => {
     const moods = await db
       .select()
       .from(schema.moodEntries)
-      .where(eq(schema.moodEntries.userId, req.userId));
+      .where(eq(schema.moodEntries.userId, req.auth.userId));
 
     res.status(200).json(moods);
   } catch (err) {
@@ -29,7 +29,7 @@ router.post("/", authMiddleware, async (req, res) => {
   try {
     const [entry] = await db
       .insert(schema.moodEntries)
-      .values({ userId: req.userId, moodLevel, note, factors })
+      .values({ userId: req.auth.userId, moodLevel, note, factors })
       .returning();
 
     res.status(201).json(entry);
