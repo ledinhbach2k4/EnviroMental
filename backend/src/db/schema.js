@@ -3,6 +3,7 @@ import { pgTable, serial, text, timestamp, integer, boolean, real, date, json } 
 /* ---------- Users ---------- */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
+  clerkId: text("clerk_id").unique(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),

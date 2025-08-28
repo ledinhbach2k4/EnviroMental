@@ -47,13 +47,14 @@ router.post("/sync-user", requireAuth(), async (req, res) => {
     if (!existingUser) {
       // Insert new user if not found
       await db.insert(users).values({
+        clerkId: userId,
         name,
         email,
         passwordHash: "", // Not needed because Clerk handles auth
       });
     } else {
       // Update user info if they already exist
-      await db.update(users).set({ name }).where(eq(users.email, email));
+      await db.update(users).set({ name, clerkId: userId }).where(eq(users.email, email));
     }
 
     res.status(200).json({

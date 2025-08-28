@@ -10,10 +10,18 @@ const router = express.Router();
 // Get all moods of current user
 router.get("/", authMiddleware, async (req, res) => {
   try {
+    const user = await db.query.users.findFirst({
+      where: eq(schema.users.clerkId, req.auth.userId),
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const moods = await db
       .select()
       .from(schema.moodEntries)
-      .where(eq(schema.moodEntries.userId, req.auth.userId));
+      .where(eq(schema.moodEntries.userId, user.id));
 
     res.status(200).json(moods);
   } catch (err) {
@@ -22,14 +30,21 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 // Create a new mood entry
-// Create a new mood entry
 router.post("/", authMiddleware, async (req, res) => {
   const { moodLevel, note, factors } = req.body;
 
   try {
+    const user = await db.query.users.findFirst({
+      where: eq(schema.users.clerkId, req.auth.userId),
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const [entry] = await db
       .insert(schema.moodEntries)
-      .values({ userId: req.auth.userId, moodLevel, note, factors })
+      .values({ userId: user.id, moodLevel, note, factors })
       .returning();
 
     res.status(201).json(entry);
