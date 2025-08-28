@@ -26,6 +26,19 @@ import environmentRoutes from './routes/environment.routes.js';
 
 const app = express(); 
 
+// CORS configuration
+const allowedOrigins = ['http://192.168.1.3:8081', 'http://localhost:8081'];
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (allowedOrigins.includes(origin) || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+};
+app.use(cors(corsOptions)); 
+
 // Add a middleware to log all incoming requests
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
