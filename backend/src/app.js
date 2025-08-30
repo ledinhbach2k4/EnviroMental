@@ -8,6 +8,8 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './db/schema.js';
 
+import { ClerkExpress } from '@clerk/express';
+
 // Route imports
 import authRoutes from './routes/auth.routes.js';
 import moodRoutes from './routes/moods.routes.js';
@@ -49,6 +51,11 @@ app.use((req, res, next) => {
 // DB setup
 const pool = new Pool({ connectionString: ENV.DATABASE_URL });
 export const db = drizzle(pool, { schema });
+
+app.use(ClerkExpress({ 
+    publishableKey: ENV.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    secretKey: ENV.CLERK_SECRET_KEY,
+}));
 
 // Routes
 app.use('/api/users', authRoutes);
