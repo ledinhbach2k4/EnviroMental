@@ -52,7 +52,9 @@ app.use((req, res, next) => {
 const pool = new Pool({ connectionString: ENV.DATABASE_URL });
 export const db = drizzle(pool, { schema });
 
-app.use(clerkMiddleware());
+app.use(clerkMiddleware({ 
+    publishableKey: ENV.CLERK_PUBLISHABLE_KEY,
+}));
 
 // Routes
 app.use('/api/users', authRoutes);
