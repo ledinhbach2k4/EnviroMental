@@ -25,6 +25,7 @@ router.get("/", authMiddleware, async (req, res) => {
 
     res.status(200).json(moods);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Failed to fetch moods", detail: err.message });
   }
 });
@@ -49,6 +50,7 @@ router.post("/", authMiddleware, async (req, res) => {
 
     res.status(201).json(entry);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Failed to insert mood", detail: err.message });
   }
 });
