@@ -58,7 +58,7 @@ export default () => ({
     },
 
     extra: {
-      openWeatherApiKey: process.env.EXPO_PUBLIC_OPEN_WEATHER_API_KEY,
+      openWeatherApiKey: process.env.OPEN_WEATHER_API_KEY,
       router: {},
       eas: {
         projectId: "1e322b19-fa5a-41d3-a84b-d7e27f016f6b",
