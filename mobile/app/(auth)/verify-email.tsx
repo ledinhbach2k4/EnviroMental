@@ -11,9 +11,11 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Image } from "expo-image";
+import { useAuth } from '@clerk/clerk-expo'; // Added useAuth
 
 import { authStyles } from "../../assets/styles/auth.styles";
 import { COLORS } from "../../constants/colors";
+import { API_URL } from '../../constants/api'; // Added API_URL
 
 interface VerifyEmailProps {
   email: string;
@@ -26,6 +28,7 @@ interface VerifyEmailProps {
 const VerifyEmail: React.FC<VerifyEmailProps> = ({ email, username, firstName, lastName, onBack }) => {
   const { isLoaded, signUp, setActive } = useSignUp();
   const { user } = useUser();
+  const { getToken } = useAuth(); // Added getToken
   const [code, setCode] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -38,6 +41,7 @@ const VerifyEmail: React.FC<VerifyEmailProps> = ({ email, username, firstName, l
 
       if (signUpAttempt.status === "complete") {
         await setActive({ session: signUpAttempt.createdSessionId });
+        await syncUser(); // Call syncUser after successful verification
 
         await signUp.update({
           username,
@@ -53,6 +57,22 @@ const VerifyEmail: React.FC<VerifyEmailProps> = ({ email, username, firstName, l
       console.error(JSON.stringify(err, null, 2));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const syncUser = async () => {
+    console.log("syncUser called in verify-email.tsx");
+    try {
+      const token = await getToken();
+      console.log("Making syncUser fetch call...");
+      await fetch(`${API_URL}/users/sync-user`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to sync user:", error);
     }
   };
 

@@ -6,6 +6,8 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'rea
 import { colors, commonStyles, textStyles } from '../../assets/styles/commonStyles';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
+import { useAuth } from '@clerk/clerk-expo';
+import { API_URL } from '../../constants/api';
 
 interface QuickStat {
   title: string;
@@ -20,12 +22,18 @@ interface WeatherData {
   city: string;
 }
 
+const moodEmojis = ['😢', '😕', '😐', '😊', '😄'];
+const moodLabels = ['Very Sad', 'Sad', 'Neutral', 'Happy', 'Very Happy'];
+const moodColors = [colors.moodVerySad, colors.moodSad, colors.moodNeutral, colors.moodHappy, colors.moodVeryHappy];
+
 export default function Home() {
   const [greeting, setGreeting] = useState('');
   const [quickStats, setQuickStats] = useState<QuickStat[]>([]);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const { getToken } = useAuth();
 
   useEffect(() => {
     console.log("Home screen useEffect started");
@@ -44,6 +52,36 @@ export default function Home() {
       { title: 'Meditation', value: '10 min', icon: 'leaf', color: colors.primary },
       { title: 'Sleep Score', value: '85%', icon: 'moon', color: colors.secondary },
     ]);
+
+    const fetchTodayMood = async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`${API_URL}/moods`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) {
+          const errorResponse = await res.json();
+          throw new Error(errorResponse.detail || 'Failed to load mood data');
+        }
+        const entries = await res.json();
+        if (entries.length > 0) {
+          const latestMood = entries[entries.length - 1];
+          setQuickStats(prevStats =>
+            prevStats.map(stat =>
+              stat.title === "Today's Mood"
+                ? { ...stat, value: moodEmojis[latestMood.moodLevel], color: moodColors[latestMood.moodLevel] }
+                : stat
+            )
+          );
+        }
+      } catch (error) {
+        console.error(`Error fetching today's mood:`, error);
+      }
+    };
+
+    fetchTodayMood();
 
     (async () => {
       try {

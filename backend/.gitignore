@@ -2,3 +2,4 @@
 node_modules
 tests
 src/__tests__
+src/db/sync_drizzle_migrations.js

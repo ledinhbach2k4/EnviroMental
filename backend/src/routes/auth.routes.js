@@ -33,28 +33,32 @@ router.get("/me", requireAuth(), async (req, res) => {
  */
 router.post("/sync-user", requireAuth(), async (req, res) => {
   const { userId } = req.auth;
+  console.log(`[sync-user] Syncing user: ${userId}`);
 
   try {
     const clerkUser = await clerkClient.users.getUser(userId);
     const email = clerkUser.emailAddresses[0].emailAddress;
     const name = clerkUser.firstName || "Unknown";
+    console.log(`[sync-user] Clerk User: ${name} (${email})`);
 
     // Check if user already exists in local DB
     const existingUser = await db.query.users.findFirst({
       where: (u, { eq }) => eq(u.email, email),
     });
+    console.log(`[sync-user] Existing user in DB: ${existingUser ? existingUser.id : 'None'}`);
 
     if (!existingUser) {
       // Insert new user if not found
-      await db.insert(users).values({
+      const [insertedUser] = await db.insert(users).values({
         clerkId: userId,
         name,
         email,
-        passwordHash: "", // Not needed because Clerk handles auth
-      });
+      }).returning();
+      console.log(`[sync-user] Inserted new user: ${insertedUser.id}`);
     } else {
       // Update user info if they already exist
-      await db.update(users).set({ name, clerkId: userId }).where(eq(users.email, email));
+      const [updatedUser] = await db.update(users).set({ name, clerkId: userId }).where(eq(users.email, email)).returning();
+      console.log(`[sync-user] Updated existing user: ${updatedUser.id}`);
     }
 
     res.status(200).json({
@@ -62,6 +66,7 @@ router.post("/sync-user", requireAuth(), async (req, res) => {
       user: { name, email },
     });
   } catch (err) {
+    console.error(`[sync-user] Failed to sync user:`, err);
     res
       .status(500)
       .json({ message: "Failed to sync user", error: err.message });

@@ -1,4 +1,4 @@
-import { useSignIn } from "@clerk/clerk-expo";
+import { useSignIn, useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -17,10 +17,12 @@ import { Image } from "expo-image";
 import { authStyles } from "../../assets/styles/auth.styles";
 import { COLORS } from "../../constants/colors";
 import { textStyles } from '../../assets/styles/commonStyles';
+import { API_URL } from '../../constants/api';
 
 const SignInScreen = () => {
   const router = useRouter();
   const { signIn, setActive, isLoaded } = useSignIn();
+  const { getToken } = useAuth();
 
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -52,6 +54,7 @@ const SignInScreen = () => {
 
       if (signInAttempt.status === "complete") {
         await setActive({ session: signInAttempt.createdSessionId });
+        await syncUser(); // Call syncUser after successful sign-in
         router.replace("/(tabs)/home" as any);
       } else {
         Alert.alert("Error", "Sign in failed. Please try again.");
@@ -62,6 +65,22 @@ const SignInScreen = () => {
       console.error(JSON.stringify(err, null, 2));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const syncUser = async () => {
+    console.log("syncUser called in sign-in.tsx");
+    try {
+      const token = await getToken();
+      console.log("Making syncUser fetch call...");
+      await fetch(`${API_URL}/users/sync-user`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to sync user:", error);
     }
   };
 
