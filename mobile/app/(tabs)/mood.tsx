@@ -43,10 +43,6 @@ export default function MoodTracker() {
           Authorization: `Bearer ${token}`,
         },
       });
-      if (!res.ok) {
-        const errorResponse = await res.json();
-        throw new Error(errorResponse.detail || 'Failed to load mood data');
-      }
       const entries = await res.json();
       setRecentEntries(entries.slice(-7)); // Last 7 entries
 

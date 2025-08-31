@@ -5,6 +5,8 @@
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "module": "ESNext",
+    "moduleResolution": "bundler",
+    "forceConsistentCasingInFileNames": true,
     "paths": {
       "@/*": [
         "./*"

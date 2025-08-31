@@ -29,8 +29,8 @@ export const gradients = {
   secondary: ['#DDB892', '#E8C4A0'],
   accent: ['#F4A261', '#F7B267'],
   wellness: ['#81C784', '#A5D6A7'],
-  calm: ['#B39DDB', '#C5CAE9']as const,
-};
+  calm: ['#B39DDB', '#C5CAE9'],
+} as const;
 
 export const buttonStyles = StyleSheet.create({
   primary: {
@@ -169,7 +169,6 @@ export const commonStyles = StyleSheet.create({
   },
   cardSmall: {
     backgroundColor: colors.card,
-    borderRadius: 12,
     padding: 16,
     marginVertical: 6,
     boxShadow: `0px 2px 8px ${colors.shadow}`,

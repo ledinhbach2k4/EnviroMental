@@ -1,4 +1,4 @@
-import { useUser, useSignUp } from '@clerk/clerk-expo';
+import { useSignUp, useAuth } from '@clerk/clerk-expo';
 import { useState } from "react";
 import {
   View,
@@ -11,11 +11,10 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Image } from "expo-image";
-import { useAuth } from '@clerk/clerk-expo'; // Added useAuth
 
 import { authStyles } from "../../assets/styles/auth.styles";
 import { COLORS } from "../../constants/colors";
-import { API_URL } from '../../constants/api'; // Added API_URL
+import { API_URL } from '../../constants/api';
 
 interface VerifyEmailProps {
   email: string;
@@ -25,10 +24,9 @@ interface VerifyEmailProps {
   onBack: () => void;
 }
 
-const VerifyEmail: React.FC<VerifyEmailProps> = ({ email, username, firstName, lastName, onBack }) => {
+const VerifyEmail = ({ email, username, firstName, lastName, onBack }: VerifyEmailProps) => {
   const { isLoaded, signUp, setActive } = useSignUp();
-  const { user } = useUser();
-  const { getToken } = useAuth(); // Added getToken
+  const { getToken } = useAuth();
   const [code, setCode] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 

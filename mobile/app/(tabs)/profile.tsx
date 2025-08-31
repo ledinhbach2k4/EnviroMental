@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { commonStyles, textStyles, colors, gradients } from '../../assets/styles/commonStyles';
-import { Image } from 'expo-image';
-import Button from '../../components/Button';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLogout } from '../../hooks/useLogout';
-import { useUser } from '@clerk/clerk-expo';
-import { router } from 'expo-router';
 import Icon from '@/components/Icon';
+import { useUser } from '@clerk/clerk-expo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, Platform, ScrollView, StyleProp, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { colors, commonStyles, textStyles } from '../../assets/styles/commonStyles';
+import Button from '../../components/Button';
+import { useLogout } from '../../hooks/useLogout';
+import { Image } from 'expo-image';
 
 interface UserStats {
   totalMoodEntries: number;
@@ -16,6 +15,12 @@ interface UserStats {
   meditationMinutes: number;
   habitsCompleted: number;
 }
+
+const CardContent = ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
+const AndroidCardContent = ({ style, children }: { style?: StyleProp<ViewStyle>; children: React.ReactNode }) => (
+  <View style={style}>{children}</View>
+);
 
 export default function Profile() {
   const [userStats, setUserStats] = useState<UserStats>({
@@ -171,10 +176,11 @@ export default function Profile() {
     );
   };
 
+  const CardWrapper = Platform.OS === 'android' ? AndroidCardContent : CardContent;
+
   return (
     <View style={commonStyles.container}>
       <ScrollView style={commonStyles.content} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={{ marginTop: 20, marginBottom: 30, alignItems: 'center' }}>
           <View
             style={{
@@ -185,233 +191,172 @@ export default function Profile() {
               borderWidth: 3,
               borderColor: colors.primary,
               marginBottom: 12,
-            }}
-          >
-            <Image
-              source={{ uri: userAvatar }}
-              style={{ width: '100%', height: '100%' }}
-              contentFit="cover"
-            />
+            }}>
+            <Image source={{ uri: userAvatar }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
           </View>
           <Text style={[textStyles.h1, { color: colors.primary }]}>{userName}</Text>
           <Text style={textStyles.bodyLight}>Your wellness journey overview</Text>
         </View>
 
-        {/* Progress */}
         <View style={[commonStyles.card, { marginBottom: 30 }]}>
-          <Text style={[textStyles.h3, { marginBottom: 16 }]}>Your Progress</Text>
+          <CardWrapper>
+            <Text style={[textStyles.h3, { marginBottom: 16 }]}>Your Progress</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+              <View
+                style={[
+                  commonStyles.cardSmall,
+                  { width: '48%', alignItems: 'center', borderColor: colors.moodHappy + '30' },
+                ]}>
+                <CardWrapper>
+                  <Icon name="happy" size={24} color={colors.moodHappy} style={{ marginBottom: 8 }} />
+                  <Text style={[textStyles.h3, { color: colors.moodHappy, textAlign: 'center' }]}>{userStats.totalMoodEntries}</Text>
+                  <Text style={textStyles.caption}>Mood Entries</Text>
+                </CardWrapper>
+              </View>
 
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-            <View
-              style={[
-                commonStyles.cardSmall,
-                {
-                  width: '48%',
-                  alignItems: 'center',
-                  borderColor: colors.moodHappy + '30',
-                },
-              ]}
-            >
-              <Icon name="happy" size={24} color={colors.moodHappy} style={{ marginBottom: 8 }} />
-              <Text style={[textStyles.h3, { color: colors.moodHappy }]}>
-                {userStats.totalMoodEntries}
-              </Text>
-              <Text style={textStyles.caption}>Mood Entries</Text>
-            </View>
+              <View
+                style={[
+                  commonStyles.cardSmall,
+                  { width: '48%', alignItems: 'center', borderColor: colors.success + '30' },
+                ]}>
+                <CardWrapper>
+                  <Icon name="flame" size={24} color={colors.success} style={{ marginBottom: 8 }} />
+                  <Text style={[textStyles.h3, { color: colors.success, textAlign: 'center' }]}>{userStats.currentStreak}</Text>
+                  <Text style={textStyles.caption}>Day Streak</Text>
+                </CardWrapper>
+              </View>
 
-            <View
-              style={[
-                commonStyles.cardSmall,
-                {
-                  width: '48%',
-                  alignItems: 'center',
-                  borderColor: colors.success + '30',
-                },
-              ]}
-            >
-              <Icon name="flame" size={24} color={colors.success} style={{ marginBottom: 8 }} />
-              <Text style={[textStyles.h3, { color: colors.success }]}>
-                {userStats.currentStreak}
-              </Text>
-              <Text style={textStyles.caption}>Day Streak</Text>
-            </View>
+              <View
+                style={[
+                  commonStyles.cardSmall,
+                  { width: '48%', alignItems: 'center', borderColor: colors.primary + '30', marginTop: 12 },
+                ]}>
+                <CardWrapper>
+                  <Icon name="leaf" size={24} color={colors.primary} style={{ marginBottom: 8 }} />
+                  <Text style={[textStyles.h3, { color: colors.primary, textAlign: 'center' }]}>{userStats.meditationMinutes}</Text>
+                  <Text style={textStyles.caption}>Meditation Min</Text>
+                </CardWrapper>
+              </View>
 
-            <View
-              style={[
-                commonStyles.cardSmall,
-                {
-                  width: '48%',
-                  alignItems: 'center',
-                  borderColor: colors.primary + '30',
-                  marginTop: 12,
-                },
-              ]}
-            >
-              <Icon name="leaf" size={24} color={colors.primary} style={{ marginBottom: 8 }} />
-              <Text style={[textStyles.h3, { color: colors.primary }]}>
-                {userStats.meditationMinutes}
-              </Text>
-              <Text style={textStyles.caption}>Meditation Min</Text>
+              <View
+                style={[
+                  commonStyles.cardSmall,
+                  { width: '48%', alignItems: 'center', borderColor: colors.accent + '30', marginTop: 12 },
+                ]}>
+                <CardWrapper>
+                  <Icon name="checkmark-circle" size={24} color={colors.accent} style={{ marginBottom: 8 }} />
+                  <Text style={[textStyles.h3, { color: colors.accent, textAlign: 'center' }]}>{userStats.habitsCompleted}</Text>
+                  <Text style={textStyles.caption}>Habits Done</Text>
+                </CardWrapper>
+              </View>
             </View>
-
-            <View
-              style={[
-                commonStyles.cardSmall,
-                {
-                  width: '48%',
-                  alignItems: 'center',
-                  borderColor: colors.accent + '30',
-                  marginTop: 12,
-                },
-              ]}
-            >
-              <Icon
-                name="checkmark-circle"
-                size={24}
-                color={colors.accent}
-                style={{ marginBottom: 8 }}
-              />
-              <Text style={[textStyles.h3, { color: colors.accent }]}>
-                {userStats.habitsCompleted}
-              </Text>
-              <Text style={textStyles.caption}>Habits Done</Text>
-            </View>
-          </View>
+          </CardWrapper>
         </View>
 
-        {/* Settings */}
         <View style={[commonStyles.card, { marginBottom: 30 }]}>
-          <Text style={[textStyles.h3, { marginBottom: 16 }]}>Settings</Text>
-          <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]}>
-            <View style={commonStyles.spaceBetween}>
-              <View style={commonStyles.row}>
-                <Icon
-                  name="notifications"
-                  size={24}
-                  color={colors.primary}
-                  style={{ marginRight: 12 }}
-                />
-                <Text style={textStyles.body}>Notifications</Text>
-              </View>
-              <Icon name="chevron-forward" size={20} color={colors.textLight} />
-            </View>
-          </TouchableOpacity>
+          <CardWrapper>
+            <Text style={[textStyles.h3, { marginBottom: 16 }]}>Settings</Text>
+            <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]}>
+              <CardWrapper>
+                <View style={commonStyles.spaceBetween}>
+                  <View style={commonStyles.row}>
+                    <Icon name="notifications" size={24} color={colors.primary} style={{ marginRight: 12 }} />
+                    <Text style={textStyles.body}>Notifications</Text>
+                  </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textLight} />
+                </View>
+              </CardWrapper>
+            </TouchableOpacity>
 
-          <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]}>
-            <View style={commonStyles.spaceBetween}>
-              <View style={commonStyles.row}>
-                <Icon
-                  name="shield-checkmark"
-                  size={24}
-                  color={colors.success}
-                  style={{ marginRight: 12 }}
-                />
-                <Text style={textStyles.body}>Privacy & Security</Text>
-              </View>
-              <Icon name="chevron-forward" size={20} color={colors.textLight} />
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]}>
+              <CardWrapper>
+                <View style={commonStyles.spaceBetween}>
+                  <View style={commonStyles.row}>
+                    <Icon name="shield-checkmark" size={24} color={colors.success} style={{ marginRight: 12 }} />
+                    <Text style={textStyles.body}>Privacy & Security</Text>
+                  </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textLight} />
+                </View>
+              </CardWrapper>
+            </TouchableOpacity>
 
-          <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]} onPress={exportData}>
-            <View style={commonStyles.spaceBetween}>
-              <View style={commonStyles.row}>
-                <Icon
-                  name="download"
-                  size={24}
-                  color={colors.secondary}
-                  style={{ marginRight: 12 }}
-                />
-                <Text style={textStyles.body}>Export Data</Text>
-              </View>
-              <Icon name="chevron-forward" size={20} color={colors.textLight} />
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]} onPress={exportData}>
+              <CardWrapper>
+                <View style={commonStyles.spaceBetween}>
+                  <View style={commonStyles.row}>
+                    <Icon name="download" size={24} color={colors.secondary} style={{ marginRight: 12 }} />
+                    <Text style={textStyles.body}>Export Data</Text>
+                  </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textLight} />
+                </View>
+              </CardWrapper>
+            </TouchableOpacity>
+          </CardWrapper>
         </View>
 
-        {/* Support */}
         <View style={[commonStyles.card, { marginBottom: 30 }]}>
-          <Text style={[textStyles.h3, { marginBottom: 16 }]}>Support</Text>
-          <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]} onPress={contactSupport}>
-            <View style={commonStyles.spaceBetween}>
-              <View style={commonStyles.row}>
-                <Icon
-                  name="help-circle"
-                  size={24}
-                  color={colors.primary}
-                  style={{ marginRight: 12 }}
-                />
-                <Text style={textStyles.body}>Help & FAQ</Text>
-              </View>
-              <Icon name="chevron-forward" size={20} color={colors.textLight} />
-            </View>
-          </TouchableOpacity>
+          <CardWrapper>
+            <Text style={[textStyles.h3, { marginBottom: 16 }]}>Support</Text>
+            <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]} onPress={contactSupport}>
+              <CardWrapper>
+                <View style={commonStyles.spaceBetween}>
+                  <View style={commonStyles.row}>
+                    <Icon name="help-circle" size={24} color={colors.primary} style={{ marginRight: 12 }} />
+                    <Text style={textStyles.body}>Help & FAQ</Text>
+                  </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textLight} />
+                </View>
+              </CardWrapper>
+            </TouchableOpacity>
 
-          <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]} onPress={contactSupport}>
-            <View style={commonStyles.spaceBetween}>
-              <View style={commonStyles.row}>
-                <Icon
-                  name="mail"
-                  size={24}
-                  color={colors.accent}
-                  style={{ marginRight: 12 }}
-                />
-                <Text style={textStyles.body}>Contact Support</Text>
-              </View>
-              <Icon name="chevron-forward" size={20} color={colors.textLight} />
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]} onPress={contactSupport}>
+              <CardWrapper>
+                <View style={commonStyles.spaceBetween}>
+                  <View style={commonStyles.row}>
+                    <Icon name="mail" size={24} color={colors.accent} style={{ marginRight: 12 }} />
+                    <Text style={textStyles.body}>Contact Support</Text>
+                  </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textLight} />
+                </View>
+              </CardWrapper>
+            </TouchableOpacity>
 
-          <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]}>
-            <View style={commonStyles.spaceBetween}>
-              <View style={commonStyles.row}>
-                <Icon
-                  name="information-circle"
-                  size={24}
-                  color={colors.textLight}
-                  style={{ marginRight: 12 }}
-                />
-                <Text style={textStyles.body}>About EnviroMental</Text>
-              </View>
-              <Icon name="chevron-forward" size={20} color={colors.textLight} />
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity style={[commonStyles.cardSmall, { marginBottom: 12 }]}>
+              <CardWrapper>
+                <View style={commonStyles.spaceBetween}>
+                  <View style={commonStyles.row}>
+                    <Icon name="information-circle" size={24} color={colors.textLight} style={{ marginRight: 12 }} />
+                    <Text style={textStyles.body}>About EnviroMental</Text>
+                  </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textLight} />
+                </View>
+              </CardWrapper>
+            </TouchableOpacity>
+          </CardWrapper>
         </View>
 
-        {/* Danger Zone */}
-        <View
-          style={[
-            commonStyles.card,
-            {
-              borderColor: colors.danger + '30',
-              marginBottom: 30,
-            },
-          ]}
-        >
-          <Text style={[textStyles.h3, { color: colors.danger, marginBottom: 16 }]}>
-            Danger Zone
-          </Text>
-          <Button
-            text="Clear All Data"
-            onPress={clearAllData}
-            style={[{ backgroundColor: colors.danger, width: '100%', marginBottom: 12 }]}
-          />
-          <Button
-            text="Delete Account"
-            onPress={deleteAccount}
-            style={[{ backgroundColor: colors.danger, width: '100%' }]}
-          />
+        <View style={[commonStyles.card, { borderColor: colors.danger + '30', marginBottom: 30 }]}>
+          <CardWrapper>
+            <Text style={[textStyles.h3, { color: colors.danger, marginBottom: 16 }]}>Danger Zone</Text>
+            <Button
+              text="Clear All Data"
+              onPress={clearAllData}
+              style={[{ backgroundColor: colors.danger, width: '100%', marginBottom: 12 }]}
+            />
+            <Button
+              text="Delete Account"
+              onPress={deleteAccount}
+              style={[{ backgroundColor: colors.danger, width: '100%' }]}
+            />
+          </CardWrapper>
         </View>
 
-        {/* Log Out */}
         <View style={[commonStyles.card, { marginBottom: 30 }]}>
-          <Button
-            text="Log Out"
-            onPress={logout}
-            style={[{ backgroundColor: colors.secondary, width: '100%' }]}
-          />
+          <CardWrapper>
+            <Button text="Log Out" onPress={logout} style={[{ backgroundColor: colors.secondary, width: '100%' }]} />
+          </CardWrapper>
         </View>
 
-        {/* Footer */}
         <View style={{ alignItems: 'center', marginBottom: 30 }}>
           <Text style={textStyles.caption}>EnviroMental v1.0.0</Text>
           <Text style={textStyles.caption}>Your mental wellness companion</Text>
