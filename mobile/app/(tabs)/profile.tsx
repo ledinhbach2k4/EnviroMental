@@ -8,6 +8,7 @@ import { colors, commonStyles, textStyles } from '../../assets/styles/commonStyl
 import Button from '../../components/Button';
 import { useLogout } from '../../hooks/useLogout';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 
 interface UserStats {
   totalMoodEntries: number;
@@ -35,6 +36,61 @@ export default function Profile() {
   const userAvatar = user?.imageUrl || 'https://www.gravatar.com/avatar?d=mp';
 
   const { logout } = useLogout();
+
+  const handleImageSelection = async (pickerResult: ImagePicker.ImagePickerResult) => {
+    if (!pickerResult.canceled) {
+      const base64Image = `data:image/jpeg;base64,${pickerResult.assets[0].base64}`;
+      try {
+        if (user) {
+          await user.setProfileImage({ file: base64Image });
+          Alert.alert('Success', 'Profile image updated successfully!');
+        }
+      } catch (error) {
+        console.error('Error updating profile image:', error);
+        Alert.alert('Error', 'Failed to update profile image.');
+      }
+    }
+  };
+
+  const pickImage = () => {
+    Alert.alert(
+      'Select Image',
+      'Choose an option to update your profile picture',
+      [
+        {
+          text: 'Take Photo',
+          onPress: async () => {
+            let result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 1,
+              base64: true,
+            });
+            handleImageSelection(result);
+          },
+        },
+        {
+          text: 'Choose from Library',
+          onPress: async () => {
+            let result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 1,
+              base64: true,
+            });
+            handleImageSelection(result);
+          },
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   const loadUserStats = useCallback(async () => {
     try {
@@ -182,17 +238,39 @@ export default function Profile() {
     <View style={commonStyles.container}>
       <ScrollView style={commonStyles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginTop: 20, marginBottom: 30, alignItems: 'center' }}>
-          <View
-            style={{
-              width: 100,
-              height: 100,
-              borderRadius: 50,
-              overflow: 'hidden',
-              borderWidth: 3,
-              borderColor: colors.primary,
-              marginBottom: 12,
+          <View style={{ position: 'relative' }}>
+            <TouchableOpacity onPress={pickImage}
+              style={{
+                width: 100,
+                height: 100,
+                borderRadius: 50,
+                overflow: 'hidden',
+                borderWidth: 3,
+                borderColor: colors.primary,
+                marginBottom: 12,
+              }}>
+              <Image source={{ uri: userAvatar }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={pickImage}
+              style={{
+                position: 'absolute',
+                bottom: 4,
+                right: 4,
+                backgroundColor: '#fff',
+                borderRadius: 20,
+                width: 28,
+                height: 28,
+                justifyContent: 'center',
+                alignItems: 'center',
+                shadowColor: '#000',
+              shadowOpacity: 0.1,
+              shadowOffset: { width: 0, height: 2 },
+              shadowRadius: 3,
+              elevation: 3,
             }}>
-            <Image source={{ uri: userAvatar }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+              <Icon name="create" size={16} color={colors.primary} />
+            </TouchableOpacity>
           </View>
           <Text style={[textStyles.h1, { color: colors.primary }]}>{userName}</Text>
           <Text style={textStyles.bodyLight}>Your wellness journey overview</Text>

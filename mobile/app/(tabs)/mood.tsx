@@ -1,11 +1,12 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { commonStyles, textStyles, colors } from '../../assets/styles/commonStyles';
 import Icon from '../../components/Icon';
 import Button from '../../components/Button';
 import { useAuth } from '@clerk/clerk-expo';
 import { API_URL } from '../../constants/api';
+import { useFocusEffect } from 'expo-router';
 
 interface MoodEntry {
   id: string;
@@ -31,11 +32,8 @@ export default function MoodTracker() {
   const [todayLogged, setTodayLogged] = useState(false);
   const { getToken } = useAuth();
 
-  useEffect(() => {
-    loadMoodData();
-  }, []);
-
   const loadMoodData = async () => {
+    if (!getToken) return;
     try {
       const token = await getToken();
       const res = await fetch(`${API_URL}/moods`, {
@@ -56,6 +54,12 @@ export default function MoodTracker() {
       console.log('Error loading mood data:', error);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadMoodData();
+    }, [getToken])
+  );
 
   const saveMoodEntry = async () => {
     if (selectedMood === null) {

@@ -16,10 +16,18 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
  */
 router.get("/", authMiddleware, async (req, res) => {
   try {
+    const user = await db.query.users.findFirst({
+      where: eq(schema.users.clerkId, req.auth.userId),
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const messages = await db
       .select()
       .from(schema.chatLogs)
-      .where(eq(schema.chatLogs.userId, req.userId))
+      .where(eq(schema.chatLogs.userId, user.id))
       .orderBy(asc(schema.chatLogs.createdAt));
 
     res.status(200).json(messages);
@@ -45,13 +53,27 @@ router.post("/", authMiddleware, async (req, res) => {
     });
   }
 
+  let user;
+  try {
+    user = await db.query.users.findFirst({
+      where: eq(schema.users.clerkId, req.auth.userId),
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to fetch user", detail: err.message });
+  }
+
+
   let aiReply;
   try {
     // Send the user message to Groq
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
       {
-        model: "llama3-8b-8192",
+        model: "llama-3.1-8b-instant",
         messages: [
           {
             role: "system",
@@ -83,7 +105,7 @@ router.post("/", authMiddleware, async (req, res) => {
   // Try to save chat logs; if DB fails, still return AI message
   try {
     await db.insert(schema.chatLogs).values({
-      userId: req.userId,
+      userId: user.id,
       sender: "user",
       message,
     });
@@ -91,7 +113,7 @@ router.post("/", authMiddleware, async (req, res) => {
     const [savedAIMessage] = await db
       .insert(schema.chatLogs)
       .values({
-        userId: req.userId,
+        userId: user.id,
         sender: "ai",
         message: aiReply,
       })

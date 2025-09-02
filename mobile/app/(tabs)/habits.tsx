@@ -1,10 +1,12 @@
 import { View, Text, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { commonStyles, textStyles, colors } from '../../assets/styles/commonStyles';
+import { commonStyles, textStyles, colors, buttonStyles } from '../../assets/styles/commonStyles';
 import Icon from '../../components/Icon';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import AddHabitModal from '../../components/AddHabitModal';
+import Animated, { FadeInDown, FadeIn, FadeOut } from 'react-native-reanimated';
 
 interface Habit {
   id: string;
@@ -17,23 +19,19 @@ interface Habit {
 }
 
 const defaultHabits: Omit<Habit, 'id' | 'streak' | 'completedToday' | 'completedDates'>[] = [
-  { name: 'Drink 8 glasses of water', icon: 'water-outline', color: colors.primary },
+  { name: 'Drink 2 liters of water', icon: 'water-outline', color: colors.primary },
   { name: 'Exercise for 30 minutes', icon: 'barbell-outline', color: colors.success },
   { name: 'Meditate for 10 minutes', icon: 'leaf-outline', color: colors.secondary },
-  { name: 'Get 8 hours of sleep', icon: 'moon-outline', color: colors.accent },
-  { name: 'Write in journal', icon: 'book-outline', color: colors.warning },
+  { name: 'Read for 20 minutes', icon: 'book-outline', color: colors.warning },
+  { name: 'Sleep 7-8 hours', icon: 'bed-outline', color: colors.accent },
+  { name: 'Eat a healthy meal', icon: 'nutrition-outline', color: colors.primary },
 ];
-
-const CardContent = ({ children }) => (
-  <>{children}</>
-);
-
-const AndroidCardContent = ({ style, children }) => (
-  <View style={style}>{children}</View>
-);
 
 export default function HabitsTracker() {
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [isAddModalVisible, setAddModalVisible] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedHabits, setSelectedHabits] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadHabits();
@@ -42,7 +40,6 @@ export default function HabitsTracker() {
   const loadHabits = async () => {
     try {
       const stored = await AsyncStorage.getItem('habits');
-      console.log('Stored data:', stored);
       if (stored) {
         const storedHabits = JSON.parse(stored);
         const today = new Date().toDateString();
@@ -105,6 +102,70 @@ export default function HabitsTracker() {
     }
   };
 
+  const handleAddHabit = async (newHabit: { name: string; icon: keyof typeof Ionicons.glyphMap }) => {
+    const newHabitWithId = {
+      ...newHabit,
+      id: Date.now().toString(),
+      color: colors.primary,
+      streak: 0,
+      completedToday: false,
+      completedDates: [],
+    };
+
+    const updatedHabits = [...habits, newHabitWithId];
+    setHabits(updatedHabits);
+
+    try {
+      await AsyncStorage.setItem('habits', JSON.stringify(updatedHabits));
+    } catch (error) {
+      console.log('Error saving new habit:', error);
+    }
+  };
+
+  const handleDeleteHabits = async () => {
+    const updatedHabits = habits.filter(habit => !selectedHabits.has(habit.id));
+    setHabits(updatedHabits);
+    setSelectedHabits(new Set());
+    setIsEditMode(false);
+
+    try {
+      await AsyncStorage.setItem('habits', JSON.stringify(updatedHabits));
+    } catch (error) {
+      console.log('Error deleting habits:', error);
+    }
+  };
+
+  const resetToDefaultHabits = async () => {
+    const initialHabits = defaultHabits.map((habit, index) => ({
+      ...habit,
+      id: index.toString(),
+      streak: 0,
+      completedToday: false,
+      completedDates: [],
+    }));
+    setHabits(initialHabits);
+    try {
+      await AsyncStorage.setItem('habits', JSON.stringify(initialHabits));
+    } catch (error) {
+      console.log('Error resetting habits:', error);
+    }
+  };
+
+  const toggleSelectHabit = (habitId: string) => {
+    const newSelected = new Set(selectedHabits);
+    if (newSelected.has(habitId)) {
+      newSelected.delete(habitId);
+    } else {
+      newSelected.add(habitId);
+    }
+    setSelectedHabits(newSelected);
+  };
+
+  const toggleEditMode = () => {
+    setIsEditMode(!isEditMode);
+    setSelectedHabits(new Set());
+  };
+
   const getCompletionRate = () => {
     if (habits.length === 0) return 0;
     const completed = habits.filter(h => h.completedToday).length;
@@ -115,79 +176,167 @@ export default function HabitsTracker() {
     return habits.reduce((sum, habit) => sum + habit.streak, 0);
   };
 
-  const CardWrapper = Platform.OS === 'android' ? AndroidCardContent : CardContent;
-
   return (
-    <View style={commonStyles.container}>
-      <ScrollView style={commonStyles.content} showsVerticalScrollIndicator={false}>
-        <View style={{ marginTop: 20, marginBottom: 30 }}>
+    <View style={[commonStyles.container, { paddingTop: Platform.OS === 'ios' ? 40 : 20 }]}>
+      <ScrollView 
+        style={commonStyles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 80 }}
+      >
+        <Animated.View entering={FadeInDown} style={{ marginVertical: 20 }}>
           <Text style={[textStyles.h1, { color: colors.primary }]}>Daily Habits 🎯</Text>
-          <Text style={textStyles.bodyLight}>Build healthy routines, one day at a time</Text>
-        </View>
+          <Text style={[textStyles.bodyLight, { marginTop: 8 }]}>Build healthy routines, one day at a time</Text>
+        </Animated.View>
 
-        <View style={[commonStyles.card, { marginBottom: 30 }]}>
-          <CardWrapper style={commonStyles.cardBody}>
-            <Text style={[textStyles.h3, { marginBottom: 16 }]}>Today&apos;s Progress</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-              <View style={{ alignItems: 'center' }}>
-                <Text style={[textStyles.h2, { color: colors.success, textAlign: 'center' }]}>{getCompletionRate()}%</Text>
-                <Text style={textStyles.caption}>Completed</Text>
-              </View>
-              <View style={{ alignItems: 'center' }}>
-                <Text style={[textStyles.h2, { color: colors.primary, textAlign: 'center' }]}>{habits.filter(h => h.completedToday).length}/{habits.length}</Text>
-                <Text style={textStyles.caption}>Habits Done</Text>
-              </View>
-              <View style={{ alignItems: 'center' }}>
-                <Text style={[textStyles.h2, { color: colors.accent, textAlign: 'center' }]}>{getTotalStreak()}</Text>
-                <Text style={textStyles.caption}>Total Streak</Text>
-              </View>
+        <Animated.View entering={FadeInDown.delay(100)} style={[commonStyles.card, { marginBottom: 20 }]}>
+          <Text style={[textStyles.h3, { marginBottom: 16 }]}>Today&apos;s Progress</Text>
+          <View style={[commonStyles.row, { justifyContent: 'space-between', marginBottom: 16 }]}>
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={[textStyles.h2, { color: colors.success }]}>{getCompletionRate()}%</Text>
+              <Text style={textStyles.caption}>Completed</Text>
             </View>
-            <View style={{ height: 8, backgroundColor: colors.border, borderRadius: 4, overflow: 'hidden' }}>
-              <View style={{ height: '100%', width: `${getCompletionRate()}%`, backgroundColor: colors.success, borderRadius: 4 }} />
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={[textStyles.h2, { color: colors.primary }]}>{habits.filter(h => h.completedToday).length}/{habits.length}</Text>
+              <Text style={textStyles.caption}>Habits Done</Text>
             </View>
-          </CardWrapper>
-        </View>
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={[textStyles.h2, { color: colors.accent }]}>{getTotalStreak()}</Text>
+              <Text style={textStyles.caption}>Total Streak</Text>
+            </View>
+          </View>
+          <View style={{ height: 8, backgroundColor: colors.border, borderRadius: 4, overflow: 'hidden' }}>
+            <View style={{ 
+              height: '100%', 
+              width: `${getCompletionRate()}%`, 
+              backgroundColor: colors.success, 
+              borderRadius: 4,
+            }} />
+          </View>
+        </Animated.View>
 
-        <View style={[commonStyles.card, { marginBottom: 30 }]}>
-          <CardWrapper style={commonStyles.cardBody}>
-            <Text style={[textStyles.h3, { marginBottom: 16 }]}>Your Habits</Text>
-            {habits.map((habit) => (
+        <Animated.View entering={FadeInDown.delay(200)} style={[commonStyles.card, { marginBottom: 20 }]}>
+          <View style={[commonStyles.spaceBetween, { marginBottom: 16 }]}>
+            <Text style={[textStyles.h3]}>{isEditMode ? 'Select Habits to Delete' : 'Your Habits'}</Text>
+            <TouchableOpacity onPress={toggleEditMode}>
+              <Text style={[textStyles.body, { color: colors.primary }]}>{isEditMode ? 'Cancel' : 'Edit'}</Text>
+            </TouchableOpacity>
+          </View>
+          {habits.map((habit, index) => (
+            <Animated.View 
+              key={habit.id}
+              entering={FadeInDown.delay(300 + index * 50)}
+              style={{ position: 'relative' }}
+            >
+              {isEditMode && (
+                <Animated.View 
+                  entering={FadeIn} 
+                  exiting={FadeOut}
+                  style={{ 
+                    position: 'absolute', 
+                    top: 12, 
+                    right: 12, 
+                    zIndex: 1 
+                  }}
+                >
+                  <TouchableOpacity onPress={() => toggleSelectHabit(habit.id)}>
+                    <Icon 
+                      name={selectedHabits.has(habit.id) ? 'checkbox' : 'square-outline'} 
+                      size={24} 
+                      color={colors.primary} 
+                    />
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
               <TouchableOpacity
-                key={habit.id}
                 style={[
                   commonStyles.cardSmall,
                   {
+                    borderWidth: 1,
                     borderColor: habit.completedToday ? habit.color : colors.border,
                     marginBottom: 12,
+                    backgroundColor: habit.completedToday ? habit.color + '10' : colors.card,
                   }
                 ]}
-                onPress={() => toggleHabit(habit.id)}
+                onPress={() => !isEditMode && toggleHabit(habit.id)}
+                activeOpacity={isEditMode ? 1 : 0.7}
               >
-                <CardWrapper style={commonStyles.cardSmallBody}>
-                  <View style={commonStyles.spaceBetween}>
-                    <View style={[commonStyles.row, { flex: 1, flexShrink: 1 }]}>
-                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: habit.completedToday ? habit.color : habit.color + '20', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                        {habit.completedToday ? (
-                          <Icon name="checkmark" size={20} color={colors.backgroundAlt} />
-                        ) : (
-                          <Icon name={habit.icon} size={20} color={habit.color} />
-                        )}
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[textStyles.body, { textDecorationLine: habit.completedToday ? 'line-through' : 'none', color: habit.completedToday ? colors.textLight : colors.text }]}>{habit.name}</Text>
-                        <Text style={textStyles.caption}>{habit.streak} day streak</Text>
-                      </View>
+                <View style={[commonStyles.spaceBetween, { padding: 12 }]}>
+                  <View style={[commonStyles.row, { flex: 1, alignItems: 'center' }]}>
+                    <View style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: habit.completedToday ? habit.color : habit.color + '20',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 12,
+                    }}>
+                      <Icon 
+                        name={habit.completedToday ? "checkmark" : habit.icon}
+                        size={20}
+                        color={habit.completedToday ? colors.backgroundAlt : habit.color}
+                      />
                     </View>
-                    <Icon name={habit.completedToday ? "checkmark-circle" : "ellipse-outline"} size={24} color={habit.completedToday ? habit.color : colors.border} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[
+                        textStyles.body,
+                        { 
+                          textDecorationLine: habit.completedToday ? 'line-through' : 'none',
+                          color: habit.completedToday ? colors.textLight : colors.text
+                        }
+                      ]}>
+                        {habit.name}
+                      </Text>
+                      <Text style={textStyles.caption}>{habit.streak} day streak</Text>
+                    </View>
                   </View>
-                </CardWrapper>
+                  {!isEditMode && (
+                    <Icon 
+                      name={habit.completedToday ? "checkmark-circle" : "ellipse-outline"}
+                      size={24}
+                      color={habit.completedToday ? habit.color : colors.border}
+                    />
+                  )}
+                </View>
               </TouchableOpacity>
-            ))}
-          </CardWrapper>
-        </View>
+            </Animated.View>
+          ))}
+          <View style={[commonStyles.row, { justifyContent: 'space-between', marginTop: 12 }]}>
+            {!isEditMode ? (
+              <>
+                <TouchableOpacity 
+                  style={[buttonStyles.primary, { flex: 1, marginRight: 8 }]} 
+                  onPress={() => setAddModalVisible(true)}
+                >
+                  <Text style={textStyles.button}>Add New Habit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[buttonStyles.outline, { flex: 1 }]} 
+                  onPress={resetToDefaultHabits}
+                >
+                  <Text style={textStyles.buttonOutline}>Reset to Default</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity 
+                style={[
+                  buttonStyles.primary, 
+                  { flex: 1, backgroundColor: selectedHabits.size > 0 ? colors.danger : colors.border }
+                ]} 
+                onPress={selectedHabits.size > 0 ? handleDeleteHabits : undefined}
+                disabled={selectedHabits.size === 0}
+              >
+                <Text style={textStyles.button}>Delete ({selectedHabits.size})</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </Animated.View>
 
-        <LinearGradient colors={[colors.success + '20', colors.primary + '20']} style={[commonStyles.card, { marginBottom: 30 }]}>
-          <CardWrapper style={commonStyles.cardBody}>
+        <Animated.View entering={FadeInDown.delay(400)} style={[commonStyles.card, { marginBottom: 20 }]}>
+          <LinearGradient 
+            colors={[colors.success + '20', colors.primary + '20']} 
+            style={{ borderRadius: 16, padding: 20 }}
+          >
             <Icon name="trophy" size={24} color={colors.success} style={{ marginBottom: 8 }} />
             <Text style={[textStyles.h3, { marginBottom: 8 }]}>Keep Going!</Text>
             <Text style={textStyles.body}>
@@ -198,17 +347,22 @@ export default function HabitsTracker() {
                 : "Every small step counts. You&apos;ve got this! 🌟"
               }
             </Text>
-          </CardWrapper>
-        </LinearGradient>
+          </LinearGradient>
+        </Animated.View>
 
-        <View style={[commonStyles.card, { marginBottom: 30 }]}>
-          <CardWrapper style={commonStyles.cardBody}>
-            <Icon name="bulb" size={24} color={colors.warning} style={{ marginBottom: 8 }} />
-            <Text style={[textStyles.h3, { marginBottom: 8 }]}>Habit Building Tip</Text>
-            <Text style={textStyles.body}>Start small and be consistent. It&apos;s better to do a 5-minute habit every day than a 1-hour habit once a week. Focus on building the routine first!</Text>
-          </CardWrapper>
-        </View>
+        <Animated.View entering={FadeInDown.delay(500)} style={[commonStyles.card, { marginBottom: 20 }]}>
+          <Icon name="bulb" size={24} color={colors.warning} style={{ marginBottom: 8 }} />
+          <Text style={[textStyles.h3, { marginBottom: 8 }]}>Habit Building Tip</Text>
+          <Text style={textStyles.body}>
+            Start small and be consistent. It&apos;s better to do a 5-minute habit every day than a 1-hour habit once a week.
+          </Text>
+        </Animated.View>
       </ScrollView>
+      <AddHabitModal
+        visible={isAddModalVisible}
+        onClose={() => setAddModalVisible(false)}
+        onSave={handleAddHabit}
+      />
     </View>
   );
 }

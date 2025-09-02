@@ -19,14 +19,14 @@
     "cors": "^2.8.5",
     "cron": "^3.0.0",
     "dotenv": "^16.5.0",
-    "drizzle-orm": "^0.44.5",
+    "drizzle-orm": "latest",
     "express": "^5.1.0",
     "module-alias": "^2.2.3",
     "pg": "^8.16.3"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
-    "drizzle-kit": "^0.31.1",
+    "drizzle-kit": "latest",
     "nodemon": "^3.1.10",
     "npm-force-resolutions": "^0.0.10",
     "supertest": "^6.3.4",

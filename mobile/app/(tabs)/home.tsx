@@ -1,9 +1,10 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -51,7 +52,6 @@ export default function Home() {
   const { getToken } = useAuth();
 
   useEffect(() => {
-    console.log('Home screen useEffect started');
     const hour = new Date().getHours();
     if (hour < 12) {
       setGreeting('Good Morning');
@@ -60,79 +60,82 @@ export default function Home() {
     } else {
       setGreeting('Good Evening');
     }
-
-    setQuickStats([
-      { title: "Today's Mood", value: '😊', icon: 'happy', color: colors.moodHappy },
-      { title: 'Habits Done', value: '3/5', icon: 'checkmark-circle', color: colors.success },
-      { title: 'Meditation', value: '10 min', icon: 'leaf', color: colors.primary },
-      { title: 'Sleep Score', value: '85%', icon: 'moon', color: colors.secondary },
-    ]);
-
-    const fetchTodayMood = async () => {
-      if (!getToken) return;
-      try {
-        const token = await getToken();
-        const res = await fetch(`${API_URL}/moods`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (!res.ok) {
-          const errorResponse = await res.json();
-          throw new Error(errorResponse.detail || 'Failed to load mood data');
-        }
-        const entries = await res.json();
-        if (entries.length > 0) {
-          const latestMood = entries[entries.length - 1];
-          setQuickStats((prevStats) =>
-            prevStats.map((stat) =>
-              stat.title === "Today's Mood"
-                ? { ...stat, value: moodEmojis[latestMood.moodLevel], color: moodColors[latestMood.moodLevel] }
-                : stat
-            )
-          );
-        }
-      } catch (error) {
-        console.error(`Error fetching today's mood:`, error);
-      }
-    };
-
-    fetchTodayMood();
-
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setErrorMsg('Permission to access location was denied');
-          return;
-        }
-
-        const loc = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = loc.coords;
-
-        const apiKey = Constants.expoConfig?.extra?.openWeatherApiKey;
-        if (!apiKey) {
-          setErrorMsg('Weather API key not configured');
-          return;
-        }
-
-        const res = await fetch(
-          `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`
-        );
-        const data = await res.json();
-        setWeather({
-          temperature: Math.round(data.main.temp),
-          description: data.weather[0].description,
-          city: data.name,
-        });
-      } catch {
-        setErrorMsg('Failed to fetch weather data');
-      } finally {
-        setLoadingWeather(false);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const fetchTodayMood = async () => {
+        if (!getToken) return;
+        try {
+          const token = await getToken();
+          const res = await fetch(`${API_URL}/moods`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (!res.ok) {
+            const errorResponse = await res.json();
+            throw new Error(errorResponse.detail || 'Failed to load mood data');
+          }
+          const entries = await res.json();
+          const initialStats: QuickStat[] = [
+            { title: "Today's Mood", value: 'NA', icon: 'happy', color: colors.textLight },
+            { title: 'Habits Done', value: '0/0', icon: 'checkmark-circle', color: colors.success },
+            { title: 'Meditation', value: '0 min', icon: 'leaf', color: colors.primary },
+            { title: 'Sleep Score', value: 'NA', icon: 'moon', color: colors.secondary },
+          ];
+
+          if (entries.length > 0) {
+            const latestMood = entries[entries.length - 1];
+            initialStats[0] = {
+              ...initialStats[0],
+              value: moodEmojis[latestMood.moodLevel],
+              color: moodColors[latestMood.moodLevel],
+            };
+          }
+          setQuickStats(initialStats);
+        } catch (error) {
+          console.error(`Error fetching today's mood:`, error);
+        }
+      };
+
+      fetchTodayMood();
+
+      const fetchWeather = async () => {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            setErrorMsg('Permission to access location was denied');
+            return;
+          }
+
+          const loc = await Location.getCurrentPositionAsync({});
+          const { latitude, longitude } = loc.coords;
+
+          const apiKey = Constants.expoConfig?.extra?.openWeatherApiKey;
+          if (!apiKey) {
+            setErrorMsg('Weather API key not configured');
+            return;
+          }
+
+          const res = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`
+          );
+          const data = await res.json();
+          setWeather({
+            temperature: Math.round(data.main.temp),
+            description: data.weather[0].description,
+            city: data.name,
+          });
+        } catch {
+          setErrorMsg('Failed to fetch weather data');
+        } finally {
+          setLoadingWeather(false);
+        }
+      };
+      fetchWeather();
+    }, [getToken])
+  );
 
   const handleEmergency = () => {
     alert('Emergency support activated. Help is on the way.');

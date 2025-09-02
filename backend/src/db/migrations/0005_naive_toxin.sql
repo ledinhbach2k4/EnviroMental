@@ -1,0 +1,1 @@
+ALTER TABLE "habits" DROP COLUMN "icon";
