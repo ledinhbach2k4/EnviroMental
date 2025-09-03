@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../constants/api';
@@ -11,6 +11,7 @@ export interface Habit {
   color: string;
   completedToday: boolean;
   streak: number;
+  userId?: number | null;
 }
 
 export const useHabits = () => {
@@ -18,31 +19,34 @@ export const useHabits = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  const isInitialFetchRef = useRef(true); // Theo dõi fetch đầu tiên
+
+  useEffect(() => {
+    getTokenRef.current = getToken; // Update ref when getToken changes
+  }, [getToken]);
 
   const fetchHabitsAndLogs = useCallback(async () => {
     console.log('Fetching habits and logs...');
     setLoading(true);
     try {
-      const token = await getToken();
-      const habitsRes = await fetch(`${API_URL}/habits`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!habitsRes.ok) {
-        throw new Error(`Failed to fetch habits: ${habitsRes.statusText}`);
+      const token = await getTokenRef.current();
+      if (!token) {
+        console.log('No token found, skipping fetch');
+        setLoading(false);
+        return;
       }
-      const habitsData = await habitsRes.json();
+      const [habitsRes, logsRes] = await Promise.all([
+        fetch(`${API_URL}/habits`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/habits/logs`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (!habitsRes.ok) throw new Error(`Failed to fetch habits: ${habitsRes.statusText}`);
+      if (!logsRes.ok) throw new Error(`Failed to fetch habit logs: ${logsRes.statusText}`);
+      const [habitsData, logsData] = await Promise.all([habitsRes.json(), logsRes.json()]);
       console.log('Raw habitsData:', habitsData);
-
-      const logsRes = await fetch(`${API_URL}/habits/logs`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!logsRes.ok) {
-        throw new Error(`Failed to fetch habit logs: ${logsRes.statusText}`);
-      }
-      const logsData = await logsRes.json();
       console.log('Raw logsData:', logsData);
 
-      const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+      const today = new Date().toISOString().split('T')[0];
       const processed: Habit[] = habitsData
         .filter((h: any) => h.userId !== null)
         .map((h: any) => {
@@ -64,26 +68,26 @@ export const useHabits = () => {
       setLoading(false);
       console.log('Habits state updated.');
       console.log('Setting loading to false.');
+      isInitialFetchRef.current = false; // Đánh dấu fetch đầu tiên hoàn tất
     }
   }, []);
 
   useEffect(() => {
-    console.log('useHabits hook rendered');
-    fetchHabitsAndLogs();
-    return () => {
-      console.log('useEffect: Cleaning up');
-    };
+    if (isInitialFetchRef.current) {
+      console.log('useHabits hook rendered');
+      fetchHabitsAndLogs(); // Run only on initial mount
+    }
   }, [fetchHabitsAndLogs]);
 
   const addHabit = async ({ name }: { name: string }) => {
     try {
-      const token = await getToken();
+      const token = await getTokenRef.current();
       await fetch(`${API_URL}/habits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name }),
       });
-      await fetchHabitsAndLogs(); // Refresh after add
+      await fetchHabitsAndLogs();
     } catch (err: any) {
       console.error('Error adding habit:', err);
       setError(err.message);
@@ -92,17 +96,19 @@ export const useHabits = () => {
 
   const toggleHabitCompletion = async (habitId: number, currentCompleted: boolean) => {
     try {
-      const token = await getToken();
+      const token = await getTokenRef.current();
       const today = new Date().toISOString().split('T')[0];
-      await fetch(`${API_URL}/habits/${habitId}/log`, {
+      const response = await fetch(`${API_URL}/habits/${habitId}/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ date: today, completed: !currentCompleted }),
       });
-      await fetchHabitsAndLogs(); // Refresh after toggle
+      if (!response.ok) throw new Error(`Failed to toggle habit: ${response.statusText}`);
+      await fetchHabitsAndLogs();
     } catch (err: any) {
       console.error('Error toggling habit:', err);
       setError(err.message);
+      throw err; // Ném lỗi để habits.tsx xử lý
     }
   };
 
@@ -113,8 +119,8 @@ export const useHabits = () => {
 
 function calculateStreak(habitId: number, logs: any[]): number {
   const habitLogs = logs
-    .filter(l => l.habitId === habitId && l.completed)
-    .sort((a, b) => new Date(b.logDate).getTime() - new Date(a.logDate).getTime());
+    .filter((l: any) => l.habitId === habitId && l.completed)
+    .sort((a: any, b: any) => new Date(b.logDate).getTime() - new Date(a.logDate).getTime());
 
   if (habitLogs.length === 0) return 0;
 
@@ -122,30 +128,20 @@ function calculateStreak(habitId: number, logs: any[]): number {
   let lastDate = new Date();
   lastDate.setUTCHours(0, 0, 0, 0);
 
-  // Check for today's completion first
-  const todayLogIndex = habitLogs.findIndex(log => {
+  const todayLogIndex = habitLogs.findIndex((log: any) => {
     const logDate = new Date(log.logDate);
     logDate.setUTCHours(0, 0, 0, 0);
     return logDate.getTime() === lastDate.getTime();
   });
 
-  if (todayLogIndex === -1) {
-    // If not completed today, check if it was completed yesterday
-    lastDate.setDate(lastDate.getDate() - 1);
-    const yesterdayLogIndex = habitLogs.findIndex(log => {
-        const logDate = new Date(log.logDate);
-        logDate.setUTCHours(0, 0, 0, 0);
-        return logDate.getTime() === lastDate.getTime();
-    });
-    if (yesterdayLogIndex === -1) return 0; // No streak if not completed yesterday either
+  if (todayLogIndex !== -1) {
     streak = 1;
     lastDate.setDate(lastDate.getDate() - 1);
   } else {
-    streak = 1;
-    lastDate.setDate(lastDate.getDate() - 1);
+    return 0;
   }
 
-  for (let i = 0; i < habitLogs.length; i++) {
+  for (let i = todayLogIndex + 1; i < habitLogs.length; i++) {
     const log = habitLogs[i];
     const logDate = new Date(log.logDate);
     logDate.setUTCHours(0, 0, 0, 0);
@@ -153,9 +149,8 @@ function calculateStreak(habitId: number, logs: any[]): number {
     if (logDate.getTime() === lastDate.getTime()) {
       streak++;
       lastDate.setDate(lastDate.getDate() - 1);
-    } else if (logDate.getTime() < lastDate.getTime()) {
-        // A gap in dates, so streak is broken
-        break;
+    } else {
+      break;
     }
   }
 

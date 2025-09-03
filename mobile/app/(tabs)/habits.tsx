@@ -6,15 +6,31 @@ import Icon from '../../components/Icon';
 import { Ionicons } from '@expo/vector-icons';
 import AddHabitModal from '../../components/AddHabitModal';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useHabits, Habit } from '../../hooks/useHabits'; // Corrected import path
+import { useHabits, Habit } from '../../hooks/useHabits';
 
 export default function HabitsTracker() {
   const { habits, loading, error, refetch, addHabit, toggleHabitCompletion } = useHabits();
   const [isAddModalVisible, setAddModalVisible] = useState(false);
+  const [toggleLoading, setToggleLoading] = useState<number | null>(null);
 
   const handleAddHabit = async (newHabit: { name: string; icon: keyof typeof Ionicons.glyphMap }) => {
     await addHabit({ name: newHabit.name });
     setAddModalVisible(false);
+  };
+
+  const handleToggleHabit = async (habitId: number, currentCompleted: boolean) => {
+    setToggleLoading(habitId);
+    try {
+      await Promise.race([
+        toggleHabitCompletion(habitId, currentCompleted),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000)), // Timeout 5s
+      ]);
+    } catch (err) {
+      console.error('Toggle error:', err);
+      // Hiển thị thông báo lỗi nếu cần (tùy chọn)
+    } finally {
+      setToggleLoading(null);
+    }
   };
 
   const getCompletionRate = () => {
@@ -50,8 +66,8 @@ export default function HabitsTracker() {
 
   return (
     <View style={[commonStyles.container, { paddingTop: Platform.OS === 'ios' ? 40 : 20 }]}>
-      <ScrollView 
-        style={commonStyles.content} 
+      <ScrollView
+        style={commonStyles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 80 }}
       >
@@ -61,11 +77,13 @@ export default function HabitsTracker() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(100)} style={[commonStyles.card, { marginBottom: 20 }]}>
-          <Text style={[textStyles.h3, { marginBottom: 16 }]}>Today&apos;s Progress</Text>
+          <View style={[commonStyles.spaceBetween, { marginBottom: 16 }]}>
+            <Text style={[textStyles.h3]}>Today&apos;s Progress</Text>
+          </View>
           <View style={[commonStyles.row, { justifyContent: 'space-between', marginBottom: 16 }]}>
             <View style={{ alignItems: 'center', flex: 1 }}>
               <Text style={[textStyles.h2, { color: colors.success }]}>{getCompletionRate()}%</Text>
-              <Text style={textStyles.caption}>Completed</Text>
+              <Text style={[textStyles.caption]}>Completed</Text>
             </View>
             <View style={{ alignItems: 'center', flex: 1 }}>
               <Text style={[textStyles.h2, { color: colors.primary }]}>{habits.filter((h: Habit) => h.completedToday).length}/{habits.length}</Text>
@@ -113,7 +131,8 @@ export default function HabitsTracker() {
                       backgroundColor: habit.completedToday ? habit.color + '10' : colors.card,
                     }
                   ]}
-                  onPress={() => toggleHabitCompletion(habit.id, habit.completedToday)}
+                  onPress={() => handleToggleHabit(habit.id, habit.completedToday)}
+                  disabled={toggleLoading === habit.id}
                   activeOpacity={0.7}
                 >
                   <View style={[commonStyles.spaceBetween, { padding: 12 }]}>
@@ -149,6 +168,7 @@ export default function HabitsTracker() {
                         <Text style={textStyles.caption}>{habit.streak} day streak</Text>
                       </View>
                     </View>
+                    {toggleLoading === habit.id && <ActivityIndicator size="small" color={colors.primary} />}
                     <Icon 
                       name={habit.completedToday ? "checkmark-circle" : "ellipse-outline"}
                       size={24}
@@ -178,7 +198,7 @@ export default function HabitsTracker() {
             <Text style={[textStyles.h3, { marginBottom: 8 }]}>Keep Going!</Text>
             <Text style={textStyles.body}>
               {getCompletionRate() === 100 
-                ? "Amazing! You&apos;ve completed all your habits today! 🎉"
+                ? "Amazing! You&apos;ve completed all your habits! 🎉"
                 : getCompletionRate() >= 50
                 ? "You&apos;re doing great! Keep up the momentum! 💪"
                 : "Every small step counts. You&apos;ve got this! 🌟"

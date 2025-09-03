@@ -58,7 +58,7 @@ export default function Home() {
   const [mood, setMood] = useState<MoodData | null>(null);
 
   const { getToken } = useAuth();
-  const { habits, loading: habitsLoading, error: habitsError } = useHabits();
+  const { habits, loading: habitsLoading, error: habitsError, refetch: refetchHabits } = useHabits();
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -73,21 +73,29 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
+      let isActive = true;
+      let isFetching = false;
+
+      const fetchAll = async () => {
+        if (!isActive || isFetching) return;
+        isFetching = true;
+        try {
+          await Promise.all([fetchMood(), fetchWeather(), refetchHabits()]);
+        } finally {
+          isFetching = false;
+        }
+      };
+
       const fetchMood = async () => {
-        if (getToken) {
+        if (getToken && isActive) {
           try {
             const token = await getToken();
-            const res = await fetch(`${API_URL}/moods`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
+            const res = await fetch(`${API_URL}/moods`, { headers: { Authorization: `Bearer ${token}` } });
+            if (res.ok && isActive) {
               const entries = await res.json();
               if (entries.length > 0) {
                 const latestMood = entries[entries.length - 1];
-                setMood({
-                  value: moodEmojis[latestMood.moodLevel],
-                  color: moodColors[latestMood.moodLevel],
-                });
+                setMood({ value: moodEmojis[latestMood.moodLevel], color: moodColors[latestMood.moodLevel] });
               }
             }
           } catch (error) {
@@ -97,44 +105,44 @@ export default function Home() {
       };
 
       const fetchWeather = async () => {
-        try {
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status !== 'granted') {
-            setErrorMsg('Permission to access location was denied');
-            return;
-          }
+        if (isActive) {
+          try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            console.log('Location permission status:', status);
+            if (status !== 'granted') {
+              setErrorMsg('Permission to access location was denied');
+              return;
+            }
 
-          const loc = await Location.getCurrentPositionAsync({});
-          const { latitude, longitude } = loc.coords;
+            const loc = await Location.getCurrentPositionAsync({});
+            const apiKey = Constants.expoConfig?.extra?.openWeatherApiKey;
+            if (!apiKey) {
+              setErrorMsg('Weather API key not configured');
+              return;
+            }
 
-          const apiKey = Constants.expoConfig?.extra?.openWeatherApiKey;
-          if (!apiKey) {
-            setErrorMsg('Weather API key not configured');
-            return;
+            const res = await fetch(
+              `https://api.openweathermap.org/data/2.5/weather?lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&units=metric&appid=${apiKey}`
+            );
+            if (!res.ok && isActive) throw new Error(`API error: ${res.status}`);
+            const data = await res.json();
+            const newWeather = { temperature: Math.round(data.main.temp), description: data.weather[0].description, city: data.name };
+            if (JSON.stringify(newWeather) !== JSON.stringify(weather) && isActive) setWeather(newWeather);
+          } catch (err: any) {
+            console.error('Weather fetch error:', err.message);
+            if (isActive) setErrorMsg('Failed to fetch weather data');
+          } finally {
+            if (isActive) setLoadingWeather(false);
           }
-
-          const res = await fetch(
-            `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`
-          );
-          const data = await res.json();
-          const newWeather = {
-            temperature: Math.round(data.main.temp),
-            description: data.weather[0].description,
-            city: data.name,
-          };
-          if (JSON.stringify(newWeather) !== JSON.stringify(weather)) {
-            setWeather(newWeather);
-          }
-        } catch {
-          setErrorMsg('Failed to fetch weather data');
-        } finally {
-          setLoadingWeather(false);
         }
       };
 
-      fetchMood();
-      fetchWeather();
-    }, [getToken])
+      fetchAll();
+
+      return () => {
+        isActive = false;
+      };
+    }, [getToken, refetchHabits])
   );
 
   const handleEmergency = () => {
