@@ -22,7 +22,7 @@ export const moodEntries = pgTable("mood_entries", {
 /* ---------- Habits ---------- */
 export const habits = pgTable("habits", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
+  userId: integer("user_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
   description: text("description"),
   isActive: boolean("is_active").default(true),

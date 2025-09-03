@@ -22,6 +22,9 @@ export const userLookupMiddleware = async (req, res, next) => {
     }
 
     req.internalUserId = user.id;
+    if (!req.internalUserId) {
+      return res.status(500).json({ error: "Failed to resolve user ID" });
+    }
     next();
   } catch (err) {
     console.error("Error in user lookup middleware:", err);

@@ -43,14 +43,16 @@ export const useHabits = () => {
       console.log('Raw logsData:', logsData);
 
       const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
-      const processed: Habit[] = habitsData.map((h: any) => {
-        const todayLog = logsData.find((l: any) => l.habitId === h.id && l.logDate === today);
-        return {
-          ...h,
-          completedToday: !!todayLog?.completed,
-          streak: calculateStreak(h.id, logsData),
-        };
-      });
+      const processed: Habit[] = habitsData
+        .filter((h: any) => h.userId !== null)
+        .map((h: any) => {
+          const todayLog = logsData.find((l: any) => l.habitId === h.id && l.logDate === today);
+          return {
+            ...h,
+            completedToday: !!todayLog?.completed,
+            streak: calculateStreak(h.id, logsData),
+          };
+        });
 
       console.log('Processed habits:', processed);
       setHabits(processed);

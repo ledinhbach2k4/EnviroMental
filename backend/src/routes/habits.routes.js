@@ -47,6 +47,10 @@ router.get("/", authMiddleware, userLookupMiddleware, async (req, res) => {
 router.post("/", authMiddleware, userLookupMiddleware, async (req, res) => {
   const { name, description } = req.body;
 
+  if (!req.internalUserId) {
+    return res.status(400).json({ error: "User ID is missing" });
+  }
+
   try {
     console.log("Creating habit for userId:", req.internalUserId, "name:", name);
     const [habit] = await db
