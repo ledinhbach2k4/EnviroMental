@@ -19,7 +19,7 @@ import { colors, commonStyles, textStyles } from '../../assets/styles/commonStyl
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import { API_URL } from '../../constants/api';
-import { useHabits } from '../../hooks/useHabits'; // Import useHabits
+import { useHabits } from '../../hooks/useHabits';
 
 interface QuickStat {
   title: string;
@@ -34,6 +34,11 @@ interface WeatherData {
   city: string;
 }
 
+interface MoodData {
+  value: string;
+  color: string;
+}
+
 const moodEmojis = ['😢', '😕', '😐', '😊', '😄'];
 const moodColors = [colors.moodVerySad, colors.moodSad, colors.moodNeutral, colors.moodHappy, colors.moodVeryHappy];
 
@@ -44,14 +49,16 @@ const AndroidCardContent = ({ style, children }: { style?: StyleProp<ViewStyle>;
 );
 
 export default function Home() {
+  console.log("Home component rendered"); // Added log
+
   const [greeting, setGreeting] = useState('');
-  const [quickStats, setQuickStats] = useState<QuickStat[]>([]);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [mood, setMood] = useState<MoodData | null>(null);
 
   const { getToken } = useAuth();
-  const { habits, loading: habitsLoading, error: habitsError } = useHabits(); // Use the hook
+  const { habits, loading: habitsLoading, error: habitsError } = useHabits();
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -66,16 +73,7 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
-      const fetchDashboardData = async () => {
-        // Initial stats setup
-        let stats: QuickStat[] = [
-          { title: "Today's Mood", value: 'NA', icon: 'happy', color: colors.textLight },
-          { title: 'Habits Done', value: '...', icon: 'checkmark-circle', color: colors.success },
-          { title: 'Meditation', value: '0 min', icon: 'leaf', color: colors.primary },
-          { title: 'Sleep Score', value: 'NA', icon: 'moon', color: colors.secondary },
-        ];
-
-        // Fetch mood
+      const fetchMood = async () => {
         if (getToken) {
           try {
             const token = await getToken();
@@ -86,28 +84,19 @@ export default function Home() {
               const entries = await res.json();
               if (entries.length > 0) {
                 const latestMood = entries[entries.length - 1];
-                stats[0] = {
-                  ...stats[0],
+                setMood({
                   value: moodEmojis[latestMood.moodLevel],
                   color: moodColors[latestMood.moodLevel],
-                };
+                });
               }
             }
           } catch (error) {
             console.error(`Error fetching today's mood:`, error);
           }
         }
-        
-        // Only update if stats are actually different to prevent unnecessary re-renders
-        if (JSON.stringify(stats) !== JSON.stringify(quickStats)) {
-          setQuickStats(stats);
-        }
       };
 
-      fetchDashboardData();
-
       const fetchWeather = async () => {
-        // Weather fetching logic remains the same...
         try {
           const { status } = await Location.requestForegroundPermissionsAsync();
           if (status !== 'granted') {
@@ -133,7 +122,6 @@ export default function Home() {
             description: data.weather[0].description,
             city: data.name,
           };
-          // Only update if weather is actually different
           if (JSON.stringify(newWeather) !== JSON.stringify(weather)) {
             setWeather(newWeather);
           }
@@ -143,38 +131,35 @@ export default function Home() {
           setLoadingWeather(false);
         }
       };
-      fetchWeather();
-    }, [getToken, weather])
-  );
 
-  // Update stats when habits data is loaded or changes
-  useEffect(() => {
-    if (!habitsLoading) {
-      const completed = habits.filter(h => h.completedToday).length;
-      const total = habits.length;
-      
-      setQuickStats(prevStats => {
-        const newStats = [...prevStats];
-        const habitStatIndex = newStats.findIndex(s => s.title === 'Habits Done');
-        if (habitStatIndex !== -1) {
-          const updatedHabitStat = {
-            ...newStats[habitStatIndex],
-            value: `${completed}/${total}`,
-          };
-          // Only update if the habit stat is actually different
-          if (JSON.stringify(updatedHabitStat) !== JSON.stringify(newStats[habitStatIndex])) {
-            newStats[habitStatIndex] = updatedHabitStat;
-            return newStats;
-          }
-        }
-        return prevStats; // Return prevStats if no change
-      });
-    }
-  }, [habits, habitsLoading]);
+      fetchMood();
+      fetchWeather();
+    }, [getToken])
+  );
 
   const handleEmergency = () => {
     alert('Emergency support activated. Help is on the way.');
   };
+
+  const completedHabits = habits.filter(h => h.completedToday).length;
+  const totalHabits = habits.length;
+
+  const quickStats: QuickStat[] = [
+    {
+      title: "Today's Mood",
+      value: mood ? mood.value : 'NA',
+      icon: 'happy',
+      color: mood ? mood.color : colors.textLight,
+    },
+    {
+      title: 'Habits Done',
+      value: habitsLoading ? '...' : `${completedHabits}/${totalHabits}`,
+      icon: 'checkmark-circle',
+      color: colors.success,
+    },
+    { title: 'Meditation', value: '0 min', icon: 'leaf', color: colors.primary },
+    { title: 'Sleep Score', value: 'NA', icon: 'moon', color: colors.secondary },
+  ];
 
   const CardWrapper = Platform.OS === 'android' ? AndroidCardContent : CardContent;
 
