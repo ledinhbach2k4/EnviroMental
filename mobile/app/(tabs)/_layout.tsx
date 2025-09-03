@@ -59,9 +59,6 @@ export default function TabLayout() {
       let userMsg = 'Sorry, an error occurred.';
       if (status === 401 || status === 403) {
         userMsg = 'Authentication error. Please sign in again.';
-      } else if (status === 500 && (data?.detail || data?.error)) {
-        const detail = data.detail || data.error;
-        userMsg = typeof detail === 'string' ? detail : JSON.stringify(detail);
       }
       setMessages(prev => [...prev, { role: 'assistant', content: userMsg }]);
     } finally {
@@ -99,11 +96,11 @@ export default function TabLayout() {
           },
         })}
       >
-        <Tabs.Screen name="home" options={{ title: 'Home' }} />
-        <Tabs.Screen name="mood" options={{ title: 'Mood' }} />
-        <Tabs.Screen name="habits" options={{ title: 'Habits' }} />
-        <Tabs.Screen name="mindfulness" options={{ title: 'Mindfulness' }} />
-        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+        <Tabs.Screen name="home" options={{ title: 'Home', unmountOnBlur: false }} />
+        <Tabs.Screen name="mood" options={{ title: 'Mood', unmountOnBlur: false }} />
+        <Tabs.Screen name="habits" options={{ title: 'Habits', unmountOnBlur: false }} />
+        <Tabs.Screen name="mindfulness" options={{ title: 'Mindfulness', unmountOnBlur: false }} />
+        <Tabs.Screen name="profile" options={{ title: 'Profile', unmountOnBlur: false }} />
       </Tabs>
 
       {/* Chat Icon */}

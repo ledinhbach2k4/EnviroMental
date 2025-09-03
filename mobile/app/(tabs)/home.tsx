@@ -19,6 +19,7 @@ import { colors, commonStyles, textStyles } from '../../assets/styles/commonStyl
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import { API_URL } from '../../constants/api';
+import { useHabits } from '../../hooks/useHabits'; // Import useHabits
 
 interface QuickStat {
   title: string;
@@ -50,6 +51,7 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { getToken } = useAuth();
+  const { habits, loading: habitsLoading, error: habitsError } = useHabits(); // Use the hook
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -64,44 +66,48 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
-      const fetchTodayMood = async () => {
-        if (!getToken) return;
-        try {
-          const token = await getToken();
-          const res = await fetch(`${API_URL}/moods`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          if (!res.ok) {
-            const errorResponse = await res.json();
-            throw new Error(errorResponse.detail || 'Failed to load mood data');
-          }
-          const entries = await res.json();
-          const initialStats: QuickStat[] = [
-            { title: "Today's Mood", value: 'NA', icon: 'happy', color: colors.textLight },
-            { title: 'Habits Done', value: '0/0', icon: 'checkmark-circle', color: colors.success },
-            { title: 'Meditation', value: '0 min', icon: 'leaf', color: colors.primary },
-            { title: 'Sleep Score', value: 'NA', icon: 'moon', color: colors.secondary },
-          ];
+      const fetchDashboardData = async () => {
+        // Initial stats setup
+        let stats: QuickStat[] = [
+          { title: "Today's Mood", value: 'NA', icon: 'happy', color: colors.textLight },
+          { title: 'Habits Done', value: '...', icon: 'checkmark-circle', color: colors.success },
+          { title: 'Meditation', value: '0 min', icon: 'leaf', color: colors.primary },
+          { title: 'Sleep Score', value: 'NA', icon: 'moon', color: colors.secondary },
+        ];
 
-          if (entries.length > 0) {
-            const latestMood = entries[entries.length - 1];
-            initialStats[0] = {
-              ...initialStats[0],
-              value: moodEmojis[latestMood.moodLevel],
-              color: moodColors[latestMood.moodLevel],
-            };
+        // Fetch mood
+        if (getToken) {
+          try {
+            const token = await getToken();
+            const res = await fetch(`${API_URL}/moods`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+              const entries = await res.json();
+              if (entries.length > 0) {
+                const latestMood = entries[entries.length - 1];
+                stats[0] = {
+                  ...stats[0],
+                  value: moodEmojis[latestMood.moodLevel],
+                  color: moodColors[latestMood.moodLevel],
+                };
+              }
+            }
+          } catch (error) {
+            console.error(`Error fetching today's mood:`, error);
           }
-          setQuickStats(initialStats);
-        } catch (error) {
-          console.error(`Error fetching today's mood:`, error);
+        }
+        
+        // Only update if stats are actually different to prevent unnecessary re-renders
+        if (JSON.stringify(stats) !== JSON.stringify(quickStats)) {
+          setQuickStats(stats);
         }
       };
 
-      fetchTodayMood();
+      fetchDashboardData();
 
       const fetchWeather = async () => {
+        // Weather fetching logic remains the same...
         try {
           const { status } = await Location.requestForegroundPermissionsAsync();
           if (status !== 'granted') {
@@ -122,11 +128,15 @@ export default function Home() {
             `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`
           );
           const data = await res.json();
-          setWeather({
+          const newWeather = {
             temperature: Math.round(data.main.temp),
             description: data.weather[0].description,
             city: data.name,
-          });
+          };
+          // Only update if weather is actually different
+          if (JSON.stringify(newWeather) !== JSON.stringify(weather)) {
+            setWeather(newWeather);
+          }
         } catch {
           setErrorMsg('Failed to fetch weather data');
         } finally {
@@ -134,8 +144,33 @@ export default function Home() {
         }
       };
       fetchWeather();
-    }, [getToken])
+    }, [getToken, weather])
   );
+
+  // Update stats when habits data is loaded or changes
+  useEffect(() => {
+    if (!habitsLoading) {
+      const completed = habits.filter(h => h.completedToday).length;
+      const total = habits.length;
+      
+      setQuickStats(prevStats => {
+        const newStats = [...prevStats];
+        const habitStatIndex = newStats.findIndex(s => s.title === 'Habits Done');
+        if (habitStatIndex !== -1) {
+          const updatedHabitStat = {
+            ...newStats[habitStatIndex],
+            value: `${completed}/${total}`,
+          };
+          // Only update if the habit stat is actually different
+          if (JSON.stringify(updatedHabitStat) !== JSON.stringify(newStats[habitStatIndex])) {
+            newStats[habitStatIndex] = updatedHabitStat;
+            return newStats;
+          }
+        }
+        return prevStats; // Return prevStats if no change
+      });
+    }
+  }, [habits, habitsLoading]);
 
   const handleEmergency = () => {
     alert('Emergency support activated. Help is on the way.');
