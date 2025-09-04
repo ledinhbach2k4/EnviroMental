@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Platform, ActivityIndicator, Alert } from 'react-native';
 import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { commonStyles, textStyles, colors, buttonStyles } from '../../assets/styles/commonStyles';
@@ -23,11 +23,12 @@ export default function HabitsTracker() {
     try {
       await Promise.race([
         toggleHabitCompletion(habitId, currentCompleted),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000)), // Timeout 5s
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000)),
       ]);
     } catch (err) {
       console.error('Toggle error:', err);
-      // Hiển thị thông báo lỗi nếu cần (tùy chọn)
+      // Thêm alert nếu cần
+      Alert.alert('Error', 'Failed to toggle habit. Please try again.');
     } finally {
       setToggleLoading(null);
     }
@@ -72,7 +73,7 @@ export default function HabitsTracker() {
         contentContainerStyle={{ paddingBottom: 80 }}
       >
         <Animated.View entering={FadeInDown} style={{ marginVertical: 20 }}>
-          <Text style={[textStyles.h1, { color: colors.primary }]}>Daily Habits 🎯</Text>
+                    <Text style={[textStyles.h1, { color: colors.primary }]}>Daily Habits &#39;🎯&#39;</Text>
           <Text style={[textStyles.bodyLight, { marginTop: 8 }]}>Build healthy routines, one day at a time</Text>
         </Animated.View>
 
@@ -198,7 +199,7 @@ export default function HabitsTracker() {
             <Text style={[textStyles.h3, { marginBottom: 8 }]}>Keep Going!</Text>
             <Text style={textStyles.body}>
               {getCompletionRate() === 100 
-                ? "Amazing! You&apos;ve completed all your habits! 🎉"
+                ? "Amazing! You&#39;ve completed all your habits! 🎉"
                 : getCompletionRate() >= 50
                 ? "You&apos;re doing great! Keep up the momentum! 💪"
                 : "Every small step counts. You&apos;ve got this! 🌟"

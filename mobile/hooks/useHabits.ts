@@ -19,18 +19,15 @@ export const useHabits = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { getToken } = useAuth();
-  const getTokenRef = useRef(getToken);
-  const isInitialFetchRef = useRef(true); // Theo dõi fetch đầu tiên
-
-  useEffect(() => {
-    getTokenRef.current = getToken; // Update ref when getToken changes
-  }, [getToken]);
+  const isFetchingRef = useRef(false); // Prevent concurrent fetches
 
   const fetchHabitsAndLogs = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     console.log('Fetching habits and logs...');
     setLoading(true);
     try {
-      const token = await getTokenRef.current();
+      const token = await getToken(); // Use getToken directly
       if (!token) {
         console.log('No token found, skipping fetch');
         setLoading(false);
@@ -59,7 +56,7 @@ export const useHabits = () => {
         });
 
       console.log('Processed habits:', processed);
-      setHabits(processed);
+      setHabits(processed); // Always set habits with fresh data
       setError(null);
     } catch (err: any) {
       console.error('Error fetching habits:', err);
@@ -68,20 +65,17 @@ export const useHabits = () => {
       setLoading(false);
       console.log('Habits state updated.');
       console.log('Setting loading to false.');
-      isInitialFetchRef.current = false; // Đánh dấu fetch đầu tiên hoàn tất
+      isFetchingRef.current = false;
     }
-  }, []);
+  }, [getToken]); // Only getToken is a dependency now
 
   useEffect(() => {
-    if (isInitialFetchRef.current) {
-      console.log('useHabits hook rendered');
-      fetchHabitsAndLogs(); // Run only on initial mount
-    }
-  }, [fetchHabitsAndLogs]);
+    fetchHabitsAndLogs(); // Call once on mount
+  }, [fetchHabitsAndLogs]); // fetchHabitsAndLogs is stable due to useCallback and its dependencies
 
   const addHabit = async ({ name }: { name: string }) => {
     try {
-      const token = await getTokenRef.current();
+      const token = await getToken();
       await fetch(`${API_URL}/habits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -96,7 +90,7 @@ export const useHabits = () => {
 
   const toggleHabitCompletion = async (habitId: number, currentCompleted: boolean) => {
     try {
-      const token = await getTokenRef.current();
+      const token = await getToken();
       const today = new Date().toISOString().split('T')[0];
       const response = await fetch(`${API_URL}/habits/${habitId}/log`, {
         method: 'POST',
@@ -108,11 +102,13 @@ export const useHabits = () => {
     } catch (err: any) {
       console.error('Error toggling habit:', err);
       setError(err.message);
-      throw err; // Ném lỗi để habits.tsx xử lý
+      throw err;
     }
   };
 
-  const refetch = () => fetchHabitsAndLogs();
+  const refetch = async () => {
+    await fetchHabitsAndLogs();
+  };
 
   return { habits, loading, error, refetch, addHabit, toggleHabitCompletion };
 };
@@ -124,35 +120,30 @@ function calculateStreak(habitId: number, logs: any[]): number {
 
   if (habitLogs.length === 0) return 0;
 
-  let streak = 0;
-  let lastDate = new Date();
+  let streak = 1;
+  let lastDate = new Date(habitLogs[0].logDate);
   lastDate.setUTCHours(0, 0, 0, 0);
 
-  const todayLogIndex = habitLogs.findIndex((log: any) => {
-    const logDate = new Date(log.logDate);
-    logDate.setUTCHours(0, 0, 0, 0);
-    return logDate.getTime() === lastDate.getTime();
-  });
-
-  if (todayLogIndex !== -1) {
-    streak = 1;
-    lastDate.setDate(lastDate.getDate() - 1);
-  } else {
-    return 0;
-  }
-
-  for (let i = todayLogIndex + 1; i < habitLogs.length; i++) {
-    const log = habitLogs[i];
-    const logDate = new Date(log.logDate);
+  for (let i = 1; i < habitLogs.length; i++) {
+    const logDate = new Date(habitLogs[i].logDate);
     logDate.setUTCHours(0, 0, 0, 0);
 
-    if (logDate.getTime() === lastDate.getTime()) {
+    if (lastDate.getTime() - logDate.getTime() === 86400000) {
       streak++;
-      lastDate.setDate(lastDate.getDate() - 1);
+      lastDate = logDate;
     } else {
       break;
     }
   }
 
-  return streak;
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  if (lastDate.getTime() < today.getTime() - 86400000) {
+    return 0;
+  } else if (lastDate.getTime() === today.getTime()) {
+    return streak;
+  } else {
+    // Yesterday completed, keep streak but not add today yet
+    return streak;
+  }
 }

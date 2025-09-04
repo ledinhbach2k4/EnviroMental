@@ -7,4 +7,5 @@ export const ENV = {
   DATABASE_URL: process.env.DATABASE_URL,
   NODE_ENV: process.env.NODE_ENV,
   JWT_SECRET: process.env.JWT_SECRET,
+  RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL, // Add this line
 };
