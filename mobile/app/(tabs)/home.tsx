@@ -59,6 +59,7 @@ export default function Home() {
   }, []);
 
   const [greeting, setGreeting] = useState('');
+  const [greetingIcon, setGreetingIcon] = useState<keyof typeof Ionicons.glyphMap>('sunny-outline');
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -79,12 +80,18 @@ export default function Home() {
   useEffect(() => {
     const updateGreeting = () => {
       const hour = new Date().getHours();
-      if (hour < 12) {
+      if (hour >= 5 && hour < 12) {
         setGreeting('Good Morning');
-      } else if (hour < 18) {
+        setGreetingIcon('sunny-outline');
+      } else if (hour >= 12 && hour < 18) {
         setGreeting('Good Afternoon');
-      } else {
+        setGreetingIcon('partly-sunny-outline');
+      } else if (hour >= 18 && hour < 22) {
         setGreeting('Good Evening');
+        setGreetingIcon('cloudy-night-outline');
+      } else {
+        setGreeting('Good Night');
+        setGreetingIcon('moon-outline');
       }
     };
 
@@ -244,8 +251,11 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 80 }}
       >
-        <View style={{ marginVertical: 20 }}>
-          <Text style={textStyles.h1}>{greeting}!</Text>
+        <View style={{ marginTop: 20, marginBottom: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Text style={textStyles.h1}>{greeting}!</Text>
+            <Icon name={greetingIcon} size={36} color={colors.primary} style={{ marginLeft: 12, transform: [{ translateY: -2 }] }} />
+          </View>
           <Text style={textStyles.bodyLight}>Take a moment for your mental health</Text>
         </View>
 
