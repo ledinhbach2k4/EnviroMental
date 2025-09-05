@@ -1,5 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, Platform, ScrollView } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { commonStyles, textStyles, colors, buttonStyles } from '../assets/styles/commonStyles';
@@ -55,6 +55,16 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
 
   const availableIcons = showMoreIcons ? [...initialIcons, ...additionalIcons] : initialIcons;
 
+  useEffect(() => {
+    if (!visible) {
+      // Reset state when the modal is closed
+      setHabitName('');
+      setSelectedIcon('water-outline');
+      setError('');
+      setShowMoreIcons(false);
+    }
+  }, [visible]);
+
   const handleSave = () => {
     if (!habitName.trim()) {
       setError('Please enter a habit name');
@@ -64,11 +74,11 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
       setError('Habit name is too long');
       return;
     }
-    setError('');
     onSave({ name: habitName.trim(), icon: selectedIcon });
-    setHabitName('');
-    setSelectedIcon('water-outline');
-    setShowMoreIcons(false);
+    onClose(); // Close the modal, which will trigger the useEffect to reset state
+  };
+
+  const handleClose = () => {
     onClose();
   };
 
@@ -96,7 +106,7 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
       visible={visible}
       transparent={true}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <Animated.View
         entering={FadeInDown}
@@ -121,7 +131,7 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
         >
           <View style={[commonStyles.spaceBetween, { marginBottom: 16 }]}>
             <Text style={[textStyles.h3, { color: colors.primary }]}>Add New Habit</Text>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity onPress={handleClose}>
               <Icon name="close" size={24} color={colors.textLight} />
             </TouchableOpacity>
           </View>
@@ -178,7 +188,7 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
           <View style={[commonStyles.row, { justifyContent: 'space-between', marginBottom: 16 }]}>
             <TouchableOpacity
               style={[buttonStyles.outline, { flex: 1, marginRight: 8 }]}
-              onPress={onClose}
+              onPress={handleClose}
             >
               <Text style={textStyles.buttonOutline}>Cancel</Text>
             </TouchableOpacity>
