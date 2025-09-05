@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Platform,
   ScrollView,
@@ -57,7 +57,16 @@ export default function Home() {
   const [mood, setMood] = useState<MoodData | null>(null);
 
   const { getToken } = useAuth();
-  const { habits, loading: habitsLoading, refetch: refetchHabits } = useHabits();
+  // useHabits now handles its own data fetching on focus
+  const { habits, loading: habitsLoading } = useHabits();
+
+  // Refs for fetchMood cooldown
+  const isFetchingMoodRef = useRef(false);
+  const lastFetchMoodTimeRef = useRef(0);
+
+  // Refs for fetchWeather cooldown
+  const isFetchingWeatherRef = useRef(false);
+  const lastFetchWeatherTimeRef = useRef(0);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -71,6 +80,22 @@ export default function Home() {
   }, []);
 
   const fetchMood = useCallback(async () => {
+    const now = Date.now();
+    // Cooldown: Do not fetch if the last fetch was less than 30 seconds ago
+    if (now - lastFetchMoodTimeRef.current < 30000) {
+      console.log(`[${new Date().toISOString()}] Mood recently fetched, skipping due to 30s cooldown.`);
+      return;
+    }
+    // Prevent concurrent fetches
+    if (isFetchingMoodRef.current) {
+      console.log(`[${new Date().toISOString()}] Mood fetch already in progress, skipping.`);
+      return;
+    }
+
+    isFetchingMoodRef.current = true;
+    lastFetchMoodTimeRef.current = now; // Update last fetch time immediately
+    console.log(`[${new Date().toISOString()}] --- Starting to fetch mood ---`);
+
     try {
       const token = await getToken();
       if (!token) return;
@@ -78,25 +103,55 @@ export default function Home() {
       const res = await fetch(`${API_URL}/moods`, { headers: { Authorization: `Bearer ${token}` } });
       console.log('Mood API response status:', res.status);
 
-      if (res.ok) {
-        const entries = await res.json();
-        console.log('Mood API response data:', entries);
-        if (entries && entries.length > 0) {
-          const latestMood = entries[entries.length - 1];
-          const newMood = { value: moodEmojis[latestMood.moodLevel], color: moodColors[latestMood.moodLevel] };
-          console.log('Setting new mood:', newMood);
-          setMood(newMood);
-        } else {
-          console.log('No mood entries found, setting mood to null');
-          setMood(null);
+      if (!res.ok) {
+        const errorBody = await res.text(); // Read as text first
+        console.error(`Failed to fetch mood. Status: ${res.status}, Body: ${errorBody}`);
+        if (res.status === 404) {
+            setMood(null); // No mood logged yet, which is a valid state
+        } else if (res.status === 429) {
+            console.warn("Rate limit hit for mood API:", errorBody);
+            // Optionally, set a specific error state or message for the user
         }
+        return; // Stop execution
+      }
+
+      const entries = await res.json(); // Only parse as JSON if res.ok
+      console.log('Mood API response data:', entries);
+
+      if (entries && entries.length > 0) {
+        const latestMood = entries[entries.length - 1];
+        const newMood = { value: moodEmojis[latestMood.moodLevel], color: moodColors[latestMood.moodLevel] };
+        console.log('Setting new mood:', newMood);
+        setMood(newMood);
+      } else {
+        console.log('No mood entries found, setting mood to null');
+        setMood(null);
       }
     } catch (error) {
       console.error(`Error fetching today's mood:`, error);
+    } finally {
+      isFetchingMoodRef.current = false;
+      console.log(`[${new Date().toISOString()}] --- Finished fetching mood ---`);
     }
   }, [getToken]);
 
   const fetchWeather = useCallback(async () => {
+    const now = Date.now();
+    // Cooldown: Do not fetch if the last fetch was less than 30 seconds ago
+    if (now - lastFetchWeatherTimeRef.current < 30000) {
+      console.log(`[${new Date().toISOString()}] Weather recently fetched, skipping due to 30s cooldown.`);
+      return;
+    }
+    // Prevent concurrent fetches
+    if (isFetchingWeatherRef.current) {
+      console.log(`[${new Date().toISOString()}] Weather fetch already in progress, skipping.`);
+      return;
+    }
+
+    isFetchingWeatherRef.current = true;
+    lastFetchWeatherTimeRef.current = now; // Update last fetch time immediately
+    console.log(`[${new Date().toISOString()}] --- Starting to fetch weather ---`);
+
     setLoadingWeather(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -124,16 +179,18 @@ export default function Home() {
       setErrorMsg('Failed to fetch weather data');
     } finally {
       setLoadingWeather(false);
+      isFetchingWeatherRef.current = false;
+      console.log(`[${new Date().toISOString()}] --- Finished fetching weather ---`);
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      // Fetch all data when the screen comes into focus
+      // Fetch data when the screen comes into focus.
+      // useHabits hook now handles its own refetching, so we only need to call other fetches.
       fetchMood();
       fetchWeather();
-      refetchHabits();
-    }, [fetchMood, fetchWeather, refetchHabits])
+    }, [fetchMood, fetchWeather])
   );
 
   const handleEmergency = () => {
@@ -158,7 +215,7 @@ export default function Home() {
     },
     {
       title: 'Current Weather',
-      value: loadingWeather ? 'Loading...' : errorMsg || (weather ? `${weather.temperature}°C, ${weather.description}` : 'No location'),
+      value: loadingWeather ? '...' : errorMsg || (weather ? `${weather.temperature}°C, ${weather.description}` : 'No location'),
       icon: 'cloud-outline',
       color: colors.primary,
     },

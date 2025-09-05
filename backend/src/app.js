@@ -2,6 +2,9 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 import job from './config/cron.js';
 import { ENV } from './config/env.js';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -28,6 +31,19 @@ import environmentRoutes from './routes/environment.routes.js';
 
 const app = express(); 
 app.use(express.json()); 
+
+// Security and Optimization Middleware
+app.use(helmet());
+app.use(compression());
+
+const limiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 100, // Limit each IP to 100 requests per window
+	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+app.use(limiter);
+
 
 // CORS configuration
 const allowedOrigins = [
@@ -77,7 +93,13 @@ const pool = new Pool({
   connectionString: ENV.DATABASE_URL,
   ssl: ENV.NODE_ENV !== 'production' ? { rejectUnauthorized: false } : undefined, // Required for Neon.tech in development
 });
-export const db = drizzle(pool, { schema });
+const db = drizzle(pool, { schema });
+
+// Attach db to request
+app.use((req, res, next) => {
+  req.db = db;
+  next();
+});
 
 app.use(clerkMiddleware({ 
     publishableKey: ENV.CLERK_PUBLISHABLE_KEY,

@@ -20,7 +20,7 @@ export default function HabitsTracker() {
 
   const handleToggleHabit = async (habitId: number, currentCompleted: boolean) => {
     setToggleLoading(habitId);
-    let timeoutId: NodeJS.Timeout | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
         toggleHabitCompletion(habitId, currentCompleted),
@@ -28,8 +28,8 @@ export default function HabitsTracker() {
           timeoutId = setTimeout(() => reject(new Error('Timeout')), 5000);
         }),
       ]);
-    } catch (err) {
-      // console.error('Toggle error:', err); // It's better to log this to a crash reporting service
+    } catch (_err) {
+      // console.error('Toggle error:', _err); // It's better to log this to a crash reporting service
       Alert.alert('Error', 'Failed to toggle habit. Please try again.');
     } finally {
       if (timeoutId) {
