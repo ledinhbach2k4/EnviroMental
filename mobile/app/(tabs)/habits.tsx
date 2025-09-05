@@ -10,6 +10,7 @@ import { useHabits, Habit } from '../../hooks/useHabits';
 
 export default function HabitsTracker() {
   const { habits, loading, error, refetch, addHabit, toggleHabitCompletion } = useHabits();
+  console.log('HabitsTracker render - habits:', habits, 'loading:', loading, 'error:', error);
   const [isAddModalVisible, setAddModalVisible] = useState(false);
   const [toggleLoading, setToggleLoading] = useState<number | null>(null);
 
@@ -117,7 +118,9 @@ export default function HabitsTracker() {
               </Text>
             </View>
           ) : (
-            habits.map((habit: Habit, index: number) => (
+            habits.map((habit: Habit, index: number) => {
+              console.log('Rendering habit:', habit);
+              return (
               <Animated.View 
                 key={habit.id}
                 entering={FadeInDown.delay(300 + index * 50)}
@@ -178,7 +181,8 @@ export default function HabitsTracker() {
                   </View>
                 </TouchableOpacity>
               </Animated.View>
-            ))
+            )
+            })
           )}
           <View style={[commonStyles.row, { justifyContent: 'space-between', marginTop: 12 }]}>
               <TouchableOpacity 

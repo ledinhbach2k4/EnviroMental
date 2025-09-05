@@ -50,6 +50,8 @@ export const useHabits = () => {
           const todayLog = logsData.find((l: any) => l.habitId === h.id && l.logDate === today);
           return {
             ...h,
+            icon: h.icon || 'happy-outline', // Default icon
+            color: h.color || '#FF6347', // Default color
             completedToday: !!todayLog?.completed,
             streak: calculateStreak(h.id, logsData),
           };
