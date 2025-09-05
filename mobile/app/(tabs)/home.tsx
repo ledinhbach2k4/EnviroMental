@@ -50,6 +50,14 @@ const AndroidCardContent = ({ style, children }: { style?: StyleProp<ViewStyle>;
 const CardWrapper = Platform.OS === 'android' ? AndroidCardContent : CardContent;
 
 export default function Home() {
+  console.log(`[${new Date().toISOString()}] Home component re-rendered.`);
+  useEffect(() => {
+    console.log(`[${new Date().toISOString()}] Home component MOUNTED.`);
+    return () => {
+      console.log(`[${new Date().toISOString()}] Home component UNMOUNTED.`);
+    };
+  }, []);
+
   const [greeting, setGreeting] = useState('');
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
@@ -223,7 +231,11 @@ export default function Home() {
 
   return (
     <View style={[commonStyles.container, { paddingTop: Platform.OS === 'ios' ? 40 : 20 }]}>
-      <ScrollView style={commonStyles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
+      <ScrollView
+        style={commonStyles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 80 }}
+      >
         <View style={{ marginVertical: 20 }}>
           <Text style={textStyles.h1}>{greeting}!</Text>
           <Text style={textStyles.bodyLight}>Take a moment for your mental health</Text>

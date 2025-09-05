@@ -30,18 +30,18 @@ export const useHabits = () => {
     const now = Date.now();
     // Cooldown: Do not fetch if the last fetch was less than 30 seconds ago
     if (now - lastFetchTimeRef.current < 30000) {
-      console.log(`[${new Date().toISOString()}] Recently fetched, skipping.`);
+      console.log(`[${new Date().toISOString()}] useHabits: fetchHabitsAndLogs: Recently fetched, skipping.`);
       return;
     }
     // Prevent concurrent fetches
     if (isFetchingRef.current) {
-      console.log(`[${new Date().toISOString()}] Fetch already in progress, skipping.`);
+      console.log(`[${new Date().toISOString()}] useHabits: fetchHabitsAndLogs: Fetch already in progress, skipping.`);
       return;
     }
 
     isFetchingRef.current = true;
     lastFetchTimeRef.current = now; // Update last fetch time immediately
-    console.log(`[${new Date().toISOString()}] --- Starting to fetch habits and logs ---`);
+    console.log(`[${new Date().toISOString()}] useHabits: --- Starting to fetch habits and logs ---`);
     setLoading(true);
     setError(null);
 
@@ -55,8 +55,8 @@ export const useHabits = () => {
       const logsUrl = `${API_URL}/habits/logs`;
       const options = { headers: { Authorization: `Bearer ${token}` } };
 
-      console.log("Fetching from:", habitsUrl);
-      console.log("Fetching from:", logsUrl);
+      console.log("useHabits: Fetching from:", habitsUrl);
+      console.log("useHabits: Fetching from:", logsUrl);
 
       // Use fetchWithRetry for both requests
       const [habitsRes, logsRes] = await Promise.all([
@@ -64,8 +64,8 @@ export const useHabits = () => {
         fetchWithRetry(logsUrl, options),
       ]);
 
-      console.log("Habits Response Status:", habitsRes.status);
-      console.log("Logs Response Status:", logsRes.status);
+      console.log("useHabits: Habits Response Status:", habitsRes.status);
+      console.log("useHabits: Logs Response Status:", logsRes.status);
 
       // Check if responses are OK after retries
       if (!habitsRes.ok) {
@@ -93,21 +93,23 @@ export const useHabits = () => {
           };
         });
 
+      console.log(`[${new Date().toISOString()}] useHabits: Processed habits before setting state:`, processed);
       setHabits(processed);
     } catch (err: any) {
-      console.error("--- FULL ERROR OBJECT ---");
+      console.error("useHabits: --- FULL ERROR OBJECT ---");
       console.error(err);
       setError(err.message || "An unknown error occurred.");
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
-      console.log(`[${new Date().toISOString()}] --- Finished fetching habits and logs ---`);
+      console.log(`[${new Date().toISOString()}] useHabits: --- Finished fetching habits and logs ---`);
     }
   }, [getToken]);
 
   // Use useFocusEffect to refetch data when the screen is focused
   useFocusEffect(
     useCallback(() => {
+      console.log(`[${new Date().toISOString()}] useHabits: useFocusEffect triggered.`);
       fetchHabitsAndLogs();
     }, [fetchHabitsAndLogs])
   );
@@ -124,23 +126,26 @@ export const useHabits = () => {
       lastFetchTimeRef.current = 0; // Reset timer to allow immediate refetch
       await fetchHabitsAndLogs();
     } catch (err: any) {
-      console.error('Error adding habit:', err);
+      console.error('useHabits: Error adding habit:', err);
       setError(err.message);
     }
   };
 
   const toggleHabitCompletion = async (habitId: number, currentCompleted: boolean) => {
+    console.log(`[${new Date().toISOString()}] useHabits: toggleHabitCompletion called for habitId: ${habitId}, currentCompleted: ${currentCompleted}`);
     // Store the original habits state for potential rollback
     const originalHabits = [...habits];
 
     // Optimistic update: Immediately update the UI
-    setHabits(prevHabits =>
-      prevHabits.map(habit =>
+    setHabits(prevHabits => {
+      const updated = prevHabits.map(habit =>
         habit.id === habitId
           ? { ...habit, completedToday: !currentCompleted }
           : habit
-      )
-    );
+      );
+      console.log(`[${new Date().toISOString()}] useHabits: Optimistic update for habitId: ${habitId}. New completedToday: ${!currentCompleted}`);
+      return updated;
+    });
 
     try {
       const token = await getToken();
@@ -151,20 +156,25 @@ export const useHabits = () => {
         body: JSON.stringify({ date: today, completed: !currentCompleted }),
       });
 
+      console.log(`[${new Date().toISOString()}] useHabits: API response for habitId ${habitId}: OK=${response.ok}, Status=${response.status}`);
+
       if (!response.ok) {
         // If API call fails, revert the optimistic update
         setHabits(originalHabits);
+        console.log(`[${new Date().toISOString()}] useHabits: API call failed for habitId ${habitId}. Reverting optimistic update.`);
         throw new Error(`Failed to toggle habit: ${response.statusText}`);
       }
 
       // API call succeeded, now refetch to get accurate streak and other server-side updates
       lastFetchTimeRef.current = 0; // Reset timer to allow immediate refetch
+      console.log(`[${new Date().toISOString()}] useHabits: API call succeeded for habitId ${habitId}. Triggering full refetch.`);
       await fetchHabitsAndLogs();
     } catch (err: any) {
-      console.error('Error toggling habit:', err);
+      console.error(`[${new Date().toISOString()}] useHabits: Error toggling habitId ${habitId}:`, err);
       setError(err.message);
       // Ensure state is reverted if an error occurs during fetch or processing
       setHabits(originalHabits);
+      console.log(`[${new Date().toISOString()}] useHabits: Error caught for habitId ${habitId}. Reverting optimistic update.`);
       throw err;
     }
   };

@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, Platform, ActivityIndicator, Alert } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { commonStyles, textStyles, colors, buttonStyles } from '../../assets/styles/commonStyles';
 import Icon from '../../components/Icon';
@@ -9,6 +9,14 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useHabits, Habit } from '../../hooks/useHabits';
 
 export default function HabitsTracker() {
+  console.log(`[${new Date().toISOString()}] HabitsTracker component re-rendered.`);
+  useEffect(() => {
+    console.log(`[${new Date().toISOString()}] HabitsTracker component MOUNTED.`);
+    return () => {
+      console.log(`[${new Date().toISOString()}] HabitsTracker component UNMOUNTED.`);
+    };
+  }, []);
+
   const { habits, loading, error, refetch, addHabit, toggleHabitCompletion } = useHabits();
   const [isAddModalVisible, setAddModalVisible] = useState(false);
   const [toggleLoading, setToggleLoading] = useState<number | null>(null);
@@ -19,23 +27,17 @@ export default function HabitsTracker() {
   };
 
   const handleToggleHabit = async (habitId: number, currentCompleted: boolean) => {
+    console.log(`[${new Date().toISOString()}] handleToggleHabit called for habitId: ${habitId}, currentCompleted: ${currentCompleted}`);
     setToggleLoading(habitId);
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
-      await Promise.race([
-        toggleHabitCompletion(habitId, currentCompleted),
-        new Promise((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error('Timeout')), 5000);
-        }),
-      ]);
+      await toggleHabitCompletion(habitId, currentCompleted);
+      console.log(`[${new Date().toISOString()}] toggleHabitCompletion finished for habitId: ${habitId}`);
     } catch (_err) {
-      // console.error('Toggle error:', _err); // It's better to log this to a crash reporting service
+      console.error(`[${new Date().toISOString()}] Toggle error for habitId: ${habitId}:`, _err);
       Alert.alert('Error', 'Failed to toggle habit. Please try again.');
     } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
       setToggleLoading(null);
+      console.log(`[${new Date().toISOString()}] setToggleLoading(null) for habitId: ${habitId}`);
     }
   };
 
