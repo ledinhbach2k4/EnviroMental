@@ -77,14 +77,22 @@ export default function Home() {
   const lastFetchWeatherTimeRef = useRef(0);
 
   useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) {
-      setGreeting('Good Morning');
-    } else if (hour < 18) {
-      setGreeting('Good Afternoon');
-    } else {
-      setGreeting('Good Evening');
-    }
+    const updateGreeting = () => {
+      const hour = new Date().getHours();
+      if (hour < 12) {
+        setGreeting('Good Morning');
+      } else if (hour < 18) {
+        setGreeting('Good Afternoon');
+      } else {
+        setGreeting('Good Evening');
+      }
+    };
+
+    updateGreeting(); // Set the initial greeting
+    const intervalId = setInterval(updateGreeting, 60000); // Update every minute
+
+    // Clear the interval when the component unmounts
+    return () => clearInterval(intervalId);
   }, []);
 
   const fetchMood = useCallback(async () => {
