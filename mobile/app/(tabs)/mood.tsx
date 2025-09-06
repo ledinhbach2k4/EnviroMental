@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { commonStyles, textStyles, colors } from '../../assets/styles/commonStyles';
 import Icon from '../../components/Icon';
@@ -30,10 +30,17 @@ export default function MoodTracker() {
   const [moodNote, setMoodNote] = useState('');
   const [recentEntries, setRecentEntries] = useState<MoodEntry[]>([]);
   const [todayLogged, setTodayLogged] = useState(false);
+  const [lastFetched, setLastFetched] = useState(0);
   const { getToken } = useAuth();
 
-  const loadMoodData = async () => {
+  const loadMoodData = useCallback(async (force = false) => {
     if (!getToken) return;
+
+    const now = Date.now();
+    if (!force && now - lastFetched < 30000) { // 30-second cache
+      return;
+    }
+
     try {
       const token = await getToken();
       const res = await fetch(`${API_URL}/moods`, {
@@ -41,24 +48,40 @@ export default function MoodTracker() {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.warn(`Failed to fetch mood data. Status: ${res.status}, Body: ${errorText}`);
+        if (res.status !== 429) {
+          Alert.alert('Error', 'Could not load recent mood entries.');
+        }
+        return;
+      }
+
       const entries = await res.json();
       setRecentEntries(entries.slice(-7)); // Last 7 entries
 
-      // Check if today's mood is already logged
       const today = new Date().toDateString();
       const todayEntry = entries.find((entry: MoodEntry) =>
         new Date(entry.createdAt).toDateString() === today
       );
       setTodayLogged(!!todayEntry);
+      setLastFetched(now);
     } catch (error) {
-      console.log('Error loading mood data:', error);
+      if (error instanceof SyntaxError) {
+        console.error("JSON Parse error:", error);
+        Alert.alert('Error', 'Received malformed data from the server.');
+      } else {
+        console.log('Error loading mood data:', error);
+        Alert.alert('Error', 'An unexpected error occurred.');
+      }
     }
-  };
+  }, [getToken, lastFetched]);
 
   useFocusEffect(
     useCallback(() => {
       loadMoodData();
-    }, [getToken])
+    }, [loadMoodData])
   );
 
   const saveMoodEntry = async () => {
@@ -75,7 +98,7 @@ export default function MoodTracker() {
 
     try {
       const token = await getToken();
-      await fetch(`${API_URL}/moods`, {
+      const res = await fetch(`${API_URL}/moods`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,11 +107,17 @@ export default function MoodTracker() {
         body: JSON.stringify(newEntry),
       });
 
+      if (!res.ok) {
+        const errorText = await res.text();
+        Alert.alert('Error', `Failed to save mood: ${errorText}`);
+        return;
+      }
+
       Alert.alert('Mood Saved!', 'Your mood has been recorded for today');
       setSelectedMood(null);
       setSelectedFactors([]);
       setMoodNote('');
-      loadMoodData();
+      await loadMoodData(true);
     } catch (error) {
       console.log('Error saving mood:', error);
       Alert.alert('Error', 'Failed to save your mood entry');
@@ -256,7 +285,7 @@ export default function MoodTracker() {
           colors={[colors.primary + '20', colors.secondary + '20']}
           style={[commonStyles.card, { marginBottom: 30 }]}
         >
-          <Icon name="bulb" size={24} style={{ color: colors.primary, marginBottom: 8 }} />
+          <Icon name="bulb" size={24} color={colors.primary} style={{ marginBottom: 8 }} />
           <Text style={[textStyles.h3, { marginBottom: 8 }]}>Mood Tip</Text>
           <Text style={textStyles.body}>
             Regular mood tracking helps you identify patterns and triggers. 

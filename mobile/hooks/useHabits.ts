@@ -1,6 +1,5 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useRef, useState } from 'react';
 import { API_URL } from '../constants/api';
 import { fetchWithRetry } from '../utils/api';
@@ -106,13 +105,8 @@ export const useHabits = () => {
     }
   }, [getToken]);
 
-  // Use useFocusEffect to refetch data when the screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      console.log(`[${new Date().toISOString()}] useHabits: useFocusEffect triggered.`);
-      fetchHabitsAndLogs();
-    }, [fetchHabitsAndLogs])
-  );
+  // useFocusEffect has been removed from this hook.
+  // The component using this hook is now responsible for triggering the refetch on focus.
 
   const addHabit = async ({ name }: { name: string }) => {
     // This function can remain mostly the same, but will trigger the improved fetch
@@ -179,7 +173,31 @@ export const useHabits = () => {
     }
   };
 
-  return { habits, loading, error, refetch: fetchHabitsAndLogs, addHabit, toggleHabitCompletion };
+  const deleteHabit = async (habitId: number) => {
+    const originalHabits = [...habits];
+    setHabits(prevHabits => prevHabits.filter(habit => habit.id !== habitId));
+
+    try {
+      const token = await getToken();
+      const response = await fetch(`${API_URL}/habits/${habitId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        setHabits(originalHabits);
+        throw new Error(`Failed to delete habit: ${response.statusText}`);
+      }
+      // No need to refetch, optimistic update is enough
+    } catch (err: any) {
+      console.error(`useHabits: Error deleting habitId ${habitId}:`, err);
+      setError(err.message);
+      setHabits(originalHabits);
+      throw err;
+    }
+  };
+
+  return { habits, loading, error, refetch: fetchHabitsAndLogs, addHabit, toggleHabitCompletion, deleteHabit };
 };
 
 function calculateStreak(habitId: number, logs: any[]): number {

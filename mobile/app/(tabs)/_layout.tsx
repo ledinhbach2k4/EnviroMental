@@ -16,6 +16,7 @@ import Modal from 'react-native-modal';
 import axios from 'axios';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { colors, commonStyles, chatStyles } from '@/assets/styles/commonStyles';
+import { HabitsProvider } from '../../context/HabitsContext';
 
 export default function TabLayout() {
   const { isSignedIn, isLoaded, getToken } = useAuth();
@@ -67,7 +68,7 @@ export default function TabLayout() {
   };
 
   return (
-    <>
+    <HabitsProvider>
       {/* Tabs */}
       <Tabs
         screenOptions={({ route }) => ({
@@ -163,6 +164,6 @@ export default function TabLayout() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </>
+    </HabitsProvider>
   );
 }

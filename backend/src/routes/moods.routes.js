@@ -1,27 +1,22 @@
 import express from "express";
 import { db } from "../config/db.js";
 import * as schema from "../db/schema.js";
-
 import { authMiddleware } from "../middleware/authMiddleware.js";
+import { userLookupMiddleware } from "../middleware/userLookupMiddleware.js";
 import { eq } from "drizzle-orm";
 
 const router = express.Router();
 
+// Use middleware for all mood routes
+router.use(authMiddleware, userLookupMiddleware);
+
 // Get all moods of current user
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const user = await db.query.users.findFirst({
-      where: eq(schema.users.clerkId, req.auth.userId),
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
     const moods = await db
       .select()
       .from(schema.moodEntries)
-      .where(eq(schema.moodEntries.userId, user.id));
+      .where(eq(schema.moodEntries.userId, req.internalUserId));
 
     res.status(200).json(moods);
   } catch (err) {
@@ -31,21 +26,13 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 // Create a new mood entry
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", async (req, res) => {
   const { moodLevel, note, factors } = req.body;
 
   try {
-    const user = await db.query.users.findFirst({
-      where: eq(schema.users.clerkId, req.auth.userId),
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
     const [entry] = await db
       .insert(schema.moodEntries)
-      .values({ userId: user.id, moodLevel, note, factors })
+      .values({ userId: req.internalUserId, moodLevel, note, factors })
       .returning();
 
     res.status(201).json(entry);

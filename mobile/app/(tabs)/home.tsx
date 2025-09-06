@@ -18,7 +18,8 @@ import { colors, commonStyles, textStyles } from '../../assets/styles/commonStyl
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import { API_URL } from '../../constants/api';
-import { useHabits } from '../../hooks/useHabits';
+import { useSharedHabits } from '../../context/HabitsContext';
+import type { Habit } from '../../hooks/useHabits';
 
 interface QuickStat {
   title: string;
@@ -66,8 +67,7 @@ export default function Home() {
   const [mood, setMood] = useState<MoodData | null>(null);
 
   const { getToken } = useAuth();
-  // useHabits now handles its own data fetching on focus
-  const { habits, loading: habitsLoading } = useHabits();
+  const { habits, loading: habitsLoading, refetch: refetchHabits } = useSharedHabits();
 
   // Refs for fetchMood cooldown
   const isFetchingMoodRef = useRef(false);
@@ -209,18 +209,22 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
-      // Fetch data when the screen comes into focus.
-      // useHabits hook now handles its own refetching, so we only need to call other fetches.
-      fetchMood();
-      fetchWeather();
-    }, [fetchMood, fetchWeather])
+      const fetchData = async () => {
+        // Stagger the API calls to avoid hitting rate limits
+        await fetchMood();
+        setTimeout(() => refetchHabits(), 500); // Fetch habits after a short delay
+        setTimeout(() => fetchWeather(), 1000); // Fetch weather after a bit longer delay
+      };
+
+      fetchData();
+    }, [fetchMood, fetchWeather, refetchHabits])
   );
 
   const handleEmergency = () => {
     router.push('/emergency' as any);
   };
 
-  const completedHabits = habits.filter(h => h.completedToday).length;
+  const completedHabits = habits.filter((h: Habit) => h.completedToday).length;
   const totalHabits = habits.length;
 
   const quickStats: QuickStat[] = [

@@ -4,7 +4,7 @@ import * as schema from "../db/schema.js";
 
 import { authMiddleware } from "../middleware/authMiddleware.js";
 import { userLookupMiddleware } from "../middleware/userLookupMiddleware.js";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 const router = express.Router();
 
@@ -66,8 +66,35 @@ router.post("/", authMiddleware, userLookupMiddleware, async (req, res) => {
   }
 });
 
+// Delete a habit
+router.delete("/:habitId", authMiddleware, userLookupMiddleware, async (req, res) => {
+  const { habitId } = req.params;
 
-// Log a habit for a specific date (MORE GENERAL ROUTE AFTER SPECIFIC ONES)
+  try {
+    // Verify the habit belongs to the user
+    const [habit] = await db
+      .select()
+      .from(schema.habits)
+      .where(eq(schema.habits.id, parseInt(habitId)));
+
+    if (!habit || habit.userId !== req.internalUserId) {
+      return res.status(404).json({ error: "Habit not found or access denied" });
+    }
+
+    // First, delete all logs associated with the habit
+    await db.delete(schema.habitLogs).where(eq(schema.habitLogs.habitId, parseInt(habitId)));
+
+    // Then, delete the habit itself
+    await db.delete(schema.habits).where(eq(schema.habits.id, parseInt(habitId)));
+
+    res.status(204).send(); // 204 No Content for successful deletion
+  } catch (err) {
+    console.error("Error deleting habit:", err);
+    res.status(500).json({ error: "Failed to delete habit", detail: err.message });
+  }
+});
+
+// Upsert a habit log for a specific date
 router.post("/:habitId/log", authMiddleware, userLookupMiddleware, async (req, res) => {
   const { habitId } = req.params;
   const { date, completed } = req.body; // date should be in 'YYYY-MM-DD' format
@@ -81,27 +108,50 @@ router.post("/:habitId/log", authMiddleware, userLookupMiddleware, async (req, r
     const [habit] = await db
       .select()
       .from(schema.habits)
-      .where(eq(schema.habits.id, habitId));
+      .where(eq(schema.habits.id, parseInt(habitId)));
 
-    if (!habit || habit.userId !== req.internalUserId) { // Changed to internalUserId
+    if (!habit || habit.userId !== req.internalUserId) {
       return res.status(404).json({ error: "Habit not found or access denied" });
     }
 
-    const [loggedHabit] = await db
-      .insert(schema.habitLogs)
-      .values({
-        habitId: parseInt(habitId),
-        logDate: date,
-        completed: completed !== undefined ? completed : true,
-      })
-      .returning();
+    // Check if a log for this habit and date already exists
+    const existingLogs = await db
+      .select()
+      .from(schema.habitLogs)
+      .where(
+        and(
+          eq(schema.habitLogs.habitId, parseInt(habitId)),
+          eq(schema.habitLogs.logDate, date)
+        )
+      );
 
-    res.status(201).json(loggedHabit);
-  } catch (err) {
-    // Handle potential unique constraint violation if a log for that habit and date already exists
-    if (err.code === '23505') { // PostgreSQL unique violation error code
-        return res.status(409).json({ error: "Habit already logged for this date. Consider updating it instead." });
+    if (existingLogs.length > 0) {
+      // If logs exist, update them all to the new 'completed' status
+      const [updatedLog] = await db
+        .update(schema.habitLogs)
+        .set({ completed: completed !== undefined ? completed : true })
+        .where(
+          and(
+            eq(schema.habitLogs.habitId, parseInt(habitId)),
+            eq(schema.habitLogs.logDate, date)
+          )
+        )
+        .returning();
+      res.status(200).json(updatedLog);
+    } else {
+      // If no log exists, insert a new one
+      const [loggedHabit] = await db
+        .insert(schema.habitLogs)
+        .values({
+          habitId: parseInt(habitId),
+          logDate: date,
+          completed: completed !== undefined ? completed : true,
+        })
+        .returning();
+      res.status(201).json(loggedHabit);
     }
+  } catch (err) {
+    console.error("Error in habit log upsert:", err);
     res.status(500).json({ error: "Failed to log habit", detail: err.message });
   }
 });

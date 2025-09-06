@@ -6,7 +6,8 @@ import Icon from '../../components/Icon';
 import { Ionicons } from '@expo/vector-icons';
 import AddHabitModal from '../../components/AddHabitModal';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useHabits, Habit } from '../../hooks/useHabits';
+import { useSharedHabits } from '../../context/HabitsContext';
+import type { Habit } from '../../hooks/useHabits';
 
 export default function HabitsTracker() {
   console.log(`[${new Date().toISOString()}] HabitsTracker component re-rendered.`);
@@ -17,7 +18,7 @@ export default function HabitsTracker() {
     };
   }, []);
 
-  const { habits, loading, error, refetch, addHabit, toggleHabitCompletion } = useHabits();
+  const { habits, loading, error, refetch, addHabit, toggleHabitCompletion, deleteHabit } = useSharedHabits();
   const [isAddModalVisible, setAddModalVisible] = useState(false);
   const [toggleLoading, setToggleLoading] = useState<number | null>(null);
 
@@ -39,6 +40,30 @@ export default function HabitsTracker() {
       setToggleLoading(null);
       console.log(`[${new Date().toISOString()}] setToggleLoading(null) for habitId: ${habitId}`);
     }
+  };
+
+  const handleDeleteHabit = (habitId: number, habitName: string) => {
+    Alert.alert(
+      "Delete Habit",
+      `Are you sure you want to delete "${habitName}"? This action cannot be undone.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        { 
+          text: "Delete", 
+          onPress: async () => {
+            try {
+              await deleteHabit(habitId);
+            } catch (_) {
+              Alert.alert('Error', 'Failed to delete habit. Please try again.');
+            }
+          },
+          style: "destructive"
+        }
+      ]
+    );
   };
 
   const getCompletionRate = () => {
@@ -80,7 +105,7 @@ export default function HabitsTracker() {
         contentContainerStyle={{ paddingBottom: 80 }}
       >
         <Animated.View entering={FadeInDown} style={{ marginVertical: 20 }}>
-                    <Text style={[textStyles.h1, { color: colors.primary }]}>Daily Habits &#39;🎯&#39;</Text>
+          <Text style={[textStyles.h1, { color: colors.primary }]}>Daily Habits 🎯</Text>
           <Text style={[textStyles.bodyLight, { marginTop: 8 }]}>Build healthy routines, one day at a time</Text>
         </Animated.View>
 
@@ -140,6 +165,7 @@ export default function HabitsTracker() {
                     }
                   ]}
                   onPress={() => handleToggleHabit(habit.id, habit.completedToday)}
+                  onLongPress={() => handleDeleteHabit(habit.id, habit.name)}
                   disabled={toggleLoading === habit.id}
                   activeOpacity={0.7}
                 >
