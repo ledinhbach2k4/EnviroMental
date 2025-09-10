@@ -122,6 +122,9 @@ app.use('/api/hotlines', hotlineRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/environment', environmentRoutes);
 
+// Test route
+app.get('/api/test', (req, res) => res.json({ success: true }));
+
 // 404 Not Found Middleware
 app.use((req, res, next) => {
   res.status(404).json({ message: 'Not Found' });
@@ -134,12 +137,6 @@ app.use((err, req, res, next) => {
     message: err.message || 'Internal Server Error',
     error: ENV.NODE_ENV === 'development' ? err : {}, // Send error details only in development
   });
-});
-
-// Start the server
-const PORT = ENV.PORT || 5001;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} in ${ENV.NODE_ENV || 'development'} mode`);
 });
 
 export default app;
