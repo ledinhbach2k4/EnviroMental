@@ -39,8 +39,34 @@ interface MoodData {
   color: string;
 }
 
+interface AirQualityData {
+  aqi: number;
+}
+
 const moodEmojis = ['😢', '😕', '😐', '😊', '😄'];
 const moodColors = [colors.moodVerySad, colors.moodSad, colors.moodNeutral, colors.moodHappy, colors.moodVeryHappy];
+
+const getAqiLabel = (aqi: number) => {
+  switch (aqi) {
+    case 1: return 'Good';
+    case 2: return 'Fair';
+    case 3: return 'Moderate';
+    case 4: return 'Poor';
+    case 5: return 'Very Poor';
+    default: return 'Unknown';
+  }
+};
+
+const getAqiColor = (aqi: number) => {
+  switch (aqi) {
+    case 1: return colors.success;
+    case 2: return colors.primary;
+    case 3: return colors.warning;
+    case 4: return colors.danger;
+    case 5: return colors.moodVerySad;
+    default: return colors.textLight;
+  }
+};
 
 const CardContent = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
@@ -65,6 +91,9 @@ export default function Home() {
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mood, setMood] = useState<MoodData | null>(null);
+  const [airQuality, setAirQuality] = useState<AirQualityData | null>(null);
+  const [loadingAirQuality, setLoadingAirQuality] = useState(true);
+  const [errorAirPollution, setErrorAirPollution] = useState<string | null>(null);
 
   const { getToken } = useAuth();
   const { habits, loading: habitsLoading, refetch: refetchHabits } = useSharedHabits();
@@ -76,6 +105,10 @@ export default function Home() {
   // Refs for fetchWeather cooldown
   const isFetchingWeatherRef = useRef(false);
   const lastFetchWeatherTimeRef = useRef(0);
+
+  // Refs for fetchAirQuality cooldown
+  const isFetchingAirQualityRef = useRef(false);
+  const lastFetchAirQualityTimeRef = useRef(0);
 
   useEffect(() => {
     const updateGreeting = () => {
@@ -207,6 +240,57 @@ export default function Home() {
     }
   }, []);
 
+  const fetchAirQuality = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastFetchAirQualityTimeRef.current < 30000) {
+      console.log(`[${new Date().toISOString()}] Air quality recently fetched, skipping.`);
+      return;
+    }
+    if (isFetchingAirQualityRef.current) {
+      console.log(`[${new Date().toISOString()}] Air quality fetch already in progress, skipping.`);
+      return;
+    }
+
+    isFetchingAirQualityRef.current = true;
+    lastFetchAirQualityTimeRef.current = now;
+    console.log(`[${new Date().toISOString()}] --- Starting to fetch air quality ---`);
+
+    setLoadingAirQuality(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setErrorAirPollution('Permission to access location was denied');
+        return;
+      }
+
+      const loc = await Location.getCurrentPositionAsync({});
+      const apiKey = Constants.expoConfig?.extra?.openWeatherApiKey;
+      if (!apiKey) {
+        setErrorAirPollution('API key not configured');
+        return;
+      }
+
+      const res = await fetch(
+        `http://api.openweathermap.org/data/2.5/air_pollution?lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&appid=${apiKey}`
+      );
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      const data = await res.json();
+      if (data.list && data.list.length > 0) {
+        setAirQuality({ aqi: data.list[0].main.aqi });
+        setErrorAirPollution(null);
+      } else {
+        throw new Error('No air quality data found');
+      }
+    } catch (err: any) {
+      console.error('Air quality fetch error:', err.message);
+      setErrorAirPollution('Failed to fetch air quality');
+    } finally {
+      setLoadingAirQuality(false);
+      isFetchingAirQualityRef.current = false;
+      console.log(`[${new Date().toISOString()}] --- Finished fetching air quality ---`);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
@@ -214,10 +298,11 @@ export default function Home() {
         await fetchMood();
         setTimeout(() => refetchHabits(), 500); // Fetch habits after a short delay
         setTimeout(() => fetchWeather(), 1000); // Fetch weather after a bit longer delay
+        setTimeout(() => fetchAirQuality(), 1500); // Fetch air quality after weather
       };
 
       fetchData();
-    }, [fetchMood, fetchWeather, refetchHabits])
+    }, [fetchMood, fetchWeather, refetchHabits, fetchAirQuality])
   );
 
   const handleEmergency = () => {
@@ -245,6 +330,14 @@ export default function Home() {
       value: loadingWeather ? '...' : errorMsg || (weather ? `${weather.temperature}°C, ${weather.description}` : 'No location'),
       icon: 'cloud-outline',
       color: colors.primary,
+    },
+    {
+      title: 'Air Quality',
+      value: loadingAirQuality
+        ? 'Loading...'
+        : errorAirPollution || (airQuality ? `${getAqiLabel(airQuality.aqi)} (AQI: ${airQuality.aqi})` : 'Unavailable'),
+      icon: 'leaf-outline',
+      color: airQuality ? getAqiColor(airQuality.aqi) : colors.textLight,
     },
   ];
 
