@@ -271,7 +271,7 @@ export default function Home() {
       }
 
       const res = await fetch(
-        `http://api.openweathermap.org/data/2.5/air_pollution?lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&appid=${apiKey}`
+                `https://api.openweathermap.org/data/2.5/air_pollution?lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&appid=${apiKey}`
       );
       if (!res.ok) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
