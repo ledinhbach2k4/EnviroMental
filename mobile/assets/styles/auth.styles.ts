@@ -21,6 +21,9 @@ interface AuthStyles {
   linkContainer: ViewStyle;
   linkText: TextStyle;
   link: TextStyle;
+  otpContainer: ViewStyle;
+  otpBox: ViewStyle;
+  otpText: TextStyle;
 }
 
 export const authStyles = StyleSheet.create<AuthStyles>({
@@ -110,5 +113,25 @@ export const authStyles = StyleSheet.create<AuthStyles>({
   link: {
     color: COLORS.primary,
     fontWeight: "600",
+  },
+  otpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 20,
+  },
+  otpBox: {
+    width: 50,
+    height: 60,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  otpText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.text,
   },
 });

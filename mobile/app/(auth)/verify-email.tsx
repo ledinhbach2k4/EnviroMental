@@ -1,5 +1,5 @@
 import { useSignUp, useAuth } from '@clerk/clerk-expo';
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 import { Image } from "expo-image";
 
 import { authStyles } from "../../assets/styles/auth.styles";
-import { COLORS } from "../../constants/colors";
+
 import { API_URL } from '../../constants/api';
 
 interface VerifyEmailProps {
@@ -29,6 +29,9 @@ const VerifyEmail = ({ email, username, firstName, lastName, onBack }: VerifyEma
   const { getToken } = useAuth();
   const [code, setCode] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const inputRef = useRef<TextInput>(null);
+
+  const handlePressOnOtpContainer = () => inputRef.current?.focus();
 
   const handleVerification = async (): Promise<void> => {
     if (!isLoaded) return;
@@ -103,15 +106,26 @@ const VerifyEmail = ({ email, username, firstName, lastName, onBack }: VerifyEma
           <View style={authStyles.formContainer}>
             {/* Verification Code Input */}
             <View style={authStyles.inputContainer}>
-              <TextInput
-                style={authStyles.textInput}
-                placeholder="Enter verification code"
-                placeholderTextColor={COLORS.textLight}
-                value={code}
-                onChangeText={setCode}
-                keyboardType="number-pad"
-                autoCapitalize="none"
-              />
+                <TextInput
+                    ref={inputRef}
+                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+                    value={code}
+                    onChangeText={setCode}
+                    maxLength={6}
+                    keyboardType="number-pad"
+                    autoFocus={true}
+                />
+                <TouchableOpacity onPress={handlePressOnOtpContainer} activeOpacity={1}>
+                    <View style={authStyles.otpContainer}>
+                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                        <View key={index} style={authStyles.otpBox}>
+                        <Text style={authStyles.otpText}>
+                            {code[index] || ''}
+                        </Text>
+                        </View>
+                    ))}
+                    </View>
+                </TouchableOpacity>
             </View>
 
             {/* Verify Button */}
