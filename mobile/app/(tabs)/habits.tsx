@@ -1,6 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, Platform, ActivityIndicator, Alert } from 'react-native';
 import { useState, useEffect } from 'react';
-import { LinearGradient } from 'expo-linear-gradient';
 import { commonStyles, textStyles, colors, buttonStyles } from '../../assets/styles/commonStyles';
 import Icon from '../../components/Icon';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,54 +9,103 @@ import { useSharedHabits } from '../../context/HabitsContext';
 import type { Habit } from '../../hooks/useHabits';
 
 export default function HabitsTracker() {
-  console.log(`[${new Date().toISOString()}] HabitsTracker component re-rendered.`);
-  useEffect(() => {
-    console.log(`[${new Date().toISOString()}] HabitsTracker component MOUNTED.`);
-    return () => {
-      console.log(`[${new Date().toISOString()}] HabitsTracker component UNMOUNTED.`);
-    };
-  }, []);
+  const {
+    habits,
+    loading,
+    error,
+    refetch,
+    addHabit,
+    toggleHabitCompletion,
+    deleteMultipleHabits,
+    deleteAllHabits,
+  } = useSharedHabits();
 
-  const { habits, loading, error, refetch, addHabit, toggleHabitCompletion, deleteHabit } = useSharedHabits();
   const [isAddModalVisible, setAddModalVisible] = useState(false);
   const [toggleLoading, setToggleLoading] = useState<number | null>(null);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedHabits, setSelectedHabits] = useState<number[]>([]);
+
+  // Reset selection when exiting delete mode
+  useEffect(() => {
+    if (!isDeleteMode) {
+      setSelectedHabits([]);
+    }
+  }, [isDeleteMode]);
+
+  const handleOpenAddModal = () => {
+    if (habits.length >= 10) {
+      Alert.alert(
+        "Habit Limit Reached",
+        "You can add a maximum of 10 habits. Please remove an existing habit to add a new one."
+      );
+    } else {
+      setAddModalVisible(true);
+    }
+  };
 
   const handleAddHabit = async (newHabit: { name: string; icon: keyof typeof Ionicons.glyphMap }) => {
-    await addHabit({ name: newHabit.name });
+    await addHabit({ name: newHabit.name, icon: newHabit.icon });
     setAddModalVisible(false);
   };
 
   const handleToggleHabit = async (habitId: number, currentCompleted: boolean) => {
-    console.log(`[${new Date().toISOString()}] handleToggleHabit called for habitId: ${habitId}, currentCompleted: ${currentCompleted}`);
+    if (isDeleteMode) {
+      handleSelectHabit(habitId);
+      return;
+    }
     setToggleLoading(habitId);
     try {
       await toggleHabitCompletion(habitId, currentCompleted);
-      console.log(`[${new Date().toISOString()}] toggleHabitCompletion finished for habitId: ${habitId}`);
-    } catch (_err) {
-      console.error(`[${new Date().toISOString()}] Toggle error for habitId: ${habitId}:`, _err);
+    } catch {
       Alert.alert('Error', 'Failed to toggle habit. Please try again.');
     } finally {
       setToggleLoading(null);
-      console.log(`[${new Date().toISOString()}] setToggleLoading(null) for habitId: ${habitId}`);
     }
   };
 
-  const handleDeleteHabit = (habitId: number, habitName: string) => {
+  const handleSelectHabit = (habitId: number) => {
+    setSelectedHabits(prev =>
+      prev.includes(habitId) ? prev.filter(id => id !== habitId) : [...prev, habitId]
+    );
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedHabits.length === 0) return;
     Alert.alert(
-      "Delete Habit",
-      `Are you sure you want to delete "${habitName}"? This action cannot be undone.`,
+      "Delete Selected Habits",
+      `Are you sure you want to delete ${selectedHabits.length} habit(s)? This action cannot be undone.`,
       [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
+        { text: "Cancel", style: "cancel" },
         { 
           text: "Delete", 
           onPress: async () => {
             try {
-              await deleteHabit(habitId);
-            } catch (_) {
-              Alert.alert('Error', 'Failed to delete habit. Please try again.');
+              await deleteMultipleHabits(selectedHabits);
+              setIsDeleteMode(false); // Exit delete mode on success
+            } catch {
+              Alert.alert('Error', 'Failed to delete selected habits. Please try again.');
+            }
+          },
+          style: "destructive"
+        }
+      ]
+    );
+  };
+
+  const handleDeleteAll = () => {
+    Alert.alert(
+      "Delete All Habits",
+      "Are you sure you want to delete ALL your habits? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete All", 
+          onPress: async () => {
+            try {
+              await deleteAllHabits();
+              setIsDeleteMode(false); // Exit delete mode on success
+            } catch {
+              Alert.alert('Error', 'Failed to delete all habits. Please try again.');
             }
           },
           style: "destructive"
@@ -109,6 +157,7 @@ export default function HabitsTracker() {
           <Text style={[textStyles.bodyLight, { marginTop: 8 }]}>Build healthy routines, one day at a time</Text>
         </Animated.View>
 
+        {/* Progress Card */}
         <Animated.View entering={FadeInDown.delay(100)} style={[commonStyles.card, { marginBottom: 20 }]}>
           <View style={[commonStyles.spaceBetween, { marginBottom: 16 }]}>
             <Text style={[textStyles.h3]}>Today&apos;s Progress</Text>
@@ -128,19 +177,23 @@ export default function HabitsTracker() {
             </View>
           </View>
           <View style={{ height: 8, backgroundColor: colors.border, borderRadius: 4, overflow: 'hidden' }}>
-            <View style={{ 
-              height: '100%', 
-              width: `${getCompletionRate()}%`, 
-              backgroundColor: colors.success, 
-              borderRadius: 4,
-            }} />
+            <View style={{ height: '100%', width: `${getCompletionRate()}%`, backgroundColor: colors.success, borderRadius: 4 }} />
           </View>
         </Animated.View>
 
+        {/* Habits List Card */}
         <Animated.View entering={FadeInDown.delay(200)} style={[commonStyles.card, { marginBottom: 20 }]}>
           <View style={[commonStyles.spaceBetween, { marginBottom: 16 }]}>
             <Text style={[textStyles.h3]}>Your Habits</Text>
+            {habits.length > 0 && (
+              <TouchableOpacity onPress={() => setIsDeleteMode(!isDeleteMode)} style={{ padding: 4 }}>
+                <Text style={{ color: isDeleteMode ? colors.danger : colors.primary }}>
+                  {isDeleteMode ? 'Cancel' : 'Manage'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
+
           {habits.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: 20 }}>
               <Icon name="checkmark-circle-outline" size={40} color={colors.textLight} style={{ marginBottom: 10 }} />
@@ -149,105 +202,96 @@ export default function HabitsTracker() {
               </Text>
             </View>
           ) : (
-            habits.map((habit: Habit, index: number) => (
-              <Animated.View 
-                key={habit.id}
-                entering={FadeInDown.delay(300 + index * 50)}
-              >
-                <TouchableOpacity
-                  style={[
-                    commonStyles.cardSmall,
-                    {
-                      borderWidth: 1,
-                      borderColor: habit.completedToday ? habit.color : colors.border,
-                      marginBottom: 12,
-                      backgroundColor: habit.completedToday ? habit.color + '10' : colors.card,
-                    }
-                  ]}
-                  onPress={() => handleToggleHabit(habit.id, habit.completedToday)}
-                  onLongPress={() => handleDeleteHabit(habit.id, habit.name)}
-                  disabled={toggleLoading === habit.id}
-                  activeOpacity={0.7}
-                >
-                  <View style={[commonStyles.spaceBetween, { padding: 12 }]}>
-                    <View style={[
-                      commonStyles.row, 
-                      { flex: 1, alignItems: 'center' }
-                    ]}>
-                      <View style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                        backgroundColor: habit.completedToday ? habit.color : habit.color + '20',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginRight: 12,
-                      }}>
-                        <Icon 
-                          name={habit.completedToday ? "checkmark" : habit.icon}
-                          size={20}
-                          color={habit.completedToday ? colors.backgroundAlt : habit.color}
-                        />
+            habits.map((habit: Habit, index: number) => {
+              const isSelected = selectedHabits.includes(habit.id);
+              return (
+                <Animated.View key={habit.id} entering={FadeInDown.delay(300 + index * 50)}>
+                  <TouchableOpacity
+                    style={[
+                      commonStyles.cardSmall,
+                      {
+                        borderWidth: 1,
+                        borderColor: isDeleteMode ? (isSelected ? colors.danger : colors.border) : (habit.completedToday ? habit.color : colors.border),
+                        marginBottom: 12,
+                        backgroundColor: habit.completedToday ? habit.color + '10' : colors.card,
+                        opacity: toggleLoading === habit.id ? 0.5 : 1,
+                      }
+                    ]}
+                    onPress={() => handleToggleHabit(habit.id, habit.completedToday)}
+                    disabled={toggleLoading === habit.id}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[commonStyles.spaceBetween, { padding: 12 }]}>
+                      <View style={[commonStyles.row, { flex: 1, alignItems: 'center' }]}>
+                        <View style={{
+                          width: 40, height: 40, borderRadius: 20,
+                          backgroundColor: habit.completedToday ? habit.color : habit.color + '20',
+                          alignItems: 'center', justifyContent: 'center', marginRight: 12,
+                        }}>
+                          <Icon 
+                            name={habit.completedToday ? "checkmark" : habit.icon}
+                            size={20}
+                            color={habit.completedToday ? colors.backgroundAlt : habit.color}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[
+                            textStyles.body,
+                            { 
+                              textDecorationLine: habit.completedToday ? 'line-through' : 'none',
+                              color: habit.completedToday ? colors.textLight : colors.text
+                            }
+                          ]}>
+                            {habit.name}
+                          </Text>
+                          <Text style={textStyles.caption}>{habit.streak} day streak</Text>
+                        </View>
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[
-                          textStyles.body,
-                          { 
-                            textDecorationLine: habit.completedToday ? 'line-through' : 'none',
-                            color: habit.completedToday ? colors.textLight : colors.text
-                          }
-                        ]}>
-                          {habit.name}
-                        </Text>
-                        <Text style={textStyles.caption}>{habit.streak} day streak</Text>
-                      </View>
+                      {toggleLoading === habit.id && <ActivityIndicator size="small" color={colors.primary} />}
+                      <Icon 
+                        name={isDeleteMode 
+                          ? (isSelected ? "checkbox" : "square-outline")
+                          : (habit.completedToday ? "checkmark-circle" : "ellipse-outline")}
+                        size={24}
+                        color={isDeleteMode 
+                          ? (isSelected ? colors.danger : colors.border)
+                          : (habit.completedToday ? habit.color : colors.border)}
+                      />
                     </View>
-                    {toggleLoading === habit.id && <ActivityIndicator size="small" color={colors.primary} />}
-                    <Icon 
-                      name={habit.completedToday ? "checkmark-circle" : "ellipse-outline"}
-                      size={24}
-                      color={habit.completedToday ? habit.color : colors.border}
-                    />
-                  </View>
-                </TouchableOpacity>
-              </Animated.View>
-            ))
+                  </TouchableOpacity>
+                </Animated.View>
+              )
+            })
           )}
-          <View style={[commonStyles.row, { justifyContent: 'space-between', marginTop: 12 }]}>
+
+          {isDeleteMode ? (
+            <View style={[commonStyles.row, { justifyContent: 'space-between', marginTop: 12, gap: 10 }]}>
               <TouchableOpacity 
-                style={[buttonStyles.primary, { flex: 1 }]}
-                onPress={() => setAddModalVisible(true)}
+                style={[buttonStyles.danger, { flex: 1 }, selectedHabits.length === 0 && commonStyles.disabled]} 
+                onPress={handleDeleteSelected}
+                disabled={selectedHabits.length === 0}
               >
-                <Text style={textStyles.button}>Add New Habit</Text>
+                <Text style={textStyles.button}>Delete</Text>
               </TouchableOpacity>
-          </View>
+              <TouchableOpacity 
+                style={[buttonStyles.dangerOutline, { flex: 1 }]} 
+                onPress={handleDeleteAll}
+              >
+                <Text style={[textStyles.button, { color: colors.danger }]}>Delete All</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity 
+              style={[buttonStyles.primary, { marginTop: 12 }]} 
+              onPress={handleOpenAddModal}
+            >
+              <Text style={textStyles.button}>Add New Habit</Text>
+            </TouchableOpacity>
+          )}
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(400)} style={[commonStyles.card, { marginBottom: 20 }]}>
-          <LinearGradient 
-            colors={[colors.success + '20', colors.primary + '20']} 
-            style={{ borderRadius: 16, padding: 20 }}
-          >
-            <Icon name="trophy" size={24} color={colors.success} style={{ marginBottom: 8 }} />
-            <Text style={[textStyles.h3, { marginBottom: 8 }]}>Keep Going!</Text>
-            <Text style={textStyles.body}>
-              {getCompletionRate() === 100 
-                ? "Amazing! You&#39;ve completed all your habits! 🎉"
-                : getCompletionRate() >= 50
-                ? "You&apos;re doing great! Keep up the momentum! 💪"
-                : "Every small step counts. You&apos;ve got this! 🌟"
-              }
-            </Text>
-          </LinearGradient>
-        </Animated.View>
+        {/* Tip Cards... */}
 
-        <Animated.View entering={FadeInDown.delay(500)} style={[commonStyles.card, { marginBottom: 20 }]}>
-          <Icon name="bulb" size={24} color={colors.warning} style={{ marginBottom: 8 }} />
-          <Text style={[textStyles.h3, { marginBottom: 8 }]}>Habit Building Tip</Text>
-          <Text style={textStyles.body}>
-            Start small and be consistent. It&apos;s better to do a 5-minute habit every day than a 1-hour habit once a week.
-          </Text>
-        </Animated.View>
       </ScrollView>
       <AddHabitModal
         visible={isAddModalVisible}

@@ -45,7 +45,7 @@ router.get("/", authMiddleware, userLookupMiddleware, async (req, res) => {
 
 // Create a new habit
 router.post("/", authMiddleware, userLookupMiddleware, async (req, res) => {
-  const { name, description } = req.body;
+  const { name, description, icon } = req.body;
 
   if (!req.internalUserId) {
     return res.status(400).json({ error: "User ID is missing" });
@@ -55,7 +55,7 @@ router.post("/", authMiddleware, userLookupMiddleware, async (req, res) => {
     console.log("Creating habit for userId:", req.internalUserId, "name:", name);
     const [habit] = await db
       .insert(schema.habits)
-      .values({ userId: req.internalUserId, name, description }) // Changed to internalUserId
+      .values({ userId: req.internalUserId, name, description, icon })
       .returning();
 
     console.log("Habit created:", habit);

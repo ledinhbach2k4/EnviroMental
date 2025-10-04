@@ -7,9 +7,11 @@ interface HabitsContextType {
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
-  addHabit: (newHabit: { name: string }) => Promise<void>;
+  addHabit: (newHabit: { name: string; icon: string }) => Promise<void>;
   toggleHabitCompletion: (habitId: number, completed: boolean) => Promise<void>;
   deleteHabit: (habitId: number) => Promise<void>;
+  deleteMultipleHabits: (habitIds: number[]) => Promise<void>;
+  deleteAllHabits: () => Promise<void>;
 }
 
 const HabitsContext = createContext<HabitsContextType | undefined>(undefined);

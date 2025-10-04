@@ -83,6 +83,26 @@ export const buttonStyles = StyleSheet.create({
     paddingHorizontal: 40,
     borderRadius: 30,
   },
+  danger: {
+    backgroundColor: colors.danger,
+    borderRadius: 25,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: `0px 4px 12px ${colors.shadow}`,
+    elevation: 4,
+  },
+  dangerOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: colors.danger,
+    borderRadius: 25,
+    paddingVertical: 13,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 export const textStyles = StyleSheet.create({
@@ -205,6 +225,9 @@ export const commonStyles = StyleSheet.create({
     justifyContent: 'center',
     boxShadow: `0px 6px 16px ${colors.shadow}`,
     elevation: 6,
+  },
+  disabled: {
+    opacity: 0.5,
   },
 
 });

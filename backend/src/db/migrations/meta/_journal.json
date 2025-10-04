@@ -43,6 +43,27 @@
       "when": 1756805736801,
       "tag": "0005_naive_toxin",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1759574254549,
+      "tag": "0006_purple_galactus",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1759575345863,
+      "tag": "0007_cute_alice",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1759576268969,
+      "tag": "0008_low_crystal",
+      "breakpoints": true
     }
   ]
 }

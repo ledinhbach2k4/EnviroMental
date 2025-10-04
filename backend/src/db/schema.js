@@ -25,6 +25,7 @@ export const habits = pgTable("habits", {
   userId: integer("user_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
   description: text("description"),
+  icon: text("icon"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

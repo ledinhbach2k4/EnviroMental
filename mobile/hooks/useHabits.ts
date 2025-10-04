@@ -108,14 +108,14 @@ export const useHabits = () => {
   // useFocusEffect has been removed from this hook.
   // The component using this hook is now responsible for triggering the refetch on focus.
 
-  const addHabit = async ({ name }: { name: string }) => {
+  const addHabit = async ({ name, icon }: { name: string; icon: string }) => {
     // This function can remain mostly the same, but will trigger the improved fetch
     try {
       const token = await getToken();
       await fetch(`${API_URL}/habits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, icon }),
       });
       lastFetchTimeRef.current = 0; // Reset timer to allow immediate refetch
       await fetchHabitsAndLogs();
@@ -197,7 +197,64 @@ export const useHabits = () => {
     }
   };
 
-  return { habits, loading, error, refetch: fetchHabitsAndLogs, addHabit, toggleHabitCompletion, deleteHabit };
+  const deleteMultipleHabits = async (habitIds: number[]) => {
+    const originalHabits = [...habits];
+    setHabits(prevHabits => prevHabits.filter(habit => !habitIds.includes(habit.id)));
+
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Authentication token is missing.");
+
+      const deletePromises = habitIds.map(id => 
+        fetch(`${API_URL}/habits/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      );
+
+      const results = await Promise.all(deletePromises);
+      
+      // Check if any of the deletions failed
+      if (results.some(res => !res.ok)) {
+        // This is a simplified error handling. A more robust solution might
+        // try to figure out which ones failed and only revert those.
+        throw new Error('One or more habits could not be deleted.');
+      }
+      
+    } catch (err: any) {
+      console.error(`useHabits: Error deleting multiple habits:`, err);
+      setError(err.message);
+      setHabits(originalHabits); // Rollback on error
+      throw err;
+    }
+  };
+
+  const deleteAllHabits = async () => {
+    const originalHabits = [...habits];
+    const allHabitIds = originalHabits.map(h => h.id);
+    setHabits([]);
+
+    try {
+      await deleteMultipleHabits(allHabitIds);
+    } catch (err: any) {
+      console.error(`useHabits: Error deleting all habits:`, err);
+      // The error state and rollback is handled by deleteMultipleHabits
+      // so we just re-throw the error.
+      throw err;
+    }
+  };
+
+  return { 
+    habits, 
+    loading, 
+    error, 
+    refetch: fetchHabitsAndLogs, 
+    addHabit, 
+    toggleHabitCompletion, 
+    deleteHabit,
+    deleteMultipleHabits,
+    deleteAllHabits
+  };
 };
 
 function calculateStreak(habitId: number, logs: any[]): number {

@@ -49,7 +49,7 @@ const additionalIcons: (keyof typeof Ionicons.glyphMap)[] = [
 
 export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModalProps) {
   const [habitName, setHabitName] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState<keyof typeof Ionicons.glyphMap>('water-outline');
+  const [selectedIcon, setSelectedIcon] = useState<keyof typeof Ionicons.glyphMap>('walk-outline');
   const [error, setError] = useState('');
   const [showMoreIcons, setShowMoreIcons] = useState(false);
 
