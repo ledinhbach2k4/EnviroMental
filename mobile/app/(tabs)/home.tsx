@@ -6,6 +6,7 @@ import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Dimensions,
   Platform,
   ScrollView,
   StyleProp,
@@ -14,6 +15,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
 import { colors, commonStyles, textStyles } from '../../assets/styles/commonStyles';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
@@ -91,6 +93,8 @@ export default function Home() {
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mood, setMood] = useState<MoodData | null>(null);
+  const [loadingMood, setLoadingMood] = useState(true);
+  const [moodChartData, setMoodChartData] = useState<any>(null);
   const [airQuality, setAirQuality] = useState<AirQualityData | null>(null);
   const [loadingAirQuality, setLoadingAirQuality] = useState(true);
   const [errorAirPollution, setErrorAirPollution] = useState<string | null>(null);
@@ -137,19 +141,18 @@ export default function Home() {
 
   const fetchMood = useCallback(async () => {
     const now = Date.now();
-    // Cooldown: Do not fetch if the last fetch was less than 30 seconds ago
     if (now - lastFetchMoodTimeRef.current < 30000) {
       console.log(`[${new Date().toISOString()}] Mood recently fetched, skipping due to 30s cooldown.`);
       return;
     }
-    // Prevent concurrent fetches
     if (isFetchingMoodRef.current) {
       console.log(`[${new Date().toISOString()}] Mood fetch already in progress, skipping.`);
       return;
     }
 
     isFetchingMoodRef.current = true;
-    lastFetchMoodTimeRef.current = now; // Update last fetch time immediately
+    lastFetchMoodTimeRef.current = now;
+    setLoadingMood(true);
     console.log(`[${new Date().toISOString()}] --- Starting to fetch mood ---`);
 
     try {
@@ -160,33 +163,52 @@ export default function Home() {
       console.log('Mood API response status:', res.status);
 
       if (!res.ok) {
-        const errorBody = await res.text(); // Read as text first
+        const errorBody = await res.text();
         console.error(`Failed to fetch mood. Status: ${res.status}, Body: ${errorBody}`);
         if (res.status === 404) {
-            setMood(null); // No mood logged yet, which is a valid state
+          setMood(null);
+          setMoodChartData(null);
         } else if (res.status === 429) {
-            console.warn("Rate limit hit for mood API:", errorBody);
-            // Optionally, set a specific error state or message for the user
+          console.warn("Rate limit hit for mood API:", errorBody);
         }
-        return; // Stop execution
+        return;
       }
 
-      const entries = await res.json(); // Only parse as JSON if res.ok
+      const entries = await res.json();
       console.log('Mood API response data:', entries);
 
       if (entries && entries.length > 0) {
         const latestMood = entries[entries.length - 1];
         const newMood = { value: moodEmojis[latestMood.moodLevel], color: moodColors[latestMood.moodLevel] };
-        console.log('Setting new mood:', newMood);
         setMood(newMood);
+
+        // Prepare data for the chart
+        const chartLabels = entries.map(e => new Date(e.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+        const chartDataPoints = entries.map(e => e.moodLevel);
+
+        setMoodChartData({
+          labels: chartLabels,
+          datasets: [
+            {
+              data: chartDataPoints,
+              color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`, // optional
+              strokeWidth: 2 // optional
+            }
+          ],
+          legend: ["Daily Mood Trend"] // optional
+        });
+
       } else {
         console.log('No mood entries found, setting mood to null');
         setMood(null);
+        setMoodChartData(null);
       }
     } catch (error) {
       console.error(`Error fetching today's mood:`, error);
+      setMoodChartData(null);
     } finally {
       isFetchingMoodRef.current = false;
+      setLoadingMood(false);
       console.log(`[${new Date().toISOString()}] --- Finished fetching mood ---`);
     }
   }, [getToken]);
@@ -377,6 +399,46 @@ export default function Home() {
             ))}
           </CardWrapper>
         </View>
+
+        {loadingMood ? (
+          <View style={[commonStyles.card, { marginBottom: 24, justifyContent: 'center', alignItems: 'center' }]}>
+            <Text>Loading mood chart...</Text>
+          </View>
+        ) : moodChartData && moodChartData.datasets[0].data.length > 0 ? (
+          <View style={[commonStyles.card, { marginBottom: 24 }]}>
+            <Text style={textStyles.h3}>Daily Mood Chart</Text>
+            <LineChart
+              data={moodChartData}
+              width={Dimensions.get('window').width - 80} // from react-native
+              height={220}
+              chartConfig={{
+                backgroundColor: '#ffffff',
+                backgroundGradientFrom: '#ffffff',
+                backgroundGradientTo: '#ffffff',
+                decimalPlaces: 0,
+                color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                style: {
+                  borderRadius: 16,
+                },
+                propsForDots: {
+                  r: '6',
+                  strokeWidth: '2',
+                  stroke: colors.primary,
+                },
+              }}
+              bezier
+              style={{
+                marginVertical: 8,
+                borderRadius: 16,
+              }}
+            />
+          </View>
+        ) : (
+          <View style={[commonStyles.card, { marginBottom: 24, justifyContent: 'center', alignItems: 'center' }]}>
+            <Text>No mood data for today to display chart.</Text>
+          </View>
+        )}
 
         <View style={{ marginBottom: 24 }}>
           <TouchableOpacity style={[commonStyles.card, { marginBottom: 12 }]} onPress={() => router.push('/mood' as any)}>
