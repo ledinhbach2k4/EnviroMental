@@ -45,6 +45,11 @@ interface AirQualityData {
   aqi: number;
 }
 
+interface MoodEntry {
+  moodLevel: number;
+  createdAt: string;
+}
+
 const moodEmojis = ['😢', '😕', '😐', '😊', '😄'];
 const moodColors = [colors.moodVerySad, colors.moodSad, colors.moodNeutral, colors.moodHappy, colors.moodVeryHappy];
 
@@ -174,7 +179,7 @@ export default function Home() {
         return;
       }
 
-      const entries = await res.json();
+      const entries: MoodEntry[] = await res.json();
       console.log('Mood API response data:', entries);
 
       if (entries && entries.length > 0) {
