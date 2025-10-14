@@ -51,24 +51,26 @@ export default function MoodTracker() {
     return { canLog: true, reason: null };
   };
 
-  const updateTimeToNextLog = useCallback(() => {
-    if (lastLogTime) {
-      const nextLogTime = lastLogTime + LOG_INTERVAL_HOURS * 60 * 60 * 1000;
-      const now = Date.now();
-      if (now < nextLogTime) {
-        const diffMinutes = Math.ceil((nextLogTime - now) / (1000 * 60));
-        setTimeToNextLog(`You can log again in ${diffMinutes} minutes.`);
+  useEffect(() => {
+    const update = () => {
+      if (lastLogTime) {
+        const nextLogTime = lastLogTime + LOG_INTERVAL_HOURS * 60 * 60 * 1000;
+        const now = Date.now();
+        if (now < nextLogTime) {
+          const diffMinutes = Math.ceil((nextLogTime - now) / (1000 * 60));
+          setTimeToNextLog(`You can log again in ${diffMinutes} minutes.`);
+        } else {
+          setTimeToNextLog('');
+        }
       } else {
         setTimeToNextLog('');
       }
-    }
-  }, [lastLogTime]);
+    };
 
-  useEffect(() => {
-    updateTimeToNextLog();
-    const interval = setInterval(updateTimeToNextLog, 60000); // Update every minute
+    update();
+    const interval = setInterval(update, 60000); // Update every minute
     return () => clearInterval(interval);
-  }, [updateTimeToNextLog]);
+  }, [lastLogTime]);
 
   const loadMoodData = useCallback(async (force = false) => {
     if (!getToken) return;
@@ -94,7 +96,7 @@ export default function MoodTracker() {
       const entries: MoodEntry[] = await res.json();
       // Sort entries by creation date, newest first
       const sortedEntries = entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setRecentEntries(sortedEntries.slice(0, 7));
+      setRecentEntries(sortedEntries.slice(0, 5));
 
       const todayString = new Date().toDateString();
       const todaysEntries = sortedEntries.filter(entry => new Date(entry.createdAt).toDateString() === todayString);
@@ -224,7 +226,7 @@ export default function MoodTracker() {
               </View>
 
               <View style={{ marginBottom: 20 }}>
-                <Text style={[textStyles.body, { marginBottom: 12 }]}>What's affecting your mood?</Text>
+                <Text style={[textStyles.body, { marginBottom: 12 }]}>What&apos;s affecting your mood?</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                   {moodFactors.map((factor) => (
                     <TouchableOpacity
@@ -256,7 +258,7 @@ export default function MoodTracker() {
               </Text>
               <Text style={textStyles.body}>
                 {reason === 'limit'
-                  ? `You've reached the maximum of ${MAX_LOGS_PER_DAY} logs for today.`
+                  ? 'You&apos;ve reached the maximum of ' + MAX_LOGS_PER_DAY + ' logs for today.'
                   : timeToNextLog}
               </Text>
             </View>
@@ -268,7 +270,7 @@ export default function MoodTracker() {
             <Text style={[textStyles.h3, { marginBottom: 16 }]}>Your Mood Insights</Text>
             <View style={[commonStyles.cardSmall, { backgroundColor: colors.primary + '10' }]}>
               <View style={commonStyles.spaceBetween}>
-                <Text style={textStyles.body}>Average Mood (last 7 entries)</Text>
+                <Text style={textStyles.body}>Average Mood (last 5 entries)</Text>
                 <View style={commonStyles.row}>
                   <Text style={[textStyles.h3, { color: colors.primary, marginRight: 8 }]}>
                     {moodEmojis[Math.round(getAverageMood())]}
