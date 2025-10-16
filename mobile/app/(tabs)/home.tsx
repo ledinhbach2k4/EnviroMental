@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   Platform,
@@ -23,6 +23,7 @@ import { API_URL } from '../../constants/api';
 import { useSharedHabits } from '../../context/HabitsContext';
 import type { Habit } from '../../hooks/useHabits';
 
+// Interfaces
 interface QuickStat {
   title: string;
   value: string;
@@ -50,9 +51,13 @@ interface MoodEntry {
   createdAt: string;
 }
 
+// Constants
 const moodEmojis = ['😢', '😕', '😐', '😊', '😄'];
 const moodColors = [colors.moodVerySad, colors.moodSad, colors.moodNeutral, colors.moodHappy, colors.moodVeryHappy];
+const TIME_RANGES = ['Day', 'Week', 'Month', 'Year'] as const;
+type TimeRange = typeof TIME_RANGES[number];
 
+// Helper Functions
 const getAqiLabel = (aqi: number) => {
   switch (aqi) {
     case 1: return 'Good';
@@ -76,22 +81,14 @@ const getAqiColor = (aqi: number) => {
 };
 
 const CardContent = ({ children }: { children: React.ReactNode }) => <>{children}</>;
-
 const AndroidCardContent = ({ style, children }: { style?: StyleProp<ViewStyle>; children: React.ReactNode }) => (
   <View style={style}>{children}</View>
 );
-
 const CardWrapper = Platform.OS === 'android' ? AndroidCardContent : CardContent;
 
+// Main Component
 export default function Home() {
-  console.log(`[${new Date().toISOString()}] Home component re-rendered.`);
-  useEffect(() => {
-    console.log(`[${new Date().toISOString()}] Home component MOUNTED.`);
-    return () => {
-      console.log(`[${new Date().toISOString()}] Home component UNMOUNTED.`);
-    };
-  }, []);
-
+  // State
   const [greeting, setGreeting] = useState('');
   const [greetingIcon, setGreetingIcon] = useState<keyof typeof Ionicons.glyphMap>('sunny-outline');
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -99,26 +96,25 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mood, setMood] = useState<MoodData | null>(null);
   const [loadingMood, setLoadingMood] = useState(true);
-  const [moodChartData, setMoodChartData] = useState<any>(null);
+  const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRange>('Day');
   const [airQuality, setAirQuality] = useState<AirQualityData | null>(null);
   const [loadingAirQuality, setLoadingAirQuality] = useState(true);
   const [errorAirPollution, setErrorAirPollution] = useState<string | null>(null);
 
+  // Hooks
   const { getToken } = useAuth();
   const { habits, loading: habitsLoading, refetch: refetchHabits } = useSharedHabits();
 
-  // Refs for fetchMood cooldown
+  // Cooldown Refs
   const isFetchingMoodRef = useRef(false);
   const lastFetchMoodTimeRef = useRef(0);
-
-  // Refs for fetchWeather cooldown
   const isFetchingWeatherRef = useRef(false);
   const lastFetchWeatherTimeRef = useRef(0);
-
-  // Refs for fetchAirQuality cooldown
   const isFetchingAirQualityRef = useRef(false);
   const lastFetchAirQualityTimeRef = useRef(0);
 
+  // Effects
   useEffect(() => {
     const updateGreeting = () => {
       const hour = new Date().getHours();
@@ -136,105 +132,65 @@ export default function Home() {
         setGreetingIcon('moon-outline');
       }
     };
-
-    updateGreeting(); // Set the initial greeting
-    const intervalId = setInterval(updateGreeting, 60000); // Update every minute
-
-    // Clear the interval when the component unmounts
+    updateGreeting();
+    const intervalId = setInterval(updateGreeting, 60000);
     return () => clearInterval(intervalId);
   }, []);
 
+  // Data Fetching
   const fetchMood = useCallback(async () => {
     const now = Date.now();
-    if (now - lastFetchMoodTimeRef.current < 30000) {
-      console.log(`[${new Date().toISOString()}] Mood recently fetched, skipping due to 30s cooldown.`);
-      return;
-    }
-    if (isFetchingMoodRef.current) {
-      console.log(`[${new Date().toISOString()}] Mood fetch already in progress, skipping.`);
-      return;
-    }
+    if (now - lastFetchMoodTimeRef.current < 30000) return;
+    if (isFetchingMoodRef.current) return;
 
     isFetchingMoodRef.current = true;
     lastFetchMoodTimeRef.current = now;
     setLoadingMood(true);
-    console.log(`[${new Date().toISOString()}] --- Starting to fetch mood ---`);
 
     try {
       const token = await getToken();
       if (!token) return;
 
       const res = await fetch(`${API_URL}/moods`, { headers: { Authorization: `Bearer ${token}` } });
-      console.log('Mood API response status:', res.status);
-
       if (!res.ok) {
-        const errorBody = await res.text();
-        console.error(`Failed to fetch mood. Status: ${res.status}, Body: ${errorBody}`);
         if (res.status === 404) {
+          setMoodEntries([]);
           setMood(null);
-          setMoodChartData(null);
-        } else if (res.status === 429) {
-          console.warn("Rate limit hit for mood API:", errorBody);
         }
         return;
       }
 
       const entries: MoodEntry[] = await res.json();
-      console.log('Mood API response data:', entries);
+      const sortedEntries = entries.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      setMoodEntries(sortedEntries);
 
-      if (entries && entries.length > 0) {
-        const latestMood = entries[entries.length - 1];
-        const newMood = { value: moodEmojis[latestMood.moodLevel], color: moodColors[latestMood.moodLevel] };
-        setMood(newMood);
-
-        // Prepare data for the chart
-        const chartLabels = entries.map(e => new Date(e.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
-        const chartDataPoints = entries.map(e => e.moodLevel);
-
-        setMoodChartData({
-          labels: chartLabels,
-          datasets: [
-            {
-              data: chartDataPoints,
-              color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`, // optional
-              strokeWidth: 2 // optional
-            }
-          ],
-          legend: ["Daily Mood Trend"] // optional
-        });
-
+      if (sortedEntries.length > 0) {
+        const latestMood = sortedEntries[sortedEntries.length - 1];
+        setMood({ value: moodEmojis[latestMood.moodLevel], color: moodColors[latestMood.moodLevel] });
       } else {
-        console.log('No mood entries found, setting mood to null');
         setMood(null);
-        setMoodChartData(null);
       }
     } catch (error) {
-      console.error(`Error fetching today's mood:`, error);
-      setMoodChartData(null);
+      console.error(`Error fetching mood:`, error);
+      setMoodEntries([]);
+      setMood(null);
     } finally {
       isFetchingMoodRef.current = false;
       setLoadingMood(false);
-      console.log(`[${new Date().toISOString()}] --- Finished fetching mood ---`);
     }
   }, [getToken]);
 
   const fetchWeather = useCallback(async () => {
     const now = Date.now();
-    // Cooldown: Do not fetch if the last fetch was less than 30 seconds ago
     if (now - lastFetchWeatherTimeRef.current < 30000) {
-      console.log(`[${new Date().toISOString()}] Weather recently fetched, skipping due to 30s cooldown.`);
       return;
     }
-    // Prevent concurrent fetches
     if (isFetchingWeatherRef.current) {
-      console.log(`[${new Date().toISOString()}] Weather fetch already in progress, skipping.`);
       return;
     }
 
     isFetchingWeatherRef.current = true;
-    lastFetchWeatherTimeRef.current = now; // Update last fetch time immediately
-    console.log(`[${new Date().toISOString()}] --- Starting to fetch weather ---`);
-
+    lastFetchWeatherTimeRef.current = now;
     setLoadingWeather(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -263,25 +219,20 @@ export default function Home() {
     } finally {
       setLoadingWeather(false);
       isFetchingWeatherRef.current = false;
-      console.log(`[${new Date().toISOString()}] --- Finished fetching weather ---`);
     }
   }, []);
 
   const fetchAirQuality = useCallback(async () => {
     const now = Date.now();
     if (now - lastFetchAirQualityTimeRef.current < 30000) {
-      console.log(`[${new Date().toISOString()}] Air quality recently fetched, skipping.`);
       return;
     }
     if (isFetchingAirQualityRef.current) {
-      console.log(`[${new Date().toISOString()}] Air quality fetch already in progress, skipping.`);
       return;
     }
 
     isFetchingAirQualityRef.current = true;
     lastFetchAirQualityTimeRef.current = now;
-    console.log(`[${new Date().toISOString()}] --- Starting to fetch air quality ---`);
-
     setLoadingAirQuality(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -314,28 +265,108 @@ export default function Home() {
     } finally {
       setLoadingAirQuality(false);
       isFetchingAirQualityRef.current = false;
-      console.log(`[${new Date().toISOString()}] --- Finished fetching air quality ---`);
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
-        // Stagger the API calls to avoid hitting rate limits
         await fetchMood();
-        setTimeout(() => refetchHabits(), 500); // Fetch habits after a short delay
-        setTimeout(() => fetchWeather(), 1000); // Fetch weather after a bit longer delay
-        setTimeout(() => fetchAirQuality(), 1500); // Fetch air quality after weather
+        setTimeout(() => refetchHabits(), 500);
+        setTimeout(() => fetchWeather(), 1000);
+        setTimeout(() => fetchAirQuality(), 1500);
       };
-
       fetchData();
     }, [fetchMood, fetchWeather, refetchHabits, fetchAirQuality])
   );
 
-  const handleEmergency = () => {
-    router.push('/emergency' as any);
-  };
+  // Chart Data Processing
+  const processedChartData = useMemo(() => {
+    if (moodEntries.length === 0) return null;
 
+    const now = new Date();
+    let labels: string[] = [];
+    let dataPoints: (number | null)[] = [];
+
+    switch (timeRange) {
+      case 'Day': {
+        const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const dayEntries = moodEntries.filter(e => new Date(e.createdAt) > oneDayAgo);
+        const recentEntries = dayEntries.slice(-10); // Limit to last 10 entries for clarity
+        labels = recentEntries.map(e => new Date(e.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+        dataPoints = recentEntries.map(e => e.moodLevel);
+        break;
+      }
+      case 'Week': {
+        const weekData = Array(7).fill(null);
+        const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const today = now.getDay();
+        labels = Array(7).fill(0).map((_, i) => dayLabels[(today - 6 + i + 7) % 7]);
+
+        for (let i = 0; i < 7; i++) {
+          const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+          const dayEntries = moodEntries.filter(e => new Date(e.createdAt).toDateString() === day.toDateString());
+          if (dayEntries.length > 0) {
+            const avg = dayEntries.reduce((sum, e) => sum + e.moodLevel, 0) / dayEntries.length;
+            weekData[6 - i] = avg;
+          }
+        }
+        dataPoints = weekData;
+        break;
+      }
+      case 'Month': {
+        const monthData = Array(30).fill(null);
+        labels = Array(30).fill(0).map((_, i) => `${new Date(now.getFullYear(), now.getMonth(), now.getDate() - (29 - i)).getDate()}`);
+
+        for (let i = 0; i < 30; i++) {
+          const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+          const dayEntries = moodEntries.filter(e => new Date(e.createdAt).toDateString() === day.toDateString());
+          if (dayEntries.length > 0) {
+            const avg = dayEntries.reduce((sum, e) => sum + e.moodLevel, 0) / dayEntries.length;
+            monthData[29 - i] = avg;
+          }
+        }
+        dataPoints = monthData;
+        break;
+      }
+      case 'Year': {
+        const yearData = Array(12).fill(null);
+        const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const currentMonth = now.getMonth();
+        labels = Array(12).fill(0).map((_, i) => monthLabels[(currentMonth - 11 + i + 12) % 12]);
+
+        for (let i = 0; i < 12; i++) {
+          const month = (now.getMonth() - i + 12) % 12;
+          const year = now.getFullYear() - (i > now.getMonth() ? 1 : 0);
+          const monthEntries = moodEntries.filter(e => {
+            const d = new Date(e.createdAt);
+            return d.getMonth() === month && d.getFullYear() === year;
+          });
+          if (monthEntries.length > 0) {
+            const avg = monthEntries.reduce((sum, e) => sum + e.moodLevel, 0) / monthEntries.length;
+            yearData[11 - i] = avg;
+          }
+        }
+        dataPoints = yearData;
+        break;
+      }
+    }
+
+    if (dataPoints.every(p => p === null)) return null;
+
+    return {
+      labels,
+      datasets: [{
+        data: dataPoints.map(p => p ?? 0), // Replace null with 0 for chart
+        color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+        strokeWidth: 2,
+      }],
+      legend: [`${timeRange}ly Mood Trend`]
+    };
+  }, [moodEntries, timeRange]);
+
+  // Other Logic
+  const handleEmergency = () => router.push('/emergency' as any);
   const completedHabits = habits.filter((h: Habit) => h.completedToday).length;
   const totalHabits = habits.length;
 
@@ -368,6 +399,7 @@ export default function Home() {
     },
   ];
 
+  // Render
   return (
     <View style={[commonStyles.container, { paddingTop: Platform.OS === 'ios' ? 40 : 20 }]}>
       <ScrollView
@@ -409,42 +441,58 @@ export default function Home() {
           <View style={[commonStyles.card, { marginBottom: 24, justifyContent: 'center', alignItems: 'center' }]}>
             <Text>Loading mood chart...</Text>
           </View>
-        ) : moodChartData && moodChartData.datasets[0].data.length > 0 ? (
+        ) : processedChartData ? (
           <View style={[commonStyles.card, { marginBottom: 24 }]}>
-            <Text style={textStyles.h3}>Daily Mood Chart</Text>
+            <View style={commonStyles.spaceBetween}>
+              <Text style={textStyles.h3}>{timeRange}ly Mood Chart</Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 16 }}>
+              {TIME_RANGES.map(range => (
+                <TouchableOpacity
+                  key={range}
+                  onPress={() => setTimeRange(range)}
+                  style={{
+                    paddingVertical: 6,
+                    paddingHorizontal: 12,
+                    borderRadius: 16,
+                    backgroundColor: timeRange === range ? colors.primary : 'transparent',
+                  }}
+                >
+                  <Text style={{ color: timeRange === range ? 'white' : colors.primary, fontWeight: '600' }}>{range}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <LineChart
-              data={moodChartData}
-              width={Dimensions.get('window').width - 80} // from react-native
+              data={processedChartData}
+              width={Dimensions.get('window').width - 80}
               height={220}
+              yAxisLabel=""
+              yAxisSuffix=""
               chartConfig={{
                 backgroundColor: '#ffffff',
                 backgroundGradientFrom: '#ffffff',
                 backgroundGradientTo: '#ffffff',
-                decimalPlaces: 0,
+                decimalPlaces: 1,
                 color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                 labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                style: {
-                  borderRadius: 16,
-                },
-                propsForDots: {
-                  r: '6',
-                  strokeWidth: '2',
-                  stroke: colors.primary,
-                },
+                style: { borderRadius: 16 },
+                propsForDots: { r: '4', strokeWidth: '2', stroke: colors.primary },
+                propsForBackgroundLines: { strokeDasharray: '' }, // solid lines
               }}
               bezier
-              style={{
-                marginVertical: 8,
-                borderRadius: 16,
-              }}
+              style={{ marginVertical: 8, borderRadius: 16 }}
+              fromZero
+              // This function formats the labels on the Y-axis
+              formatYLabel={(y) => Math.round(parseFloat(y)).toString()}
             />
           </View>
         ) : (
           <View style={[commonStyles.card, { marginBottom: 24, justifyContent: 'center', alignItems: 'center' }]}>
-            <Text>No mood data for today to display chart.</Text>
+            <Text>No mood data available to display chart.</Text>
           </View>
         )}
 
+        {/* Rest of the UI remains the same */}
         <View style={{ marginBottom: 24 }}>
           <TouchableOpacity style={[commonStyles.card, { marginBottom: 12 }]} onPress={() => router.push('/mood' as any)}>
             <CardWrapper>

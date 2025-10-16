@@ -36,6 +36,7 @@ export default function MoodTracker() {
   const [lastLogTime, setLastLogTime] = useState<number | null>(null);
   const [timeToNextLog, setTimeToNextLog] = useState('');
   const [lastFetched, setLastFetched] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { getToken } = useAuth();
 
   const canLogNow = () => {
@@ -128,6 +129,9 @@ export default function MoodTracker() {
       Alert.alert('Please select a mood', 'Choose how you are feeling');
       return;
     }
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
 
     const newEntry = {
       moodLevel: selectedMood,
@@ -160,6 +164,8 @@ export default function MoodTracker() {
     } catch (error) {
       console.log('Error saving mood:', error);
       Alert.alert('Error', 'Failed to save your mood entry');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -213,6 +219,7 @@ export default function MoodTracker() {
                         borderColor: selectedMood === index ? moodColors[index] : colors.border,
                       }}
                       onPress={() => setSelectedMood(index)}
+                      disabled={isSubmitting}
                     >
                       <Text style={{ fontSize: 24 }}>{emoji}</Text>
                     </TouchableOpacity>
@@ -239,6 +246,7 @@ export default function MoodTracker() {
                         marginRight: 8, marginBottom: 8,
                       }}
                       onPress={() => toggleFactor(factor)}
+                      disabled={isSubmitting}
                     >
                       <Text style={{ color: selectedFactors.includes(factor) ? colors.primary : colors.textLight, fontSize: 14 }}>
                         {factor}
@@ -248,7 +256,12 @@ export default function MoodTracker() {
                 </View>
               </View>
 
-              <Button text="Save Mood" onPress={saveMoodEntry} style={{ backgroundColor: colors.primary }} />
+              <Button
+                text={isSubmitting ? "Saving..." : "Save Mood"}
+                onPress={saveMoodEntry}
+                style={{ backgroundColor: isSubmitting ? colors.primary + '80' : colors.primary }}
+                disabled={isSubmitting}
+              />
             </>
           ) : (
             <View style={{ alignItems: 'center', paddingVertical: 20 }}>
