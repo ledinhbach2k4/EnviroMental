@@ -444,7 +444,7 @@ export default function Home() {
         ) : processedChartData ? (
           <View style={[commonStyles.card, { marginBottom: 24 }]}>
             <View style={commonStyles.spaceBetween}>
-              <Text style={textStyles.h3}>{timeRange}ly Mood Chart</Text>
+              <Text style={textStyles.h3}>{timeRange === 'Day' ? 'Daily' : `${timeRange}ly`} Mood Chart</Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 16 }}>
               {TIME_RANGES.map(range => (

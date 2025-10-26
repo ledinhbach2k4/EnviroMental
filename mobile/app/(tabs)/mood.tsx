@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Switch, Platform } from 'react-native';
 import { useState, useCallback, useEffect } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { commonStyles, textStyles, colors } from '../../assets/styles/commonStyles';
@@ -7,6 +7,10 @@ import Button from '../../components/Button';
 import { useAuth } from '@clerk/clerk-expo';
 import { API_URL } from '../../constants/api';
 import { useFocusEffect } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface MoodEntry {
   id: string;
@@ -27,6 +31,16 @@ const moodFactors = [
 const MAX_LOGS_PER_DAY = 6;
 const LOG_INTERVAL_HOURS = 2;
 
+const NOTIFICATION_SETTINGS_KEY = 'mood_notification_settings';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 export default function MoodTracker() {
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
   const [selectedFactors, setSelectedFactors] = useState<string[]>([]);
@@ -38,6 +52,96 @@ export default function MoodTracker() {
   const [lastFetched, setLastFetched] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { getToken } = useAuth();
+
+  // New state for notifications
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationTime, setNotificationTime] = useState(new Date(new Date().setHours(20, 0, 0, 0))); // Default to 8 PM
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Load notification settings on component mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      const settingsJSON = await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY);
+      if (settingsJSON) {
+        const { enabled, time } = JSON.parse(settingsJSON);
+        setNotificationsEnabled(enabled);
+        setNotificationTime(new Date(time));
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const scheduleNotification = async (time: Date) => {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "How are you feeling?",
+        body: 'Time to log your mood for today!',
+        data: { screen: 'mood' },
+      },
+      trigger: {
+        hour: time.getHours(),
+        minute: time.getMinutes(),
+        repeats: true,
+      },
+    });
+    console.log('Scheduled notification with id:', identifier);
+  };
+
+  const handlePermissions = async () => {
+    if (!Device.isDevice) {
+      Alert.alert("Physical device required", "Notifications can only be tested on a physical device.");
+      return false;
+    }
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      Alert.alert('Permission required', 'Please enable notifications in your settings to receive reminders.');
+      return false;
+    }
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+    return true;
+  };
+
+  const toggleNotifications = async () => {
+    const newState = !notificationsEnabled;
+    if (newState) {
+      const hasPermission = await handlePermissions();
+      if (!hasPermission) {
+        setNotificationsEnabled(false);
+        return;
+      }
+      await scheduleNotification(notificationTime);
+    } else {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+    }
+    setNotificationsEnabled(newState);
+    await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify({ enabled: newState, time: notificationTime.toISOString() }));
+  };
+
+  const onTimeChange = async (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || notificationTime;
+    setShowTimePicker(Platform.OS === 'ios');
+    setNotificationTime(currentDate);
+
+    const settings = { enabled: notificationsEnabled, time: currentDate.toISOString() };
+    await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+
+    if (notificationsEnabled) {
+      await scheduleNotification(currentDate);
+    }
+  };
 
   const canLogNow = () => {
     if (todaysLogCount >= MAX_LOGS_PER_DAY) {
@@ -283,7 +387,7 @@ export default function MoodTracker() {
             <Text style={[textStyles.h3, { marginBottom: 16 }]}>Your Mood Insights</Text>
             <View style={[commonStyles.cardSmall, { backgroundColor: colors.primary + '10' }]}>
               <View style={commonStyles.spaceBetween}>
-                <Text style={textStyles.body}>Average Mood (last 5 entries)</Text>
+                <Text style={[textStyles.body, { flexShrink: 1, marginRight: 8 }]}>Average Mood (last 5 entries)</Text>
                 <View style={commonStyles.row}>
                   <Text style={[textStyles.h3, { color: colors.primary, marginRight: 8 }]}>
                     {moodEmojis[Math.round(getAverageMood())]}
@@ -337,7 +441,38 @@ export default function MoodTracker() {
             Logging your mood multiple times a day can provide deeper insights into how it fluctuates.
           </Text>
         </LinearGradient>
+
+        {/* Mood Reminder Section */}
+        <View style={[commonStyles.card, { marginBottom: 30 }]}>
+          <Text style={[textStyles.h3, { marginBottom: 16 }]}>Daily Reminder</Text>
+          <View style={[commonStyles.row, { justifyContent: 'space-between', alignItems: 'center' }]}>
+            <Text style={textStyles.body}>Enable mood logging reminders</Text>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={toggleNotifications}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
+            />
+          </View>
+          {notificationsEnabled && (
+            <TouchableOpacity onPress={() => setShowTimePicker(true)} style={{ marginTop: 16 }}>
+              <Text style={[textStyles.body, { color: colors.primary }]}>
+                Reminder time: {notificationTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
       </ScrollView>
+      {showTimePicker && (
+        <DateTimePicker
+          value={notificationTime}
+          mode="time"
+          is24Hour={true}
+          display="default"
+          onChange={onTimeChange}
+        />
+      )}
     </View>
   );
 }
