@@ -1,25 +1,25 @@
-export const fetchWithRetry = async (
-  url: string,
-  options: RequestInit,
-  retries = 2, // Reduced retries to 2 (total 3 calls)
-): Promise<Response> => {
-  for (let i = 0; i <= retries; i++) {
-    if (i > 0) {
-      // Increased minimum and maximum wait time
-      const backoff = Math.min(2000 * 2 ** (i - 1), 10000); // Wait 2s, 4s, ..., max 10s
-      const delay = backoff + Math.random() * 500; // Add jitter
-      console.log(
-        `[${new Date().toISOString()}] Rate limited (429). Retrying in ${Math.round(
-          delay / 1000
-        )}s... (Attempt ${i})`
-      );
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
+import axios from 'axios';
 
-    const res = await fetch(url, options);
-    if (res.status !== 429) {
-      return res;
-    }
-  }
-  throw new Error(`Failed to fetch ${url} after ${retries} retries due to rate limiting.`);
-};
+// --- NETWORK CONNECTION FIX ---
+// Issue: The mobile app (on an emulator/device) cannot connect to `localhost`.
+// Solution: Use the local IP address of the machine running the backend server.
+// Replace '192.168.1.10' with your IP address if it changes.
+const API_BASE_URL = 'https://enviromental-app-api.onrender.com/api';
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// An interceptor can be added to automatically attach the authentication token to every request
+// api.interceptors.request.use(async (config) => {
+//   const token = await someAsyncStorage.getItem('userToken');
+//   if (token) {
+//     config.headers.Authorization = `Bearer ${token}`;
+//   }
+//   return config;
+// });
+
+export default api;

@@ -25,6 +25,9 @@ export default () => ({
         backgroundColor: "#ffffff",
       },
       edgeToEdgeEnabled: true,
+      // Allow HTTP traffic for local development.
+      // NOTE: This should be disabled in production in favor of HTTPS.
+      usesCleartextTraffic: true,
       permissions: [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",

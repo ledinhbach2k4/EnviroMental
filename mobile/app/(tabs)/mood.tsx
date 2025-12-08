@@ -33,14 +33,6 @@ const LOG_INTERVAL_HOURS = 2;
 
 const NOTIFICATION_SETTINGS_KEY = 'mood_notification_settings';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
-
 export default function MoodTracker() {
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
   const [selectedFactors, setSelectedFactors] = useState<string[]>([]);
@@ -63,9 +55,13 @@ export default function MoodTracker() {
     const loadSettings = async () => {
       const settingsJSON = await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY);
       if (settingsJSON) {
-        const { enabled, time } = JSON.parse(settingsJSON);
-        setNotificationsEnabled(enabled);
-        setNotificationTime(new Date(time));
+        try {
+          const { enabled, time } = JSON.parse(settingsJSON);
+          setNotificationsEnabled(enabled);
+          setNotificationTime(new Date(time));
+        } catch (e) {
+          console.error("Failed to parse mood notification settings:", e);
+        }
       }
     };
     loadSettings();
@@ -80,9 +76,9 @@ export default function MoodTracker() {
         data: { screen: 'mood' },
       },
       trigger: {
-        hour: time.getHours(),
-        minute: time.getMinutes(),
         repeats: true,
+        hour: time.getHours(),
+        minute: time.getMinutes()
       },
     });
     console.log('Scheduled notification with id:', identifier);
@@ -173,7 +169,7 @@ export default function MoodTracker() {
     };
 
     update();
-    const interval = setInterval(update, 60000); // Update every minute
+    const interval = setInterval(update, 60000);
     return () => clearInterval(interval);
   }, [lastLogTime]);
 
@@ -199,7 +195,6 @@ export default function MoodTracker() {
       }
 
       const entries: MoodEntry[] = await res.json();
-      // Sort entries by creation date, newest first
       const sortedEntries = entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setRecentEntries(sortedEntries.slice(0, 5));
 
@@ -209,7 +204,6 @@ export default function MoodTracker() {
       setTodaysLogCount(todaysEntries.length);
 
       if (todaysEntries.length > 0) {
-        // The first entry in the sorted list is the most recent
         setLastLogTime(new Date(todaysEntries[0].createdAt).getTime());
       } else {
         setLastLogTime(null);
@@ -451,7 +445,7 @@ export default function MoodTracker() {
               value={notificationsEnabled}
               onValueChange={toggleNotifications}
               trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.white}
+              thumbColor={'#FFFFFF'} // Corrected: Used hex code for white
             />
           </View>
           {notificationsEnabled && (

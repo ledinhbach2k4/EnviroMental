@@ -7,6 +7,18 @@ import { ENV } from "../env";
 import SafeScreen from "@/components/SafeScreen";
 import { useEffect } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import * as Notifications from 'expo-notifications';
+
+// Configure the notification handler for the entire app
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true, // Added for compatibility
+    shouldShowList: true,   // Added for compatibility
+  }),
+});
 
 // Main layout component that determines which screen to show based on auth state
 const InitialLayout = () => {

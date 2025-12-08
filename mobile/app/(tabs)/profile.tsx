@@ -1,14 +1,21 @@
 import Icon from '@/components/Icon';
-import { useUser } from '@clerk/clerk-expo';
+import { useAuth, useUser } from '@clerk/clerk-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleProp, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { colors, commonStyles, textStyles } from '../../assets/styles/commonStyles';
 import Button from '../../components/Button';
 import { useLogout } from '../../hooks/useLogout';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import { useSharedHabits } from '../../context/HabitsContext';
+import { API_URL } from '../../constants/api';
+
+interface MoodEntry {
+  createdAt: string;
+  [key: string]: any;
+}
 
 interface UserStats {
   totalMoodEntries: number;
@@ -16,6 +23,53 @@ interface UserStats {
   meditationMinutes: number;
   habitsCompleted: number;
 }
+
+const calculateMoodStreak = (entries: MoodEntry[]): number => {
+  if (!entries || entries.length === 0) {
+    return 0;
+  }
+
+  const uniqueDays = [
+    ...new Set(
+      entries.map(entry => new Date(entry.createdAt).toDateString())
+    ),
+  ].map(dateString => new Date(dateString))
+   .sort((a, b) => b.getTime() - a.getTime());
+
+  if (uniqueDays.length === 0) {
+    return 0;
+  }
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const mostRecentEntryDate = uniqueDays[0];
+  if (
+    mostRecentEntryDate.toDateString() !== today.toDateString() &&
+    mostRecentEntryDate.toDateString() !== yesterday.toDateString()
+  ) {
+    return 0;
+  }
+
+  let streak = 1;
+  let lastDate = mostRecentEntryDate;
+
+  for (let i = 1; i < uniqueDays.length; i++) {
+    const currentDate = uniqueDays[i];
+    const expectedPreviousDate = new Date(lastDate);
+    expectedPreviousDate.setDate(lastDate.getDate() - 1);
+
+    if (currentDate.toDateString() === expectedPreviousDate.toDateString()) {
+      streak++;
+      lastDate = currentDate;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+};
 
 const CardContent = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
@@ -32,10 +86,56 @@ export default function Profile() {
   });
 
   const { user } = useUser();
+  const { getToken } = useAuth();
+  const { habits } = useSharedHabits();
   const userName = user?.firstName || 'User';
   const userAvatar = user?.imageUrl || 'https://www.gravatar.com/avatar?d=mp';
 
   const { logout } = useLogout();
+
+  const loadUserStats = useCallback(async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+
+      const res = await fetch(`${API_URL}/moods`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      let moodEntries: MoodEntry[] = [];
+      if (res.ok) {
+        moodEntries = await res.json();
+      } else {
+        console.warn(`Failed to fetch mood stats, status: ${res.status}`);
+      }
+
+      const totalMoodEntries = moodEntries.length;
+      const currentStreak = calculateMoodStreak(moodEntries);
+      const habitsCompleted = habits.filter(habit => habit.completedToday).length;
+      const meditationMinutes = 150; // Mock data
+
+      setUserStats({
+        totalMoodEntries,
+        currentStreak,
+        meditationMinutes,
+        habitsCompleted,
+      });
+    } catch (error) {
+      console.log('Error loading user stats:', error);
+      setUserStats({
+        totalMoodEntries: 0,
+        currentStreak: 0,
+        meditationMinutes: 0,
+        habitsCompleted: 0,
+      });
+    }
+  }, [getToken, habits]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUserStats();
+    }, [loadUserStats])
+  );
 
   const handleImageSelection = async (pickerResult: ImagePicker.ImagePickerResult) => {
     if (!pickerResult.canceled) {
@@ -92,62 +192,6 @@ export default function Profile() {
     );
   };
 
-  const loadUserStats = useCallback(async () => {
-    try {
-      const moodData = await AsyncStorage.getItem('moodEntries');
-      const moodEntries = moodData ? JSON.parse(moodData) : [];
-
-      const habitsData = await AsyncStorage.getItem('habits');
-      const habits = habitsData ? JSON.parse(habitsData) : [];
-
-      const totalMoodEntries = moodEntries.length;
-      const currentStreak = calculateMoodStreak(moodEntries);
-      const meditationMinutes = 150; // Mock data
-      const habitsCompleted = habits.reduce(
-        (sum: number, habit: any) => sum + habit.completedDates.length,
-        0
-      );
-
-      setUserStats({
-        totalMoodEntries,
-        currentStreak,
-        meditationMinutes,
-        habitsCompleted,
-      });
-    } catch (error) {
-      console.log('Error loading user stats:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadUserStats();
-  }, [loadUserStats]);
-
-  const calculateMoodStreak = (entries: any[]) => {
-    if (entries.length === 0) return 0;
-
-    const sortedEntries = entries.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    let streak = 0;
-    let currentDate = new Date();
-
-    for (const entry of sortedEntries) {
-      const entryDate = new Date(entry.date);
-      const daysDiff = Math.floor(
-        (currentDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      if (daysDiff === streak) {
-        streak++;
-        currentDate = entryDate;
-      } else {
-        break;
-      }
-    }
-
-    return streak;
-  };
 
   const clearAllData = () => {
     Alert.alert(
@@ -160,17 +204,29 @@ export default function Profile() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await AsyncStorage.multiRemove(['moodEntries', 'habits']);
-              setUserStats({
-                totalMoodEntries: 0,
-                currentStreak: 0,
-                meditationMinutes: 0,
-                habitsCompleted: 0,
-              });
+              const token = await getToken();
+              if (!token) {
+                Alert.alert('Error', 'Authentication required.');
+                return;
+              }
+
+              const headers = { Authorization: `Bearer ${token}` };
+
+              const [moodsRes, habitsRes] = await Promise.all([
+                fetch(`${API_URL}/moods/all`, { method: 'DELETE', headers }),
+                fetch(`${API_URL}/habits/all`, { method: 'DELETE', headers }),
+              ]);
+
+              if (!moodsRes.ok || !habitsRes.ok) {
+                throw new Error('Failed to delete all data from the server.');
+              }
+
+              await loadUserStats();
+
               Alert.alert('Data Cleared', 'All your data has been cleared successfully.');
             } catch (error) {
               console.log('Error clearing data:', error);
-              Alert.alert('Error', 'Failed to clear data.');
+              Alert.alert('Error', 'Failed to clear data. Please try again.');
             }
           },
         },
@@ -181,7 +237,7 @@ export default function Profile() {
   const deleteAccount = async () => {
     Alert.alert(
       'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.',
+      'Are you sure you want to delete your account? This action is permanent and will remove all your data.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -189,18 +245,22 @@ export default function Profile() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await AsyncStorage.multiRemove(['moodEntries', 'habits']);
+              const token = await getToken();
+              if (!token) {
+                Alert.alert('Error', 'Authentication required.');
+                return;
+              }
+
+              const headers = { Authorization: `Bearer ${token}` };
+
+              await Promise.all([
+                fetch(`${API_URL}/moods/all`, { method: 'DELETE', headers }),
+                fetch(`${API_URL}/habits/all`, { method: 'DELETE', headers }),
+              ]);
 
               if (user) {
                 await user.delete();
               }
-
-              setUserStats({
-                totalMoodEntries: 0,
-                currentStreak: 0,
-                meditationMinutes: 0,
-                habitsCompleted: 0,
-              });
 
               await logout();
 
@@ -208,7 +268,7 @@ export default function Profile() {
               router.replace('/(auth)/sign-in');
             } catch (error) {
               console.log('Error deleting account:', error);
-              Alert.alert('Error', 'Failed to delete account.');
+              Alert.alert('Error', 'Failed to delete your account. Please contact support.');
             }
           },
         },

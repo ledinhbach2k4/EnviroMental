@@ -106,6 +106,12 @@ export default function Home() {
   const { getToken } = useAuth();
   const { habits, loading: habitsLoading, refetch: refetchHabits } = useSharedHabits();
 
+  // Create a ref to hold the unstable getToken function
+  const tokenRef = useRef(getToken);
+  useEffect(() => {
+    tokenRef.current = getToken;
+  }, [getToken]);
+
   // Cooldown Refs
   const isFetchingMoodRef = useRef(false);
   const lastFetchMoodTimeRef = useRef(0);
@@ -148,7 +154,7 @@ export default function Home() {
     setLoadingMood(true);
 
     try {
-      const token = await getToken();
+      const token = await tokenRef.current(); // Use the ref to get the token
       if (!token) return;
 
       const res = await fetch(`${API_URL}/moods`, { headers: { Authorization: `Bearer ${token}` } });
@@ -178,7 +184,7 @@ export default function Home() {
       isFetchingMoodRef.current = false;
       setLoadingMood(false);
     }
-  }, [getToken]);
+  }, []); // getToken removed from dependency array
 
   const fetchWeather = useCallback(async () => {
     const now = Date.now();
@@ -401,7 +407,7 @@ export default function Home() {
 
   // Render
   return (
-    <View style={[commonStyles.container, { paddingTop: Platform.OS === 'ios' ? 40 : 20 }]}>
+    <View style={commonStyles.container}>
       <ScrollView
         style={commonStyles.content}
         showsVerticalScrollIndicator={false}

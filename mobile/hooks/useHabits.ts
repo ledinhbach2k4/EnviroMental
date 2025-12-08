@@ -1,8 +1,7 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useRef, useState } from 'react';
-import { API_URL } from '../constants/api';
-import { fetchWithRetry } from '../utils/api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import api from '../utils/api'; // Using the new axios instance
 
 export interface Habit {
   id: number;
@@ -19,66 +18,107 @@ export const useHabits = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { getToken } = useAuth();
+  const { isSignedIn, isLoaded, getToken } = useAuth();
 
-  // Refs to control fetching logic
   const isFetchingRef = useRef(false);
-  const lastFetchTimeRef = useRef(0);
+  // Use a ref to hold the latest getToken function without causing re-renders
+  const tokenRef = useRef(getToken);
+  useEffect(() => {
+    tokenRef.current = getToken;
+  }, [getToken]);
 
-  const fetchHabitsAndLogs = useCallback(async () => {
-    const now = Date.now();
-    // Cooldown: Do not fetch if the last fetch was less than 30 seconds ago
-    if (now - lastFetchTimeRef.current < 30000) {
-      console.log(`[${new Date().toISOString()}] useHabits: fetchHabitsAndLogs: Recently fetched, skipping.`);
+  // useEffect for the initial data load
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      if (!isLoaded || !isSignedIn) {
+        if (isLoaded && !isSignedIn) {
+          setHabits([]);
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (isFetchingRef.current) return;
+
+      isFetchingRef.current = true;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const token = await tokenRef.current(); // Use the ref to get the token
+        if (!token) {
+          throw new Error("Authentication token not available.");
+        }
+
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const [habitsRes, logsRes] = await Promise.all([
+          api.get('/habits', config),
+          api.get('/habits/logs', config),
+        ]);
+
+        const habitsData = habitsRes.data;
+        const logsData = logsRes.data;
+        const today = new Date().toISOString().split('T')[0];
+
+        const processed: Habit[] = habitsData
+          .filter((h: any) => h.userId !== null)
+          .map((h: any) => {
+            const todayLog = logsData.find((l: any) => l.habitId === h.id && l.logDate === today);
+            return {
+              ...h,
+              icon: h.icon || 'happy-outline',
+              color: h.color || '#FF6347',
+              completedToday: !!todayLog?.completed,
+              streak: calculateStreak(h.id, logsData),
+            };
+          });
+
+        setHabits(processed);
+      } catch (err: any) {
+        console.error("useHabits useEffect: --- FULL ERROR OBJECT ---");
+        console.error(err);
+        const errorMessage = err.response?.data?.message || err.message || "An unknown error occurred.";
+        setError(errorMessage);
+        if (err.response?.status === 401) {
+          setError("Authentication token missing or expired. Please try signing in again.");
+        }
+      } finally {
+        setLoading(false);
+        isFetchingRef.current = false;
+      }
+    };
+
+    fetchInitialData();
+  }, [isLoaded, isSignedIn]); // getToken is removed from dependencies
+
+  // Standalone refetch function to be returned by the hook
+  const refetch = useCallback(async () => {
+    if (!isLoaded || !isSignedIn) {
+      setHabits([]);
       return;
     }
-    // Prevent concurrent fetches
-    if (isFetchingRef.current) {
-      console.log(`[${new Date().toISOString()}] useHabits: fetchHabitsAndLogs: Fetch already in progress, skipping.`);
-      return;
-    }
+    if (isFetchingRef.current) return;
 
     isFetchingRef.current = true;
-    lastFetchTimeRef.current = now; // Update last fetch time immediately
-    console.log(`[${new Date().toISOString()}] useHabits: --- Starting to fetch habits and logs ---`);
     setLoading(true);
     setError(null);
 
     try {
-      const token = await getToken();
+      const token = await tokenRef.current(); // Use the ref to get the token
       if (!token) {
-        throw new Error("Authentication token is missing.");
+        throw new Error("Authentication token not available.");
       }
 
-      const habitsUrl = `${API_URL}/habits`;
-      const logsUrl = `${API_URL}/habits/logs`;
-      const options = { headers: { Authorization: `Bearer ${token}` } };
-
-      console.log("useHabits: Fetching from:", habitsUrl);
-      console.log("useHabits: Fetching from:", logsUrl);
-
-      // Use fetchWithRetry for both requests
+      const config = { headers: { Authorization: `Bearer ${token}` } };
       const [habitsRes, logsRes] = await Promise.all([
-        fetchWithRetry(habitsUrl, options),
-        fetchWithRetry(logsUrl, options),
+        api.get('/habits', config),
+        api.get('/habits/logs', config),
       ]);
 
-      console.log("useHabits: Habits Response Status:", habitsRes.status);
-      console.log("useHabits: Logs Response Status:", logsRes.status);
-
-      // Check if responses are OK after retries
-      if (!habitsRes.ok) {
-        const body = await habitsRes.text();
-        throw new Error(`Failed to fetch habits. Status: ${habitsRes.status}, Body: ${body}`);
-      }
-      if (!logsRes.ok) {
-        const body = await logsRes.text();
-        throw new Error(`Failed to fetch logs. Status: ${logsRes.status}, Body: ${body}`);
-      }
-
-      const [habitsData, logsData] = await Promise.all([habitsRes.json(), logsRes.json()]);
-
+      const habitsData = habitsRes.data;
+      const logsData = logsRes.data;
       const today = new Date().toISOString().split('T')[0];
+
       const processed: Habit[] = habitsData
         .filter((h: any) => h.userId !== null)
         .map((h: any) => {
@@ -92,33 +132,27 @@ export const useHabits = () => {
           };
         });
 
-      console.log(`[${new Date().toISOString()}] useHabits: Processed habits before setting state:`, processed);
       setHabits(processed);
     } catch (err: any) {
-      console.error("useHabits: --- FULL ERROR OBJECT ---");
+      console.error("useHabits refetch: --- FULL ERROR OBJECT ---");
       console.error(err);
-      setError(err.message || "An unknown error occurred.");
+      const errorMessage = err.response?.data?.message || err.message || "An unknown error occurred.";
+      setError(errorMessage);
+      if (err.response?.status === 401) {
+        setError("Authentication token missing or expired. Please try signing in again.");
+      }
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
-      console.log(`[${new Date().toISOString()}] useHabits: --- Finished fetching habits and logs ---`);
     }
-  }, [getToken]);
-
-  // useFocusEffect has been removed from this hook.
-  // The component using this hook is now responsible for triggering the refetch on focus.
+  }, [isLoaded, isSignedIn]); // getToken is removed from dependencies
 
   const addHabit = async ({ name, icon }: { name: string; icon: string }) => {
-    // This function can remain mostly the same, but will trigger the improved fetch
     try {
-      const token = await getToken();
-      await fetch(`${API_URL}/habits`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name, icon }),
-      });
-      lastFetchTimeRef.current = 0; // Reset timer to allow immediate refetch
-      await fetchHabitsAndLogs();
+      const token = await tokenRef.current(); // Use the ref to get the token
+      if (!token) throw new Error("Not authenticated");
+      await api.post('/habits', { name, icon }, { headers: { Authorization: `Bearer ${token}` } });
+      await refetch();
     } catch (err: any) {
       console.error('useHabits: Error adding habit:', err);
       setError(err.message);
@@ -126,71 +160,25 @@ export const useHabits = () => {
   };
 
   const toggleHabitCompletion = async (habitId: number, currentCompleted: boolean) => {
-    console.log(`[${new Date().toISOString()}] useHabits: toggleHabitCompletion called for habitId: ${habitId}, currentCompleted: ${currentCompleted}`);
-    // Store the original habits state for potential rollback
     const originalHabits = [...habits];
-
-    // Optimistic update: Immediately update the UI
-    setHabits(prevHabits => {
-      const updated = prevHabits.map(habit =>
-        habit.id === habitId
-          ? { ...habit, completedToday: !currentCompleted }
-          : habit
-      );
-      console.log(`[${new Date().toISOString()}] useHabits: Optimistic update for habitId: ${habitId}. New completedToday: ${!currentCompleted}`);
-      return updated;
-    });
+    setHabits(prevHabits =>
+      prevHabits.map(habit =>
+        habit.id === habitId ? { ...habit, completedToday: !currentCompleted } : habit
+      )
+    );
 
     try {
-      const token = await getToken();
+      const token = await tokenRef.current(); // Use the ref to get the token
+      if (!token) throw new Error("Not authenticated");
       const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`${API_URL}/habits/${habitId}/log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ date: today, completed: !currentCompleted }),
-      });
-
-      console.log(`[${new Date().toISOString()}] useHabits: API response for habitId ${habitId}: OK=${response.ok}, Status=${response.status}`);
-
-      if (!response.ok) {
-        // If API call fails, revert the optimistic update
-        setHabits(originalHabits);
-        console.log(`[${new Date().toISOString()}] useHabits: API call failed for habitId ${habitId}. Reverting optimistic update.`);
-        throw new Error(`Failed to toggle habit: ${response.statusText}`);
-      }
-
-      // API call succeeded, now refetch to get accurate streak and other server-side updates
-      lastFetchTimeRef.current = 0; // Reset timer to allow immediate refetch
-      console.log(`[${new Date().toISOString()}] useHabits: API call succeeded for habitId ${habitId}. Triggering full refetch.`);
-      await fetchHabitsAndLogs();
+      await api.post(
+        `/habits/${habitId}/log`,
+        { date: today, completed: !currentCompleted },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await refetch();
     } catch (err: any) {
-      console.error(`[${new Date().toISOString()}] useHabits: Error toggling habitId ${habitId}:`, err);
-      setError(err.message);
-      // Ensure state is reverted if an error occurs during fetch or processing
-      setHabits(originalHabits);
-      console.log(`[${new Date().toISOString()}] useHabits: Error caught for habitId ${habitId}. Reverting optimistic update.`);
-      throw err;
-    }
-  };
-
-  const deleteHabit = async (habitId: number) => {
-    const originalHabits = [...habits];
-    setHabits(prevHabits => prevHabits.filter(habit => habit.id !== habitId));
-
-    try {
-      const token = await getToken();
-      const response = await fetch(`${API_URL}/habits/${habitId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        setHabits(originalHabits);
-        throw new Error(`Failed to delete habit: ${response.statusText}`);
-      }
-      // No need to refetch, optimistic update is enough
-    } catch (err: any) {
-      console.error(`useHabits: Error deleting habitId ${habitId}:`, err);
+      console.error(`useHabits: Error toggling habitId ${habitId}:`, err);
       setError(err.message);
       setHabits(originalHabits);
       throw err;
@@ -202,61 +190,43 @@ export const useHabits = () => {
     setHabits(prevHabits => prevHabits.filter(habit => !habitIds.includes(habit.id)));
 
     try {
-      const token = await getToken();
-      if (!token) throw new Error("Authentication token is missing.");
-
-      const deletePromises = habitIds.map(id => 
-        fetch(`${API_URL}/habits/${id}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        })
+      const token = await tokenRef.current(); // Use the ref to get the token
+      if (!token) throw new Error("Not authenticated");
+      const deletePromises = habitIds.map(id =>
+        api.delete(`/habits/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       );
-
-      const results = await Promise.all(deletePromises);
-      
-      // Check if any of the deletions failed
-      if (results.some(res => !res.ok)) {
-        // This is a simplified error handling. A more robust solution might
-        // try to figure out which ones failed and only revert those.
-        throw new Error('One or more habits could not be deleted.');
-      }
-      
+      await Promise.all(deletePromises);
     } catch (err: any) {
       console.error(`useHabits: Error deleting multiple habits:`, err);
       setError(err.message);
-      setHabits(originalHabits); // Rollback on error
+      setHabits(originalHabits);
       throw err;
     }
   };
 
   const deleteAllHabits = async () => {
-    const originalHabits = [...habits];
-    const allHabitIds = originalHabits.map(h => h.id);
-    setHabits([]);
-
+    const allHabitIds = habits.map(h => h.id);
     try {
       await deleteMultipleHabits(allHabitIds);
     } catch (err: any) {
       console.error(`useHabits: Error deleting all habits:`, err);
-      // The error state and rollback is handled by deleteMultipleHabits
-      // so we just re-throw the error.
       throw err;
     }
   };
 
-  return { 
-    habits, 
-    loading, 
-    error, 
-    refetch: fetchHabitsAndLogs, 
-    addHabit, 
-    toggleHabitCompletion, 
-    deleteHabit,
+  return {
+    habits,
+    loading,
+    error,
+    refetch,
+    addHabit,
+    toggleHabitCompletion,
     deleteMultipleHabits,
-    deleteAllHabits
+    deleteAllHabits,
   };
 };
 
+// This utility function remains the same
 function calculateStreak(habitId: number, logs: any[]): number {
   const habitLogs = logs
     .filter((l: any) => l.habitId === habitId && l.completed)
@@ -268,25 +238,22 @@ function calculateStreak(habitId: number, logs: any[]): number {
   let lastDate = new Date(habitLogs[0].logDate);
   lastDate.setUTCHours(0, 0, 0, 0);
 
-  // Check if the most recent log is for today or yesterday
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const timeDiff = today.getTime() - lastDate.getTime();
 
-  if (timeDiff > 86400000) { // More than 1 day has passed since last log
-      return 0;
+  if (timeDiff > 86400000) {
+    return 0;
   }
 
   for (let i = 1; i < habitLogs.length; i++) {
     const logDate = new Date(habitLogs[i].logDate);
     logDate.setUTCHours(0, 0, 0, 0);
 
-    // Check if the next log is exactly one day before the previous one
     if (lastDate.getTime() - logDate.getTime() === 86400000) {
       streak++;
       lastDate = logDate;
     } else if (lastDate.getTime() - logDate.getTime() > 86400000) {
-      // A gap was found, stop counting
       break;
     }
   }

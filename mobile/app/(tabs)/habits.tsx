@@ -146,7 +146,7 @@ export default function HabitsTracker() {
   }
 
   return (
-    <View style={[commonStyles.container, { paddingTop: Platform.OS === 'ios' ? 40 : 20 }]}>
+    <View style={commonStyles.container}>
       <ScrollView
         style={commonStyles.content}
         showsVerticalScrollIndicator={false}
