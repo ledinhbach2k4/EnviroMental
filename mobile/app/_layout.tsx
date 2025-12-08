@@ -8,6 +8,7 @@ import SafeScreen from "@/components/SafeScreen";
 import { useEffect } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import * as Notifications from 'expo-notifications';
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Configure the notification handler for the entire app
 Notifications.setNotificationHandler({
@@ -69,9 +70,11 @@ export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
       <SafeAreaProvider>
-        <SafeScreen>
-          <InitialLayout />
-        </SafeScreen>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <SafeScreen>
+            <InitialLayout />
+          </SafeScreen>
+        </GestureHandlerRootView>
       </SafeAreaProvider>
     </ClerkProvider>
   );
