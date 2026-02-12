@@ -16,7 +16,7 @@
     "@clerk/express": "^1.7.25",
         "@clerk/clerk-sdk-node": "^5.1.6",
     "@neondatabase/serverless": "^1.0.0",
-    "axios": "^1.11.0",
+    "axios": "^1.13.5",
     "cors": "^2.8.5",
     "cron": "^3.0.0",
     "dotenv": "^16.5.0",
