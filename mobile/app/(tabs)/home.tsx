@@ -14,12 +14,13 @@ import {
   TouchableOpacity,
   View,
   ViewStyle,
+  StyleSheet,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { colors, commonStyles, textStyles } from '../../assets/styles/commonStyles';
+import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
-import { API_URL } from '../../constants/api';
+import { ENV } from '../../constants/api';
 import { useSharedHabits } from '../../context/HabitsContext';
 import type { Habit } from '../../hooks/useHabits';
 
@@ -53,7 +54,6 @@ interface MoodEntry {
 
 // Constants
 const moodEmojis = ['😢', '😕', '😐', '😊', '😄'];
-const moodColors = [colors.moodVerySad, colors.moodSad, colors.moodNeutral, colors.moodHappy, colors.moodVeryHappy];
 const TIME_RANGES = ['Day', 'Week', 'Month', 'Year'] as const;
 type TimeRange = typeof TIME_RANGES[number];
 
@@ -69,17 +69,6 @@ const getAqiLabel = (aqi: number) => {
   }
 };
 
-const getAqiColor = (aqi: number) => {
-  switch (aqi) {
-    case 1: return colors.success;
-    case 2: return colors.primary;
-    case 3: return colors.warning;
-    case 4: return colors.danger;
-    case 5: return colors.moodVerySad;
-    default: return colors.textLight;
-  }
-};
-
 const CardContent = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 const AndroidCardContent = ({ style, children }: { style?: StyleProp<ViewStyle>; children: React.ReactNode }) => (
   <View style={style}>{children}</View>
@@ -88,6 +77,20 @@ const CardWrapper = Platform.OS === 'android' ? AndroidCardContent : CardContent
 
 // Main Component
 export default function Home() {
+  const colors = useColors();
+  const typography = useTypography();
+  const spacing = useSpacing();
+  const radii = useRadii();
+  const shadows = useShadows();
+
+  const moodColors = useMemo(() => [
+    colors.mood.verySad,
+    colors.mood.sad,
+    colors.mood.neutral,
+    colors.mood.happy,
+    colors.mood.veryHappy,
+  ], [colors.mood.verySad, colors.mood.sad, colors.mood.neutral, colors.mood.happy, colors.mood.veryHappy]);
+
   // State
   const [greeting, setGreeting] = useState('');
   const [greetingIcon, setGreetingIcon] = useState<keyof typeof Ionicons.glyphMap>('sunny-outline');
@@ -119,6 +122,13 @@ export default function Home() {
   const lastFetchWeatherTimeRef = useRef(0);
   const isFetchingAirQualityRef = useRef(false);
   const lastFetchAirQualityTimeRef = useRef(0);
+  const isFetchingHabitsRef = useRef(false);
+  const lastFetchHabitsTimeRef = useRef(0);
+
+  // Location permission refs
+  const locationPermissionDeniedRef = useRef(false);
+  const lastLocationErrorTimeRef = useRef(0);
+  const LOCATION_ERROR_COOLDOWN = 5 * 60 * 1000;
 
   // Effects
   useEffect(() => {
@@ -154,10 +164,12 @@ export default function Home() {
     setLoadingMood(true);
 
     try {
-      const token = await tokenRef.current(); // Use the ref to get the token
+      const token = await tokenRef.current();
       if (!token) return;
 
-      const res = await fetch(`${API_URL}/moods`, { headers: { Authorization: `Bearer ${token}` } });
+      const url = `${ENV.API_URL}/moods`;
+      console.log('[Home] Fetching moods from:', url);
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) {
         if (res.status === 404) {
           setMoodEntries([]);
@@ -184,14 +196,16 @@ export default function Home() {
       isFetchingMoodRef.current = false;
       setLoadingMood(false);
     }
-  }, []); // getToken removed from dependency array
+  }, [moodColors]);
 
   const fetchWeather = useCallback(async () => {
     const now = Date.now();
-    if (now - lastFetchWeatherTimeRef.current < 30000) {
-      return;
-    }
-    if (isFetchingWeatherRef.current) {
+    if (now - lastFetchWeatherTimeRef.current < 30000) return;
+    if (now - lastLocationErrorTimeRef.current < LOCATION_ERROR_COOLDOWN) return;
+    if (isFetchingWeatherRef.current) return;
+    if (locationPermissionDeniedRef.current) {
+      setErrorMsg('Location permission denied. Enable in settings to use weather.');
+      setLoadingWeather(false);
       return;
     }
 
@@ -199,13 +213,36 @@ export default function Home() {
     lastFetchWeatherTimeRef.current = now;
     setLoadingWeather(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setErrorMsg('Permission to access location was denied');
+      const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
+      if (currentStatus === 'denied') {
+        locationPermissionDeniedRef.current = true;
+        lastLocationErrorTimeRef.current = now;
+        setErrorMsg('Location permission denied. Enable in settings to use weather.');
         return;
       }
+      if (currentStatus !== 'granted') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'denied') {
+          locationPermissionDeniedRef.current = true;
+          lastLocationErrorTimeRef.current = now;
+          setErrorMsg('Location permission denied. Enable in settings to use weather.');
+          return;
+        }
+        if (status !== 'granted') {
+          lastLocationErrorTimeRef.current = now;
+          setErrorMsg('Permission to access location was denied');
+          return;
+        }
+      }
 
-      const loc = await Location.getCurrentPositionAsync({});
+      let loc;
+      try {
+        loc = await Location.getCurrentPositionAsync({});
+      } catch (locErr: any) {
+        console.warn('Location unavailable, using fallback:', locErr.message);
+        loc = { coords: { latitude: 40.7128, longitude: -74.0060 } };
+      }
+
       const apiKey = Constants.expoConfig?.extra?.openWeatherApiKey;
       if (!apiKey) {
         setErrorMsg('Weather API key not configured');
@@ -219,9 +256,15 @@ export default function Home() {
       const data = await res.json();
       setWeather({ temperature: Math.round(data.main.temp), description: data.weather[0].description, city: data.name });
       setErrorMsg(null);
+      locationPermissionDeniedRef.current = false;
     } catch (err: any) {
       console.error('Weather fetch error:', err.message);
-      setErrorMsg('Failed to fetch weather data');
+      if (err.message?.includes('location') || err.message?.includes('permission') || err.message?.includes('GPS') || err.message?.includes('unavailable')) {
+        lastLocationErrorTimeRef.current = now;
+        setErrorMsg('Location unavailable. Weather data cannot be fetched.');
+      } else {
+        setErrorMsg('Failed to fetch weather data');
+      }
     } finally {
       setLoadingWeather(false);
       isFetchingWeatherRef.current = false;
@@ -230,10 +273,12 @@ export default function Home() {
 
   const fetchAirQuality = useCallback(async () => {
     const now = Date.now();
-    if (now - lastFetchAirQualityTimeRef.current < 30000) {
-      return;
-    }
-    if (isFetchingAirQualityRef.current) {
+    if (now - lastFetchAirQualityTimeRef.current < 30000) return;
+    if (now - lastLocationErrorTimeRef.current < LOCATION_ERROR_COOLDOWN) return;
+    if (isFetchingAirQualityRef.current) return;
+    if (locationPermissionDeniedRef.current) {
+      setErrorAirPollution('Location permission denied. Enable in settings to use air quality.');
+      setLoadingAirQuality(false);
       return;
     }
 
@@ -241,13 +286,36 @@ export default function Home() {
     lastFetchAirQualityTimeRef.current = now;
     setLoadingAirQuality(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setErrorAirPollution('Permission to access location was denied');
+      const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
+      if (currentStatus === 'denied') {
+        locationPermissionDeniedRef.current = true;
+        lastLocationErrorTimeRef.current = now;
+        setErrorAirPollution('Location permission denied. Enable in settings to use air quality.');
         return;
       }
+      if (currentStatus !== 'granted') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'denied') {
+          locationPermissionDeniedRef.current = true;
+          lastLocationErrorTimeRef.current = now;
+          setErrorAirPollution('Location permission denied. Enable in settings to use air quality.');
+          return;
+        }
+        if (status !== 'granted') {
+          lastLocationErrorTimeRef.current = now;
+          setErrorAirPollution('Permission to access location was denied');
+          return;
+        }
+      }
 
-      const loc = await Location.getCurrentPositionAsync({});
+      let loc;
+      try {
+        loc = await Location.getCurrentPositionAsync({});
+      } catch (locErr: any) {
+        console.warn('Location unavailable, using fallback:', locErr.message);
+        loc = { coords: { latitude: 40.7128, longitude: -74.0060 } };
+      }
+
       const apiKey = Constants.expoConfig?.extra?.openWeatherApiKey;
       if (!apiKey) {
         setErrorAirPollution('API key not configured');
@@ -262,12 +330,18 @@ export default function Home() {
       if (data.list && data.list.length > 0) {
         setAirQuality({ aqi: data.list[0].main.aqi });
         setErrorAirPollution(null);
+        locationPermissionDeniedRef.current = false;
       } else {
         throw new Error('No air quality data found');
       }
     } catch (err: any) {
       console.error('Air quality fetch error:', err.message);
-      setErrorAirPollution('Failed to fetch air quality');
+      if (err.message?.includes('location') || err.message?.includes('permission') || err.message?.includes('GPS') || err.message?.includes('unavailable')) {
+        lastLocationErrorTimeRef.current = now;
+        setErrorAirPollution('Location unavailable. Air quality data cannot be fetched.');
+      } else {
+        setErrorAirPollution('Failed to fetch air quality');
+      }
     } finally {
       setLoadingAirQuality(false);
       isFetchingAirQualityRef.current = false;
@@ -278,12 +352,21 @@ export default function Home() {
     useCallback(() => {
       const fetchData = async () => {
         await fetchMood();
-        setTimeout(() => refetchHabits(), 500);
+        const now = Date.now();
+        if (!isFetchingHabitsRef.current && now - lastFetchHabitsTimeRef.current >= 30000) {
+          isFetchingHabitsRef.current = true;
+          lastFetchHabitsTimeRef.current = now;
+          try {
+            await refetchHabits();
+          } finally {
+            isFetchingHabitsRef.current = false;
+          }
+        }
         setTimeout(() => fetchWeather(), 1000);
         setTimeout(() => fetchAirQuality(), 1500);
       };
       fetchData();
-    }, [fetchMood, fetchWeather, refetchHabits, fetchAirQuality])
+    }, [])
   );
 
   // Chart Data Processing
@@ -298,7 +381,7 @@ export default function Home() {
       case 'Day': {
         const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         const dayEntries = moodEntries.filter(e => new Date(e.createdAt) > oneDayAgo);
-        const recentEntries = dayEntries.slice(-10); // Limit to last 10 entries for clarity
+        const recentEntries = dayEntries.slice(-10);
         labels = recentEntries.map(e => new Date(e.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
         dataPoints = recentEntries.map(e => e.moodLevel);
         break;
@@ -363,7 +446,7 @@ export default function Home() {
     return {
       labels,
       datasets: [{
-        data: dataPoints.map(p => p ?? 0), // Replace null with 0 for chart
+        data: dataPoints.map(p => p ?? 0),
         color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
         strokeWidth: 2,
       }],
@@ -371,8 +454,62 @@ export default function Home() {
     };
   }, [moodEntries, timeRange]);
 
+  // Styles
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flex: 1,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radii.lg,
+      padding: spacing.lg,
+      marginVertical: spacing.sm,
+      ...shadows.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardSmall: {
+      backgroundColor: colors.surface,
+      padding: spacing.md,
+      marginVertical: spacing.xs,
+      ...shadows.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    spaceBetween: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    fab: {
+      position: 'absolute',
+      bottom: spacing.lg,
+      right: spacing.lg,
+      width: 56,
+      height: 56,
+      borderRadius: radii.full,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...shadows.md,
+    },
+    disabled: {
+      opacity: 0.5,
+    },
+  }), [colors, spacing, radii, shadows]);
+
   // Other Logic
-  const handleEmergency = () => router.push('/emergency' as any);
+  const handleEmergency = () => router.push('/emergency');
   const completedHabits = habits.filter((h: Habit) => h.completedToday).length;
   const totalHabits = habits.length;
 
@@ -381,7 +518,7 @@ export default function Home() {
       title: 'Mood',
       value: mood ? mood.value : 'No mood logged',
       icon: 'happy-outline',
-      color: mood ? mood.color : colors.textLight,
+      color: mood ? mood.color : colors.textMuted,
     },
     {
       title: 'Habits Done',
@@ -401,42 +538,42 @@ export default function Home() {
         ? 'Loading...'
         : errorAirPollution || (airQuality ? `${getAqiLabel(airQuality.aqi)} (AQI: ${airQuality.aqi})` : 'Unavailable'),
       icon: 'leaf-outline',
-      color: airQuality ? getAqiColor(airQuality.aqi) : colors.textLight,
+      color: airQuality ? (airQuality.aqi <= 2 ? colors.success : airQuality.aqi === 3 ? colors.warning : colors.danger) : colors.textMuted,
     },
   ];
 
   // Render
   return (
-    <View style={commonStyles.container}>
+    <View style={styles.container}>
       <ScrollView
-        style={commonStyles.content}
+        style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 80 }}
       >
-        <View style={{ marginTop: 20, marginBottom: 20 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            <Text style={textStyles.h1}>{greeting}!</Text>
-            <Icon name={greetingIcon} size={36} color={colors.primary} style={{ marginLeft: 12, transform: [{ translateY: -2 }] }} />
+        <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+            <Text style={typography.h1}>{greeting}!</Text>
+            <Icon name={greetingIcon} size={36} color={colors.primary} style={{ marginLeft: spacing.md, transform: [{ translateY: -2 }] }} />
           </View>
-          <Text style={textStyles.bodyLight}>Take a moment for your mental health</Text>
+          <Text style={typography.bodySmall}>Take a moment for your mental health</Text>
         </View>
 
-        <View style={[commonStyles.card, { marginBottom: 24 }]}>
+        <View style={[styles.card, { marginBottom: spacing.xl }]}>
           <CardWrapper>
-            <Text style={textStyles.h3}>Quick Stats</Text>
+            <Text style={typography.h3}>Quick Stats</Text>
             {quickStats.map((stat, index) => (
               <View
                 key={index}
                 style={[
-                  commonStyles.row,
-                  { marginTop: 16, paddingBottom: 16 },
+                  styles.row,
+                  { marginTop: spacing.lg, paddingBottom: spacing.lg },
                   index < quickStats.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
                 ]}
               >
-                <Icon name={stat.icon} size={24} color={stat.color} style={{ marginRight: 12 }} />
+                <Icon name={stat.icon} size={24} color={stat.color} style={{ marginRight: spacing.md }} />
                 <View>
-                  <Text style={textStyles.caption}>{stat.title}</Text>
-                  <Text style={textStyles.body}>{stat.value}</Text>
+                  <Text style={typography.caption}>{stat.title}</Text>
+                  <Text style={typography.body}>{stat.value}</Text>
                 </View>
               </View>
             ))}
@@ -444,27 +581,27 @@ export default function Home() {
         </View>
 
         {loadingMood ? (
-          <View style={[commonStyles.card, { marginBottom: 24, justifyContent: 'center', alignItems: 'center' }]}>
+          <View style={[styles.card, { marginBottom: spacing.xl, justifyContent: 'center', alignItems: 'center' }]}>
             <Text>Loading mood chart...</Text>
           </View>
         ) : processedChartData ? (
-          <View style={[commonStyles.card, { marginBottom: 24 }]}>
-            <View style={commonStyles.spaceBetween}>
-              <Text style={textStyles.h3}>{timeRange === 'Day' ? 'Daily' : `${timeRange}ly`} Mood Chart</Text>
+          <View style={[styles.card, { marginBottom: spacing.xl }]}>
+            <View style={styles.spaceBetween}>
+              <Text style={typography.h3}>{timeRange === 'Day' ? 'Daily' : `${timeRange}ly`} Mood Chart</Text>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 16 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: spacing.lg }}>
               {TIME_RANGES.map(range => (
                 <TouchableOpacity
                   key={range}
                   onPress={() => setTimeRange(range)}
                   style={{
-                    paddingVertical: 6,
-                    paddingHorizontal: 12,
-                    borderRadius: 16,
+                    paddingVertical: spacing.xs,
+                    paddingHorizontal: spacing.md,
+                    borderRadius: radii.full,
                     backgroundColor: timeRange === range ? colors.primary : 'transparent',
                   }}
                 >
-                  <Text style={{ color: timeRange === range ? 'white' : colors.primary, fontWeight: '600' }}>{range}</Text>
+                  <Text style={{ color: timeRange === range ? colors.textInverse : colors.primary, fontWeight: '600' }}>{range}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -483,92 +620,90 @@ export default function Home() {
                 labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                 style: { borderRadius: 16 },
                 propsForDots: { r: '4', strokeWidth: '2', stroke: colors.primary },
-                propsForBackgroundLines: { strokeDasharray: '' }, // solid lines
+                propsForBackgroundLines: { strokeDasharray: '' },
               }}
               bezier
-              style={{ marginVertical: 8, borderRadius: 16 }}
+              style={{ marginVertical: spacing.md, borderRadius: 16 }}
               fromZero
-              // This function formats the labels on the Y-axis
               formatYLabel={(y) => Math.round(parseFloat(y)).toString()}
             />
           </View>
         ) : (
-          <View style={[commonStyles.card, { marginBottom: 24, justifyContent: 'center', alignItems: 'center' }]}>
+          <View style={[styles.card, { marginBottom: spacing.xl, justifyContent: 'center', alignItems: 'center' }]}>
             <Text>No mood data available to display chart.</Text>
           </View>
         )}
 
-        {/* Rest of the UI remains the same */}
-        <View style={{ marginBottom: 24 }}>
-          <TouchableOpacity style={[commonStyles.card, { marginBottom: 12 }]} onPress={() => router.push('/mood' as any)}>
+        <View style={{ marginBottom: spacing.xl }}>
+          <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/(tabs)/mood')}>
             <CardWrapper>
-              <View style={commonStyles.spaceBetween}>
-                <View style={commonStyles.row}>
-                  <Icon name="heart" size={24} color={colors.primary} style={{ marginRight: 12 }} />
+              <View style={styles.spaceBetween}>
+                <View style={styles.row}>
+                  <Icon name="heart" size={24} color={colors.primary} style={{ marginRight: spacing.md }} />
                   <View>
-                    <Text style={textStyles.body}>Log Mood</Text>
-                    <Text style={textStyles.caption}>Track your emotional state</Text>
+                    <Text style={typography.body}>Log Mood</Text>
+                    <Text style={typography.caption}>Track your emotional state</Text>
                   </View>
                 </View>
-                <Icon name="chevron-forward" size={20} color={colors.textLight} />
+                <Icon name="chevron-forward" size={20} color={colors.textMuted} />
               </View>
             </CardWrapper>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[commonStyles.card, { marginBottom: 12 }]} onPress={() => router.push('/forum' as any)}>
+          <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/forum')}>
             <CardWrapper>
-              <View style={commonStyles.spaceBetween}>
-                <View style={commonStyles.row}>
-                  <Icon name="chatbubbles" size={24} color={colors.warning} style={{ marginRight: 12 }} />
+              <View style={styles.spaceBetween}>
+                <View style={styles.row}>
+                  <Icon name="chatbubbles" size={24} color={colors.warning} style={{ marginRight: spacing.md }} />
                   <View>
-                    <Text style={textStyles.body}>Community Forum</Text>
-                    <Text style={textStyles.caption}>Connect with others</Text>
+                    <Text style={typography.body}>Community Forum</Text>
+                    <Text style={typography.caption}>Connect with others</Text>
                   </View>
                 </View>
-                <Icon name="chevron-forward" size={20} color={colors.textLight} />
+                <Icon name="chevron-forward" size={20} color={colors.textMuted} />
               </View>
             </CardWrapper>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[commonStyles.card, { marginBottom: 12 }]} onPress={() => router.push('/mindfulness' as any)}>
+          <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/(tabs)/mindfulness')}>
             <CardWrapper>
-              <View style={commonStyles.spaceBetween}>
-                <View style={commonStyles.row}>
-                  <Icon name="leaf" size={24} color={colors.success} style={{ marginRight: 12 }} />
+              <View style={styles.spaceBetween}>
+                <View style={styles.row}>
+                  <Icon name="leaf" size={24} color={colors.success} style={{ marginRight: spacing.md }} />
                   <View>
-                    <Text style={textStyles.body}>Mindfulness</Text>
-                    <Text style={textStyles.caption}>Find your inner peace</Text>
+                    <Text style={typography.body}>Mindfulness</Text>
+                    <Text style={typography.caption}>Find your inner peace</Text>
                   </View>
                 </View>
-                <Icon name="chevron-forward" size={20} color={colors.textLight} />
+                <Icon name="chevron-forward" size={20} color={colors.textMuted} />
               </View>
             </CardWrapper>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[commonStyles.card, { marginBottom: 12 }]} onPress={() => router.push('/(tabs)/habits' as any)}>
+          <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/(tabs)/habits')}>
             <CardWrapper>
-              <View style={commonStyles.spaceBetween}>
-                <View style={commonStyles.row}>
-                  <Icon name="checkmark-circle" size={24} color={colors.success} style={{ marginRight: 12 }} />
+              <View style={styles.spaceBetween}>
+                <View style={styles.row}>
+                  <Icon name="checkmark-circle" size={24} color={colors.success} style={{ marginRight: spacing.md }} />
                   <View>
-                    <Text style={textStyles.body}>Check Habits</Text>
-                    <Text style={textStyles.caption}>Mark today&apos;s progress</Text>
+                    <Text style={typography.body}>Check Habits</Text>
+                    <Text style={typography.caption}>Mark today&apos;s progress</Text>
                   </View>
                 </View>
-                <Icon name="chevron-forward" size={20} color={colors.textLight} />
+                <Icon name="chevron-forward" size={20} color={colors.textMuted} />
               </View>
             </CardWrapper>
           </TouchableOpacity>
         </View>
 
-        <View style={[commonStyles.card, { borderColor: colors.danger + '30', marginBottom: 30 }]}>
+        <View style={[styles.card, { borderColor: colors.danger + '30', marginBottom: spacing.xxl }]}>
           <CardWrapper>
             <View style={{ alignItems: 'center' }}>
-              <Icon name="medical" size={32} color={colors.danger} style={{ marginBottom: 12 }} />
-              <Text style={[textStyles.h3, { color: colors.danger, marginBottom: 8 }]}>
+              <Icon name="medical" size={32} color={colors.danger} style={{ marginBottom: spacing.lg }} />
+              <Text style={[typography.h3, { color: colors.danger, marginBottom: spacing.sm }]}>
                 Need Immediate Help?
               </Text>
-              <Text style={[textStyles.caption, { textAlign: 'center', marginBottom: 16 }]}>
+              <Text style={[typography.caption, { textAlign: 'center', marginBottom: spacing.lg }]}>
                 If you&apos;re in crisis, don&apos;t hesitate to reach out for support
               </Text>
               <Button text="Emergency Support" onPress={handleEmergency} style={{ backgroundColor: colors.danger, width: '100%' }} />

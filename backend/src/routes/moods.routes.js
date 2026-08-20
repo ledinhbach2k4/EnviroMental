@@ -3,6 +3,8 @@ import { db } from "../config/db.js";
 import * as schema from "../db/schema.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 import { userLookupMiddleware } from "../middleware/userLookupMiddleware.js";
+import { validate } from "../validation/schemas.js";
+import { createMoodEntrySchema } from "../validation/schemas.js";
 import { eq, and, gte, lt } from "drizzle-orm";
 
 const router = express.Router();
@@ -61,7 +63,7 @@ router.get("/today", async (req, res) => {
 });
 
 // Create a new mood entry
-router.post("/", async (req, res) => {
+router.post("/", validate(createMoodEntrySchema), async (req, res) => {
   const { moodLevel, note, factors } = req.body;
 
   try {

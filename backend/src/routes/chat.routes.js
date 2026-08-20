@@ -2,6 +2,8 @@ import express from "express";
 import { db } from "../config/db.js";
 import * as schema from "../db/schema.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
+import { validate } from "../validation/schemas.js";
+import { createChatMessageSchema } from "../validation/schemas.js";
 import { eq, asc } from "drizzle-orm";
 import axios from "axios";
 
@@ -9,6 +11,96 @@ const router = express.Router();
 
 // Load the API key from environment variables (do not hardcode the key)
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
+
+// Dynamic model selection
+let activeGroqModel = null;
+
+async function initializeGroqModel() {
+  if (activeGroqModel) return activeGroqModel;
+
+  if (!GROQ_API_KEY) {
+    console.warn("GROQ_API_KEY not set, cannot initialize model");
+    return null;
+  }
+
+  try {
+    const response = await axios.get(
+      "https://api.groq.com/openai/v1/models",
+      {
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+        },
+        timeout: 5000,
+      }
+    );
+
+    const models = response.data?.data ?? [];
+    if (models.length === 0) {
+      console.warn("No Groq models available for this API key");
+      return null;
+    }
+
+    // Filter out moderation/vision models - only keep conversational models
+    const conversationalModels = models.filter(m => {
+      const id = m.id.toLowerCase();
+      return !id.includes("guard") && !id.includes("vision");
+    });
+
+    if (conversationalModels.length === 0) {
+      console.warn("No conversational models available, falling back to all models");
+      // Fallback to all models if filtering removed everything
+      return models[0].id;
+    }
+
+    // Prefer models: llama-3.3 > llama-3.1 > mixtral > other conversational
+    const preferredOrder = ["llama-3.3", "llama-3.1", "mixtral"];
+    let preferred = null;
+
+    for (const keyword of preferredOrder) {
+      preferred = conversationalModels.find(m => m.id.toLowerCase().includes(keyword));
+      if (preferred) break;
+    }
+
+    activeGroqModel = preferred ? preferred.id : conversationalModels[0].id;
+    console.log("Selected Groq model:", activeGroqModel);
+    return activeGroqModel;
+  } catch (err) {
+    console.error("Failed to initialize Groq model:", err.response?.data || err.message);
+    return null;
+  }
+}
+
+let availableModelsLogged = false;
+
+async function logAvailableModels() {
+  if (availableModelsLogged) return;
+  availableModelsLogged = true;
+
+  // Guard: skip if no API key (prevents crash on startup/config issues)
+  if (!GROQ_API_KEY) {
+    console.warn("GROQ_API_KEY not set, skipping model discovery");
+    return;
+  }
+
+  try {
+    const response = await axios.get(
+      "https://api.groq.com/openai/v1/models",
+      {
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+        },
+        timeout: 5000, // 5s timeout to prevent hanging
+      }
+    );
+    const modelIds = response.data?.data?.map(m => m.id) ?? [];
+    console.log("=== Available Groq Models for this API Key ===");
+    console.log(modelIds.length ? modelIds.join("\n") : "(none)");
+    console.log("===============================================");
+  } catch (err) {
+    // Never throw - log and continue
+    console.error("Failed to fetch available Groq models:", err.response?.data || err.message);
+  }
+}
 
 /**
  * GET /
@@ -40,12 +132,9 @@ router.get("/", authMiddleware, async (req, res) => {
  * POST /
  * Send a new message and receive a response from the Groq API.
  */
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", authMiddleware, validate(createChatMessageSchema), async (req, res) => {
   const { message } = req.body;
 
-  if (!message) {
-    return res.status(400).json({ error: "Message is required" });
-  }
   if (!GROQ_API_KEY) {
     return res.status(500).json({
       error: "Server misconfiguration",
@@ -69,20 +158,33 @@ router.post("/", authMiddleware, async (req, res) => {
 
   let aiReply;
   try {
+    // Initialize dynamic model on first request
+    if (!activeGroqModel) {
+      await initializeGroqModel();
+    }
+
+    // Fallback if model initialization failed
+    const modelToUse = activeGroqModel || "llama-3.1-8b-instant";
+
+    // Log available models on first request (for debugging)
+    await logAvailableModels();
+
     // Send the user message to Groq
+    const groqPayload = {
+      model: modelToUse,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a mental health expert in the EnviroMental application. Only answer questions related to emotions, stress, meditation, living environment, and psychology.",
+        },
+        { role: "user", content: message },
+      ],
+    };
+    console.log("Groq request payload:", JSON.stringify(groqPayload, null, 2));
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
-      {
-        model: "llama-3.1-8b-instant",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a mental health expert in the EnviroMental application. Only answer questions related to emotions, stress, meditation, living environment, and psychology.",
-          },
-          { role: "user", content: message },
-        ],
-      },
+      groqPayload,
       {
         headers: {
           Authorization: `Bearer ${GROQ_API_KEY}`,
@@ -92,6 +194,8 @@ router.post("/", authMiddleware, async (req, res) => {
     );
 
     aiReply = response.data.choices?.[0]?.message?.content ?? "";
+    // Strip reasoning tags (e.g., DeepSeek-R1) before returning to client
+    aiReply = aiReply.replace(/<think>[\s\S]*?<\/think>\s*/gi, '').trim();
   } catch (err) {
     const status = err.response?.status;
     const data = err.response?.data;

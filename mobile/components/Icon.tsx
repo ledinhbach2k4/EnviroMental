@@ -1,6 +1,6 @@
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../assets/styles/commonStyles';
+import { useColors } from '@/src/design/hooks';
 
 interface IconProps {
   name: keyof typeof Ionicons.glyphMap;
@@ -9,10 +9,12 @@ interface IconProps {
   style?: ViewStyle;
 }
 
-export default function Icon({ name, size = 40, color = colors.primary, style = {} }: IconProps) {
+export default function Icon({ name, size = 40, color, style = {} }: IconProps) {
+  const colors = useColors();
+  
   return (
     <View style={[styles.iconContainer, style]}>
-      <Ionicons name={name} size={size} color={color} />
+      <Ionicons name={name} size={size} color={color || colors.primary} />
     </View>
   );
 }

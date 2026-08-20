@@ -1,3 +1,5 @@
 {
-    "codium.codeCompletion.enable": false
+    "codium.codeCompletion.enable": false,
+    "snyk.advanced.organization": "fc38afa4-9191-4883-9244-065c5ff3f4c9",
+    "snyk.advanced.autoSelectOrganization": true
 }

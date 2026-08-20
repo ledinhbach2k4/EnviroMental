@@ -1,3 +1,7 @@
 .expo/
 backend/.env
+mobile/.env
 EnviroMental - Function.txt
+CLAUDE.md
+GEMINI.md
+node_modules/

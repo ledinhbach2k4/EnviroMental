@@ -1,10 +1,9 @@
 import { db } from "../config/db.js";
 import * as schema from "../db/schema.js";
 import { eq } from "drizzle-orm";
-import { clerkClient } from "@clerk/clerk-sdk-node";
 
 export const userLookupMiddleware = async (req, res, next) => {
-  const clerkId = req.auth.userId;
+  const clerkId = req.auth?.userId;
   if (!clerkId) {
     return res.status(401).json({ error: "Not authenticated" });
   }
@@ -15,11 +14,15 @@ export const userLookupMiddleware = async (req, res, next) => {
     if (!user) {
       // This is a new user, create an entry in our DB
       console.log(`New user detected. Clerk ID: ${clerkId}. Creating entry in DB.`);
-      
+
       let clerkUser;
       try {
-        clerkUser = await clerkClient.users.getUser(clerkId);
-        console.log("Clerk user data:", JSON.stringify(clerkUser, null, 2));
+        // Get user info from Clerk using the auth object
+        const clerkClient = req.clerkClient;
+        if (clerkClient) {
+          clerkUser = await clerkClient.users.getUser(clerkId);
+          console.log("Clerk user data:", JSON.stringify(clerkUser, null, 2));
+        }
       } catch (clerkErr) {
         console.error(`Error fetching user ${clerkId} from Clerk:`, clerkErr);
         // We can proceed with fallback values, but we should log this serious issue.
@@ -55,7 +58,7 @@ export const userLookupMiddleware = async (req, res, next) => {
         // Check if it's the unique email constraint violation
         if (dbErr.cause?.code === '23505' && dbErr.cause?.constraint === 'users_email_unique') {
           console.warn(`Attempted to insert a user with an existing email: ${newUserPayload.email}. Linking clerkId to existing user.`);
-          
+
           // Find the existing user by email and update them
           const [updatedUser] = await db.update(schema.users)
             .set({ clerkId: newUserPayload.clerkId, name: newUserPayload.name })

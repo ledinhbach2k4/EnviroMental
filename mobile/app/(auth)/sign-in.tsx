@@ -10,16 +10,20 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-
-import { authStyles } from "../../assets/styles/auth.styles";
-import { COLORS } from "../../constants/colors";
-import { textStyles } from '../../assets/styles/commonStyles';
-import { API_URL } from '../../constants/api';
+import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { ENV } from '../../constants/api';
 
 const SignInScreen = () => {
+  const colors = useColors();
+  const typography = useTypography();
+  const spacing = useSpacing();
+  const radii = useRadii();
+  const shadows = useShadows();
+
   const router = useRouter();
   const { signIn, setActive, isLoaded } = useSignIn();
   const { getToken } = useAuth();
@@ -54,7 +58,7 @@ const SignInScreen = () => {
 
       if (signInAttempt.status === "complete") {
         await setActive({ session: signInAttempt.createdSessionId });
-        await syncUser(); // Call syncUser after successful sign-in
+        await syncUser();
         router.replace("/(tabs)/home" as any);
       } else {
         Alert.alert("Error", "Sign in failed. Please try again.");
@@ -73,7 +77,7 @@ const SignInScreen = () => {
     try {
       const token = await getToken();
       console.log("Making syncUser fetch call...");
-      await fetch(`${API_URL}/users/sync-user`, {
+      await fetch(`${ENV.API_URL}/users/sync-user`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -84,38 +88,127 @@ const SignInScreen = () => {
     }
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    keyboardView: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.xl,
+      justifyContent: 'space-between',
+    },
+    imageContainer: {
+      height: '30%',
+      marginBottom: spacing.xl,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    image: {
+      width: 320,
+      height: 320,
+    },
+    title: {
+      ...typography.h1,
+      color: colors.text,
+      textAlign: "center",
+      marginBottom: spacing.xl,
+    },
+    subtitle: {
+      ...typography.body,
+      color: colors.textMuted,
+      textAlign: "center",
+      marginBottom: spacing.xl,
+    },
+    formContainer: {
+      flex: 1,
+    },
+    inputContainer: {
+      marginBottom: spacing.lg,
+      position: "relative",
+    },
+    textInput: {
+      ...typography.body,
+      color: colors.text,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      backgroundColor: colors.backgroundAlt,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    eyeButton: {
+      position: "absolute",
+      right: spacing.md,
+      top: spacing.md,
+      padding: spacing.xs,
+    },
+    authButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: spacing.md,
+      borderRadius: radii.md,
+      marginTop: spacing.lg,
+      marginBottom: spacing.xl,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...shadows.sm,
+    },
+    buttonDisabled: {
+      opacity: 0.7,
+    },
+    buttonText: {
+      ...typography.button,
+      color: colors.textInverse,
+      textAlign: "center",
+    },
+    linkContainer: {
+      alignItems: "center",
+      paddingBottom: spacing.lg,
+    },
+    linkText: {
+      ...typography.body,
+      color: colors.textMuted,
+    },
+    link: {
+      color: colors.primary,
+      fontWeight: "600",
+    },
+  });
+
   return (
-    <View style={authStyles.container}>
+    <View style={styles.container}>
       <KeyboardAvoidingView
         behavior="padding"
-        style={authStyles.keyboardView}
+        style={styles.keyboardView}
         keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
       >
         <ScrollView
-          contentContainerStyle={authStyles.scrollContent}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={authStyles.imageContainer}>
+          <View style={styles.imageContainer}>
             <Image
               source={require("../../assets/images/i1.png")}
-              style={authStyles.image}
+              style={styles.image}
               contentFit="contain"
             />
           </View>
 
-          <Text style={[authStyles.title, { marginBottom: 8 }]}>Welcome to EnviroMental</Text>
-          <Text style={[textStyles.body, { color: COLORS.textLight, textAlign: 'center', marginBottom: 40 }]}>
+          <Text style={[styles.title, { marginBottom: spacing.sm }]}>Welcome to EnviroMental</Text>
+          <Text style={styles.subtitle}>
             Sign in to continue your wellness journey.
           </Text>
 
-          {/* FORM CONTAINER */}
-          <View style={authStyles.formContainer}>
-            {/* Email Input */}
-            <View style={authStyles.inputContainer}>
+          <View style={styles.formContainer}>
+            <View style={styles.inputContainer}>
               <TextInput
-                style={authStyles.textInput}
+                style={styles.textInput}
                 placeholder="Enter email"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={(text) => setEmail(text.trim())}
                 keyboardType="email-address"
@@ -124,12 +217,11 @@ const SignInScreen = () => {
               />
             </View>
 
-            {/* PASSWORD INPUT */}
-            <View style={authStyles.inputContainer}>
+            <View style={styles.inputContainer}>
               <TextInput
-                style={authStyles.textInput}
+                style={styles.textInput}
                 placeholder="Enter password"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={colors.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -137,33 +229,32 @@ const SignInScreen = () => {
                 maxLength={50}
               />
               <TouchableOpacity
-                style={authStyles.eyeButton}
+                style={styles.eyeButton}
                 onPress={() => setShowPassword(!showPassword)}
               >
                 <Ionicons
                   name={showPassword ? "eye-outline" : "eye-off-outline"}
                   size={20}
-                  color={COLORS.textLight}
+                  color={colors.textMuted}
                 />
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={[authStyles.authButton, loading && authStyles.buttonDisabled]}
+              style={[styles.authButton, loading && styles.buttonDisabled]}
               onPress={handleSignIn}
               disabled={loading}
               activeOpacity={0.8}
             >
-              <Text style={authStyles.buttonText}>{loading ? "Signing In..." : "Sign In"}</Text>
+              <Text style={styles.buttonText}>{loading ? "Signing In..." : "Sign In"}</Text>
             </TouchableOpacity>
 
-            {/* Sign Up Link */}
             <TouchableOpacity
-              style={authStyles.linkContainer}
+              style={styles.linkContainer}
               onPress={() => router.push("/(auth)/sign-up" as any)}
             >
-              <Text style={authStyles.linkText}>
-                Don&apos;t have an account? <Text style={authStyles.link}>Sign up</Text>
+              <Text style={styles.linkText}>
+                Don&apos;t have an account? <Text style={styles.link}>Sign up</Text>
               </Text>
             </TouchableOpacity>
           </View>

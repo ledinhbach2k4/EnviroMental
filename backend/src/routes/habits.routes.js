@@ -4,6 +4,8 @@ import * as schema from "../db/schema.js";
 
 import { authMiddleware } from "../middleware/authMiddleware.js";
 import { userLookupMiddleware } from "../middleware/userLookupMiddleware.js";
+import { validate } from "../validation/schemas.js";
+import { createHabitSchema, habitLogSchema, habitIdParamSchema } from "../validation/schemas.js";
 import { eq, and } from "drizzle-orm";
 
 const router = express.Router();
@@ -44,7 +46,7 @@ router.get("/", authMiddleware, userLookupMiddleware, async (req, res) => {
 });
 
 // Create a new habit
-router.post("/", authMiddleware, userLookupMiddleware, async (req, res) => {
+router.post("/", authMiddleware, userLookupMiddleware, validate(createHabitSchema), async (req, res) => {
   const { name, description, icon } = req.body;
 
   if (!req.internalUserId) {
@@ -67,7 +69,7 @@ router.post("/", authMiddleware, userLookupMiddleware, async (req, res) => {
 });
 
 // Delete a habit
-router.delete("/:habitId", authMiddleware, userLookupMiddleware, async (req, res) => {
+router.delete("/:habitId", authMiddleware, userLookupMiddleware, validate(habitIdParamSchema), async (req, res) => {
   const { habitId } = req.params;
 
   try {
@@ -95,13 +97,9 @@ router.delete("/:habitId", authMiddleware, userLookupMiddleware, async (req, res
 });
 
 // Upsert a habit log for a specific date
-router.post("/:habitId/log", authMiddleware, userLookupMiddleware, async (req, res) => {
+router.post("/:habitId/log", authMiddleware, userLookupMiddleware, validate(habitLogSchema), async (req, res) => {
   const { habitId } = req.params;
   const { date, completed } = req.body; // date should be in 'YYYY-MM-DD' format
-
-  if (!date) {
-    return res.status(400).json({ error: "Date is required" });
-  }
 
   try {
     // Optional: Verify the habit belongs to the user

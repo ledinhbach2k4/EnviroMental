@@ -1,6 +1,6 @@
 import { Redirect } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
 
 export default function Index() {
@@ -12,10 +12,10 @@ export default function Index() {
 
     const checkFirstLaunch = async () => {
       try {
-        const stored = await AsyncStorage.getItem('isFirstLaunch');
+        const stored = await SecureStore.getItemAsync('isFirstLaunch');
         if (stored === null) {
           // First ever run on this device
-          await AsyncStorage.setItem('isFirstLaunch', 'false');
+          await SecureStore.setItemAsync('isFirstLaunch', 'false');
           if (mounted) setIsFirstLaunch(true);
         } else {
           if (mounted) setIsFirstLaunch(false);

@@ -1,17 +1,13 @@
 // app.js
 import express from 'express';
-import bodyParser from 'body-parser';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-import job from './config/cron.js';
 import { ENV } from './config/env.js';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
-import * as schema from './db/schema.js';
+import { db } from './config/db.js';
 
-import { clerkMiddleware } from '@clerk/express';
+import { clerkMiddleware, createClerkClient } from '@clerk/express';
 
 // Route imports
 import authRoutes from './routes/auth.routes.js';
@@ -28,22 +24,22 @@ import emergencyRoutes from './routes/emergency.routes.js';
 import hotlineRoutes from './routes/hotlines.routes.js';
 import suggestionRoutes from './routes/suggestions.routes.js';
 import environmentRoutes from './routes/environment.routes.js';
+import stressScanRoutes from './routes/stressScans.routes.js';
 
-const app = express(); 
-app.use(express.json()); 
+const app = express();
+app.use(express.json());
 
 // Security and Optimization Middleware
 app.use(helmet());
 app.use(compression());
 
 const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 100, // Limit each IP to 100 requests per window
-	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 app.use(limiter);
-
 
 // CORS configuration
 const allowedOrigins = [
@@ -80,7 +76,7 @@ const corsOptions = {
   },
   credentials: true, // Important for cookies, authorization headers etc.
 };
-app.use(cors(corsOptions)); 
+app.use(cors(corsOptions));
 
 // Add a middleware to log all incoming requests
 app.use((req, res, next) => {
@@ -88,23 +84,28 @@ app.use((req, res, next) => {
   next();
 });
 
-// DB setup
-const pool = new Pool({
-  connectionString: ENV.DATABASE_URL,
-  ssl: ENV.NODE_ENV !== 'production' ? { rejectUnauthorized: false } : undefined, // Required for Neon.tech in development
-});
-const db = drizzle(pool, { schema });
-
-// Attach db to request
+// Attach db to request (using centralized db from config/db.js)
 app.use((req, res, next) => {
   req.db = db;
   next();
 });
 
-app.use(clerkMiddleware({ 
-    publishableKey: ENV.CLERK_PUBLISHABLE_KEY,
-    secretKey: ENV.CLERK_SECRET_KEY,
+// Initialize Clerk client
+const clerkClient = createClerkClient({
+  secretKey: ENV.CLERK_SECRET_KEY,
+});
+
+// Clerk middleware configuration
+app.use(clerkMiddleware({
+  publishableKey: ENV.CLERK_PUBLISHABLE_KEY,
+  secretKey: ENV.CLERK_SECRET_KEY,
 }));
+
+// Attach clerkClient to request for use in other middleware
+app.use((req, res, next) => {
+  req.clerkClient = clerkClient;
+  next();
+});
 
 // Routes
 app.use('/api/users', authRoutes);
@@ -121,6 +122,7 @@ app.use('/api/emergency-contacts', emergencyRoutes);
 app.use('/api/hotlines', hotlineRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/environment', environmentRoutes);
+app.use('/api/stress-scans', stressScanRoutes);
 
 // Test route
 app.get('/api/test', (req, res) => res.json({ success: true }));

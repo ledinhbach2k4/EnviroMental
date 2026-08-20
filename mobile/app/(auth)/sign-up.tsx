@@ -7,18 +7,23 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSignUp } from "@clerk/clerk-expo";
 import { useState } from "react";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-
-import { authStyles } from "../../assets/styles/auth.styles";
-import { COLORS } from "../../constants/colors";
+import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 import VerifyEmail from "./verify-email";
 
 const SignUpScreen = () => {
+  const colors = useColors();
+  const typography = useTypography();
+  const spacing = useSpacing();
+  const radii = useRadii();
+  const shadows = useShadows();
+
   const router = useRouter();
   const { isLoaded, signUp } = useSignUp();
 
@@ -81,132 +86,180 @@ const SignUpScreen = () => {
     return <VerifyEmail email={email} username={username} firstName={firstName} lastName={lastName} onBack={() => setPendingVerification(false)} />;
   }
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    keyboardView: {
+      flex: 1,
+      behavior: Platform.OS === "ios" ? "padding" : "height",
+      keyboardVerticalOffset: Platform.OS === "ios" ? 64 : 0,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.xl,
+      justifyContent: 'space-between',
+    },
+    imageContainer: {
+      height: '30%',
+      marginBottom: spacing.xl,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    image: {
+      width: 320,
+      height: 320,
+    },
+    title: {
+      ...typography.h1,
+      color: colors.text,
+      textAlign: "center",
+      marginBottom: spacing.xl,
+    },
+    formContainer: {
+      flex: 1,
+    },
+    inputContainer: {
+      marginBottom: spacing.lg,
+      position: "relative",
+    },
+    textInput: {
+      ...typography.body,
+      color: colors.text,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      backgroundColor: colors.backgroundAlt,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    charCount: {
+      position: "absolute",
+      bottom: 8,
+      right: 12,
+      fontSize: 12,
+      color: colors.textMuted,
+    },
+    eyeButton: {
+      position: "absolute",
+      right: spacing.md,
+      top: spacing.md,
+      padding: spacing.xs,
+    },
+    authButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: spacing.md,
+      borderRadius: radii.md,
+      marginTop: spacing.lg,
+      marginBottom: spacing.xl,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...shadows.sm,
+    },
+    buttonDisabled: {
+      opacity: 0.7,
+    },
+    buttonText: {
+      ...typography.button,
+      color: colors.textInverse,
+      textAlign: "center",
+    },
+    linkContainer: {
+      alignItems: "center",
+      paddingBottom: spacing.xl,
+    },
+    linkText: {
+      ...typography.body,
+      color: colors.textMuted,
+    },
+    link: {
+      color: colors.primary,
+      fontWeight: "600",
+    },
+  });
+
   return (
-    <View style={authStyles.container}>
+    <View style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
-        style={authStyles.keyboardView}
+        style={styles.keyboardView}
       >
         <ScrollView
-          contentContainerStyle={authStyles.scrollContent}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Image */}
-          <View style={authStyles.imageContainer}>
+          <View style={styles.imageContainer}>
             <Image
               source={require("../../assets/images/i2.png")}
-              style={authStyles.image}
+              style={styles.image}
               contentFit="contain"
             />
           </View>
 
-          <Text style={authStyles.title}>Create Account</Text>
+          <Text style={styles.title}>Create Account</Text>
 
-          <View style={authStyles.formContainer}>
-            {/* First Name */}
-            <View style={authStyles.inputContainer}>
+          <View style={styles.formContainer}>
+            <View style={styles.inputContainer}>
               <TextInput
-                style={authStyles.textInput}
+                style={styles.textInput}
                 placeholder="Enter first name"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={colors.textMuted}
                 value={firstName}
                 onChangeText={setFirstName}
                 autoCapitalize="words"
                 maxLength={50}
               />
-              <Text
-                style={{
-                  position: "absolute",
-                  bottom: 8,
-                  right: 12,
-                  fontSize: 12,
-                  color: COLORS.textLight,
-                }}
-              >
-                {firstName.length}/50
-              </Text>
+              <Text style={styles.charCount}>{firstName.length}/50</Text>
             </View>
 
-            {/* Last Name */}
-            <View style={authStyles.inputContainer}>
+            <View style={styles.inputContainer}>
               <TextInput
-                style={authStyles.textInput}
+                style={styles.textInput}
                 placeholder="Enter last name"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={colors.textMuted}
                 value={lastName}
                 onChangeText={setLastName}
                 autoCapitalize="words"
                 maxLength={50}
               />
-              <Text
-                style={{
-                  position: "absolute",
-                  bottom: 8,
-                  right: 12,
-                  fontSize: 12,
-                  color: COLORS.textLight,
-                }}
-              >
-                {lastName.length}/50
-              </Text>
+              <Text style={styles.charCount}>{lastName.length}/50</Text>
             </View>
 
-            {/* Username */}
-            <View style={authStyles.inputContainer}>
+            <View style={styles.inputContainer}>
               <TextInput
-                style={authStyles.textInput}
+                style={styles.textInput}
                 placeholder="Enter username"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={colors.textMuted}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
                 maxLength={50}
               />
-              <Text
-                style={{
-                  position: "absolute",
-                  bottom: 8,
-                  right: 12,
-                  fontSize: 12,
-                  color: COLORS.textLight,
-                }}
-              >
-                {username.length}/50
-              </Text>
+              <Text style={styles.charCount}>{username.length}/50</Text>
             </View>
 
-            {/* Email */}
-            <View style={authStyles.inputContainer}>
+            <View style={styles.inputContainer}>
               <TextInput
-                style={authStyles.textInput}
+                style={styles.textInput}
                 placeholder="Enter email"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={(text) => setEmail(text.trim())}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 maxLength={50}
               />
-              <Text
-                style={{
-                  position: "absolute",
-                  bottom: 8,
-                  right: 12,
-                  fontSize: 12,
-                  color: COLORS.textLight,
-                }}
-              >
-                {email.length}/50
-              </Text>
+              <Text style={styles.charCount}>{email.length}/50</Text>
             </View>
 
-            {/* Password */}
-            <View style={authStyles.inputContainer}>
+            <View style={styles.inputContainer}>
               <TextInput
-                style={authStyles.textInput}
+                style={styles.textInput}
                 placeholder="Enter password"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={colors.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -214,23 +267,22 @@ const SignUpScreen = () => {
                 maxLength={50}
               />
               <TouchableOpacity
-                style={authStyles.eyeButton}
+                style={styles.eyeButton}
                 onPress={() => setShowPassword(!showPassword)}
               >
                 <Ionicons
                   name={showPassword ? "eye-outline" : "eye-off-outline"}
                   size={20}
-                  color={COLORS.textLight}
+                  color={colors.textMuted}
                 />
               </TouchableOpacity>
             </View>
 
-            {/* Re-enter Password */}
-            <View style={authStyles.inputContainer}>
+            <View style={styles.inputContainer}>
               <TextInput
-                style={authStyles.textInput}
+                style={styles.textInput}
                 placeholder="Re-enter password"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={colors.textMuted}
                 value={rePassword}
                 onChangeText={setRePassword}
                 secureTextEntry={!showPassword}
@@ -239,22 +291,20 @@ const SignUpScreen = () => {
               />
             </View>
 
-            {/* Sign Up Button */}
             <TouchableOpacity
-              style={[authStyles.authButton, loading && authStyles.buttonDisabled]}
+              style={[styles.authButton, loading && styles.buttonDisabled]}
               onPress={handleSignUp}
               disabled={loading}
               activeOpacity={0.8}
             >
-              <Text style={authStyles.buttonText}>
+              <Text style={styles.buttonText}>
                 {loading ? "Creating Account..." : "Sign Up"}
               </Text>
             </TouchableOpacity>
 
-            {/* Sign In Link */}
-            <TouchableOpacity style={authStyles.linkContainer} onPress={() => router.back()}>
-              <Text style={authStyles.linkText}>
-                Already have an account? <Text style={authStyles.link}>Sign In</Text>
+            <TouchableOpacity style={styles.linkContainer} onPress={() => router.back()}>
+              <Text style={styles.linkText}>
+                Already have an account? <Text style={styles.link}>Sign In</Text>
               </Text>
             </TouchableOpacity>
           </View>

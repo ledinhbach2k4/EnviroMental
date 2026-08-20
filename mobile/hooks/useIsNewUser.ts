@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { useState, useEffect } from 'react';
 
 export const useIsNewUser = () => {
@@ -6,9 +6,9 @@ export const useIsNewUser = () => {
 
   useEffect(() => {
     const checkFirstLaunch = async () => {
-      const isFirstLaunch = await AsyncStorage.getItem('isFirstLaunch');
+      const isFirstLaunch = await SecureStore.getItemAsync('isFirstLaunch');
       if (isFirstLaunch === null) {
-        await AsyncStorage.setItem('isFirstLaunch', 'false');
+        await SecureStore.setItemAsync('isFirstLaunch', 'false');
         setIsNewUser(true);
       } else {
         setIsNewUser(false);

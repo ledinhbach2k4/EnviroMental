@@ -1,62 +1,17 @@
 import { Text, TouchableOpacity, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { colors, textStyles } from '../assets/styles/commonStyles';
+import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 
 interface ButtonProps {
   text: string;
   onPress: () => void;
   style?: ViewStyle | ViewStyle[];
   textStyle?: TextStyle;
-  variant?: 'primary' | 'secondary' | 'outline' | 'accent';
+  variant?: 'primary' | 'secondary' | 'outline' | 'accent' | 'danger' | 'ghost';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
 }
-
-const styles = StyleSheet.create({
-  button: {
-    borderRadius: 25,
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: `0px 4px 12px ${colors.shadow}`,
-    elevation: 4,
-  },
-  primary: {
-    backgroundColor: colors.primary,
-  },
-  secondary: {
-    backgroundColor: colors.secondary,
-  },
-  accent: {
-    backgroundColor: colors.accent,
-  },
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  small: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  large: {
-    paddingVertical: 18,
-    paddingHorizontal: 40,
-    borderRadius: 30,
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.backgroundAlt,
-  },
-  outlineText: {
-    color: colors.primary,
-  },
-});
 
 export default function Button({ 
   text, 
@@ -65,21 +20,88 @@ export default function Button({
   textStyle, 
   variant = 'primary',
   size = 'medium',
-  disabled = false 
+  disabled = false,
+  leftIcon,
+  rightIcon,
 }: ButtonProps) {
+  const colors = useColors();
+  const typography = useTypography();
+  const spacing = useSpacing();
+  const radii = useRadii();
+  const shadows = useShadows();
+
+  const styles = StyleSheet.create({
+    base: {
+      borderRadius: radii.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: spacing.sm,
+      ...shadows.sm,
+    },
+    primary: {
+      backgroundColor: colors.primary,
+    },
+    secondary: {
+      backgroundColor: colors.secondary,
+    },
+    accent: {
+      backgroundColor: colors.accent,
+    },
+    danger: {
+      backgroundColor: colors.danger,
+    },
+    outline: {
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderColor: colors.primary,
+    },
+    ghost: {
+      backgroundColor: 'transparent',
+    },
+    small: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.md,
+    },
+    medium: {
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+    },
+    large: {
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.xxl,
+      borderRadius: radii.xl,
+    },
+    disabled: {
+      opacity: 0.5,
+    },
+    text: {
+      ...typography.button,
+      color: colors.textInverse,
+    },
+    textOutline: {
+      ...typography.button,
+      color: colors.primary,
+    },
+    textGhost: {
+      ...typography.button,
+      color: colors.primary,
+    },
+  });
+
   const buttonStyles = [
-    styles.button,
+    styles.base,
     styles[variant],
-    size !== 'medium' && styles[size],
+    styles[size],
     disabled && styles.disabled,
     style,
-  ];
+  ].filter(Boolean);
 
   const textStyles = [
-    styles.buttonText,
-    variant === 'outline' && styles.outlineText,
+    variant === 'outline' ? styles.textOutline : variant === 'ghost' ? styles.textGhost : styles.text,
     textStyle,
-  ];
+  ].filter(Boolean);
 
   return (
     <TouchableOpacity 
@@ -88,7 +110,9 @@ export default function Button({
       disabled={disabled}
       activeOpacity={0.8}
     >
+      {leftIcon}
       <Text style={textStyles}>{text}</Text>
+      {rightIcon}
     </TouchableOpacity>
   );
 }

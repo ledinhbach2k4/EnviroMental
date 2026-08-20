@@ -8,6 +8,8 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "downlevelIteration": true,
     "paths": {
       "@/*": [
         "./*"
@@ -15,10 +17,10 @@
     }
   },
   "include": [
-  "**/*.ts",
-  "**/*.tsx",
-  ".expo/types/**/*.ts",
-  "expo-env.d.ts",
-  "app/_layout.jsx"
-]
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "app/_layout.tsx"
+  ]
 }

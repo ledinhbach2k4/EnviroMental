@@ -1,15 +1,14 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, Switch, Platform } from 'react-native';
-import { useState, useCallback, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Switch, Platform, StyleSheet } from 'react-native';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { commonStyles, textStyles, colors } from '../../assets/styles/commonStyles';
+import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 import Icon from '../../components/Icon';
 import Button from '../../components/Button';
 import { useAuth } from '@clerk/clerk-expo';
-import { API_URL } from '../../constants/api';
+import { ENV } from '../../constants/api';
 import { useFocusEffect } from 'expo-router';
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isSupported, cancelAllScheduledNotificationsAsync, scheduleNotificationAsync, getPermissionsAsync, requestPermissionsAsync, setNotificationChannelAsync, AndroidImportance } from '@/utils/notifications';
+import * as SecureStore from 'expo-secure-store';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface MoodEntry {
@@ -22,7 +21,6 @@ interface MoodEntry {
 
 const moodEmojis = ['😢', '😕', '😐', '😊', '😄'];
 const moodLabels = ['Very Sad', 'Sad', 'Neutral', 'Happy', 'Very Happy'];
-const moodColors = [colors.moodVerySad, colors.moodSad, colors.moodNeutral, colors.moodHappy, colors.moodVeryHappy];
 
 const moodFactors = [
   'Weather', 'Sleep', 'Work', 'Exercise', 'Social', 'Food', 'Stress', 'Health'
@@ -34,6 +32,20 @@ const LOG_INTERVAL_HOURS = 2;
 const NOTIFICATION_SETTINGS_KEY = 'mood_notification_settings';
 
 export default function MoodTracker() {
+  const colors = useColors();
+  const typography = useTypography();
+  const spacing = useSpacing();
+  const radii = useRadii();
+  const shadows = useShadows();
+  
+  const moodColors = [
+    colors.mood.verySad,
+    colors.mood.sad,
+    colors.mood.neutral,
+    colors.mood.happy,
+    colors.mood.veryHappy,
+  ];
+
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
   const [selectedFactors, setSelectedFactors] = useState<string[]>([]);
   const [moodNote, setMoodNote] = useState('');
@@ -45,15 +57,13 @@ export default function MoodTracker() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { getToken } = useAuth();
 
-  // New state for notifications
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [notificationTime, setNotificationTime] = useState(new Date(new Date().setHours(20, 0, 0, 0))); // Default to 8 PM
+  const [notificationTime, setNotificationTime] = useState(new Date(new Date().setHours(20, 0, 0, 0)));
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Load notification settings on component mount
   useEffect(() => {
     const loadSettings = async () => {
-      const settingsJSON = await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY);
+      const settingsJSON = await SecureStore.getItemAsync(NOTIFICATION_SETTINGS_KEY);
       if (settingsJSON) {
         try {
           const { enabled, time } = JSON.parse(settingsJSON);
@@ -68,8 +78,9 @@ export default function MoodTracker() {
   }, []);
 
   const scheduleNotification = async (time: Date) => {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    const identifier = await Notifications.scheduleNotificationAsync({
+    if (!isSupported) return;
+    await cancelAllScheduledNotificationsAsync();
+    const identifier = await scheduleNotificationAsync({
       content: {
         title: "How are you feeling?",
         body: 'Time to log your mood for today!',
@@ -85,14 +96,14 @@ export default function MoodTracker() {
   };
 
   const handlePermissions = async () => {
-    if (!Device.isDevice) {
-      Alert.alert("Physical device required", "Notifications can only be tested on a physical device.");
+    if (!isSupported) {
+      Alert.alert("Not supported", "Notifications are not available in Expo Go. Please use a development build.");
       return false;
     }
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } = await getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await requestPermissionsAsync();
       finalStatus = status;
     }
     if (finalStatus !== 'granted') {
@@ -100,9 +111,9 @@ export default function MoodTracker() {
       return false;
     }
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
+      await setNotificationChannelAsync('default', {
         name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
+        importance: AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
       });
@@ -111,6 +122,11 @@ export default function MoodTracker() {
   };
 
   const toggleNotifications = async () => {
+    if (!isSupported) {
+      Alert.alert("Not supported", "Notifications are not available in Expo Go. Please use a development build.");
+      setNotificationsEnabled(false);
+      return;
+    }
     const newState = !notificationsEnabled;
     if (newState) {
       const hasPermission = await handlePermissions();
@@ -120,19 +136,20 @@ export default function MoodTracker() {
       }
       await scheduleNotification(notificationTime);
     } else {
-      await Notifications.cancelAllScheduledNotificationsAsync();
+      await cancelAllScheduledNotificationsAsync();
     }
     setNotificationsEnabled(newState);
-    await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify({ enabled: newState, time: notificationTime.toISOString() }));
+    await SecureStore.setItemAsync(NOTIFICATION_SETTINGS_KEY, JSON.stringify({ enabled: newState, time: notificationTime.toISOString() }));
   };
 
   const onTimeChange = async (event: any, selectedDate?: Date) => {
+    if (!isSupported) return;
     const currentDate = selectedDate || notificationTime;
     setShowTimePicker(Platform.OS === 'ios');
     setNotificationTime(currentDate);
 
     const settings = { enabled: notificationsEnabled, time: currentDate.toISOString() };
-    await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+    await SecureStore.setItemAsync(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
 
     if (notificationsEnabled) {
       await scheduleNotification(currentDate);
@@ -177,13 +194,15 @@ export default function MoodTracker() {
     if (!getToken) return;
 
     const now = Date.now();
-    if (!force && now - lastFetched < 30000) { // 30-second cache
+    if (!force && now - lastFetchedRef.current < 30000) {
       return;
     }
 
     try {
       const token = await getToken();
-      const res = await fetch(`${API_URL}/moods`, {
+      const url = `${ENV.API_URL}/moods`;
+      console.log('[MoodTracker] Fetching moods from:', url);
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -208,7 +227,7 @@ export default function MoodTracker() {
       } else {
         setLastLogTime(null);
       }
-      setLastFetched(now);
+      lastFetchedRef.current = now;
     } catch (error) {
       if (error instanceof SyntaxError) {
         console.error("JSON Parse error:", error);
@@ -218,7 +237,9 @@ export default function MoodTracker() {
         Alert.alert('Error', 'An unexpected error occurred.');
       }
     }
-  }, [getToken, lastFetched]);
+  }, [getToken]);
+
+  const lastFetchedRef = useRef(0);
 
   useFocusEffect(useCallback(() => { loadMoodData(); }, [loadMoodData]));
 
@@ -239,7 +260,9 @@ export default function MoodTracker() {
 
     try {
       const token = await getToken();
-      const res = await fetch(`${API_URL}/moods`, {
+      const url = `${ENV.API_URL}/moods`;
+      console.log('[MoodTracker] Saving mood to:', url);
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -283,29 +306,74 @@ export default function MoodTracker() {
 
   const { canLog, reason } = canLogNow();
 
+  const styles = StyleSheet.create<{
+    container: ViewStyle;
+    content: ViewStyle;
+    card: ViewStyle;
+    cardSmall: ViewStyle;
+    row: ViewStyle;
+    spaceBetween: ViewStyle;
+  }>({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flex: 1,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radii.lg,
+      padding: spacing.lg,
+      marginVertical: spacing.sm,
+      ...shadows.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardSmall: {
+      backgroundColor: colors.surface,
+      padding: spacing.md,
+      marginVertical: spacing.xs,
+      ...shadows.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    spaceBetween: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+  });
+
   return (
-    <View style={commonStyles.container}>
-      <ScrollView style={commonStyles.content} showsVerticalScrollIndicator={false}>
-        <View style={{ marginTop: 20, marginBottom: 30 }}>
-          <Text style={[textStyles.h1, { color: colors.primary }]}>
+    <View style={styles.container}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={{ marginTop: spacing.xl, marginBottom: spacing.xxl }}>
+          <Text style={[typography.h1, { color: colors.primary }]}>
             Mood Tracker 💭
           </Text>
-          <Text style={textStyles.bodyLight}>
+          <Text style={typography.bodySmall}>
             How are you feeling right now?
           </Text>
         </View>
 
-        <View style={[commonStyles.card, { marginBottom: 30 }]}>
-          <View style={commonStyles.spaceBetween}>
-            <Text style={[textStyles.h3, { marginBottom: 20 }]}>Log Your Mood</Text>
-            <Text style={[textStyles.body, { color: colors.textLight }]}>{todaysLogCount}/{MAX_LOGS_PER_DAY} logged today</Text>
+        <View style={[styles.card, { marginBottom: spacing.xxl }]}>
+          <View style={styles.spaceBetween}>
+            <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Log Your Mood</Text>
+            <Text style={[typography.body, { color: colors.textMuted }]}>{todaysLogCount}/{MAX_LOGS_PER_DAY} logged today</Text>
           </View>
 
           {canLog ? (
             <>
-              <View style={{ marginBottom: 20 }}>
-                <Text style={[textStyles.body, { marginBottom: 12 }]}>How do you feel?</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+              <View style={{ marginBottom: spacing.lg }}>
+                <Text style={[typography.body, { marginBottom: spacing.md }]}>How do you feel?</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
                   {moodEmojis.map((emoji, index) => (
                     <TouchableOpacity
                       key={index}
@@ -324,29 +392,29 @@ export default function MoodTracker() {
                   ))}
                 </View>
                 {selectedMood !== null && (
-                  <Text style={[textStyles.caption, { textAlign: 'center', color: moodColors[selectedMood] }]}>
+                  <Text style={[typography.caption, { textAlign: 'center', color: moodColors[selectedMood] }]}>
                     {moodLabels[selectedMood]}
                   </Text>
                 )}
               </View>
 
-              <View style={{ marginBottom: 20 }}>
-                <Text style={[textStyles.body, { marginBottom: 12 }]}>What&apos;s affecting your mood?</Text>
+              <View style={{ marginBottom: spacing.lg }}>
+                <Text style={[typography.body, { marginBottom: spacing.md }]}>What&apos;s affecting your mood?</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                   {moodFactors.map((factor) => (
                     <TouchableOpacity
                       key={factor}
                       style={{
-                        paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
+                        paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radii.full,
                         backgroundColor: selectedFactors.includes(factor) ? colors.primary + '20' : colors.border,
                         borderWidth: 1,
                         borderColor: selectedFactors.includes(factor) ? colors.primary : colors.border,
-                        marginRight: 8, marginBottom: 8,
+                        marginRight: spacing.sm, marginBottom: spacing.sm,
                       }}
                       onPress={() => toggleFactor(factor)}
                       disabled={isSubmitting}
                     >
-                      <Text style={{ color: selectedFactors.includes(factor) ? colors.primary : colors.textLight, fontSize: 14 }}>
+                      <Text style={{ color: selectedFactors.includes(factor) ? colors.primary : colors.textMuted, fontSize: 14 }}>
                         {factor}
                       </Text>
                     </TouchableOpacity>
@@ -362,12 +430,12 @@ export default function MoodTracker() {
               />
             </>
           ) : (
-            <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-              <Icon name={reason === 'limit' ? 'checkmark-circle' : 'time'} size={40} color={colors.primary} style={{ marginBottom: 12 }} />
-              <Text style={[textStyles.h3, { color: colors.primary, marginBottom: 4 }]}>
+            <View style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
+              <Icon name={reason === 'limit' ? 'checkmark-circle' : 'time'} size={40} color={colors.primary} style={{ marginBottom: spacing.md }} />
+              <Text style={[typography.h3, { color: colors.primary, marginBottom: spacing.xs }]}>
                 {reason === 'limit' ? 'All Done for Today!' : 'A Little Break'}
               </Text>
-              <Text style={textStyles.body}>
+              <Text style={typography.body}>
                 {reason === 'limit'
                   ? 'You&apos;ve reached the maximum of ' + MAX_LOGS_PER_DAY + ' logs for today.'
                   : timeToNextLog}
@@ -377,16 +445,16 @@ export default function MoodTracker() {
         </View>
 
         {recentEntries.length > 0 && (
-          <View style={[commonStyles.card, { marginBottom: 30 }]}>
-            <Text style={[textStyles.h3, { marginBottom: 16 }]}>Your Mood Insights</Text>
-            <View style={[commonStyles.cardSmall, { backgroundColor: colors.primary + '10' }]}>
-              <View style={commonStyles.spaceBetween}>
-                <Text style={[textStyles.body, { flexShrink: 1, marginRight: 8 }]}>Average Mood (last 5 entries)</Text>
-                <View style={commonStyles.row}>
-                  <Text style={[textStyles.h3, { color: colors.primary, marginRight: 8 }]}>
+          <View style={[styles.card, { marginBottom: spacing.xxl }]}>
+            <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Your Mood Insights</Text>
+            <View style={[styles.cardSmall, { backgroundColor: colors.primary + '10' }]}>
+              <View style={styles.spaceBetween}>
+                <Text style={[typography.body, { flexShrink: 1, marginRight: spacing.md }]}>Average Mood (last 5 entries)</Text>
+                <View style={styles.row}>
+                  <Text style={[typography.h3, { color: colors.primary, marginRight: spacing.sm }]}>
                     {moodEmojis[Math.round(getAverageMood())]}
                   </Text>
-                  <Text style={[textStyles.body, { color: colors.primary }]}>
+                  <Text style={[typography.body, { color: colors.primary }]}>
                     {moodLabels[Math.round(getAverageMood())]}
                   </Text>
                 </View>
@@ -396,25 +464,25 @@ export default function MoodTracker() {
         )}
 
         {recentEntries.length > 0 && (
-          <View style={[commonStyles.card, { marginBottom: 30 }]}>
-            <Text style={[textStyles.h3, { marginBottom: 16 }]}>Recent Entries</Text>
+          <View style={[styles.card, { marginBottom: spacing.xxl }]}>
+            <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Recent Entries</Text>
             {recentEntries.map((entry) => (
-              <View key={entry.id} style={[commonStyles.cardSmall, { marginBottom: 8 }]}>
-                <View style={commonStyles.spaceBetween}>
+              <View key={entry.id} style={[styles.cardSmall, { marginBottom: spacing.sm }]}>
+                <View style={styles.spaceBetween}>
                   <View>
-                    <View style={[commonStyles.row, { marginBottom: 4 }]}>
-                      <Text style={{ fontSize: 20, marginRight: 8 }}>
+                    <View style={[styles.row, { marginBottom: spacing.xs }]}>
+                      <Text style={{ fontSize: 20, marginRight: spacing.sm }}>
                         {moodEmojis[entry.moodLevel]}
                       </Text>
-                      <Text style={textStyles.body}>
+                      <Text style={typography.body}>
                         {moodLabels[entry.moodLevel]}
                       </Text>
                     </View>
-                    <Text style={textStyles.caption}>
+                    <Text style={typography.caption}>
                       {new Date(entry.createdAt).toLocaleString([], { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </Text>
                     {entry.factors && entry.factors.length > 0 && (
-                      <Text style={[textStyles.caption, { marginTop: 4 }]}>
+                      <Text style={[typography.caption, { marginTop: spacing.xs }]}>
                         Factors: {entry.factors.join(', ')}
                       </Text>
                     )}
@@ -427,33 +495,40 @@ export default function MoodTracker() {
 
         <LinearGradient
           colors={[colors.primary + '20', colors.secondary + '20']}
-          style={[commonStyles.card, { marginBottom: 30 }]}
+          style={[styles.card, { marginBottom: spacing.xxl }]}
         >
-          <Icon name="bulb" size={24} color={colors.primary} style={{ marginBottom: 8 }} />
-          <Text style={[textStyles.h3, { marginBottom: 8 }]}>Mood Tip</Text>
-          <Text style={textStyles.body}>
+          <Icon name="bulb" size={24} color={colors.primary} style={{ marginBottom: spacing.sm }} />
+          <Text style={[typography.h3, { marginBottom: spacing.sm }]}>Mood Tip</Text>
+          <Text style={typography.body}>
             Logging your mood multiple times a day can provide deeper insights into how it fluctuates.
           </Text>
         </LinearGradient>
 
-        {/* Mood Reminder Section */}
-        <View style={[commonStyles.card, { marginBottom: 30 }]}>
-          <Text style={[textStyles.h3, { marginBottom: 16 }]}>Daily Reminder</Text>
-          <View style={[commonStyles.row, { justifyContent: 'space-between', alignItems: 'center' }]}>
-            <Text style={textStyles.body}>Enable mood logging reminders</Text>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={toggleNotifications}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={'#FFFFFF'} // Corrected: Used hex code for white
-            />
-          </View>
-          {notificationsEnabled && (
-            <TouchableOpacity onPress={() => setShowTimePicker(true)} style={{ marginTop: 16 }}>
-              <Text style={[textStyles.body, { color: colors.primary }]}>
-                Reminder time: {notificationTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-            </TouchableOpacity>
+        <View style={[styles.card, { marginBottom: spacing.xxl }]}>
+          <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Daily Reminder</Text>
+          {isSupported ? (
+            <>
+              <View style={[styles.row, { justifyContent: 'space-between', alignItems: 'center' }]}>
+                <Text style={typography.body}>Enable mood logging reminders</Text>
+                <Switch
+                  value={notificationsEnabled}
+                  onValueChange={toggleNotifications}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor={'#FFFFFF'}
+                />
+              </View>
+              {notificationsEnabled && (
+                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={{ marginTop: spacing.lg }}>
+                  <Text style={[typography.body, { color: colors.primary }]}>
+                    Reminder time: {notificationTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <Text style={[typography.body, { color: colors.textMuted, textAlign: 'center' }]}>
+              Daily reminders are not available in Expo Go. Please use a development build to enable this feature.
+            </Text>
           )}
         </View>
 

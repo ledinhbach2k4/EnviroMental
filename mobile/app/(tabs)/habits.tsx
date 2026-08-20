@@ -1,14 +1,20 @@
-import { View, Text, ScrollView, TouchableOpacity, Platform, ActivityIndicator, Alert } from 'react-native';
-import { useState, useEffect } from 'react';
-import { commonStyles, textStyles, colors, buttonStyles } from '../../assets/styles/commonStyles';
-import Icon from '../../components/Icon';
+import { View, Text, ScrollView, TouchableOpacity, Platform, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { useState, useEffect, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import AddHabitModal from '../../components/AddHabitModal';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSharedHabits } from '../../context/HabitsContext';
 import type { Habit } from '../../hooks/useHabits';
+import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import Icon from '../../components/Icon';
 
 export default function HabitsTracker() {
+  const colors = useColors();
+  const typography = useTypography();
+  const spacing = useSpacing();
+  const radii = useRadii();
+  const shadows = useShadows();
+
   const {
     habits,
     loading,
@@ -25,7 +31,6 @@ export default function HabitsTracker() {
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [selectedHabits, setSelectedHabits] = useState<number[]>([]);
 
-  // Reset selection when exiting delete mode
   useEffect(() => {
     if (!isDeleteMode) {
       setSelectedHabits([]);
@@ -81,7 +86,7 @@ export default function HabitsTracker() {
           onPress: async () => {
             try {
               await deleteMultipleHabits(selectedHabits);
-              setIsDeleteMode(false); // Exit delete mode on success
+              setIsDeleteMode(false);
             } catch {
               Alert.alert('Error', 'Failed to delete selected habits. Please try again.');
             }
@@ -103,7 +108,7 @@ export default function HabitsTracker() {
           onPress: async () => {
             try {
               await deleteAllHabits();
-              setIsDeleteMode(false); // Exit delete mode on success
+              setIsDeleteMode(false);
             } catch {
               Alert.alert('Error', 'Failed to delete all habits. Please try again.');
             }
@@ -126,54 +131,97 @@ export default function HabitsTracker() {
 
   if (loading) {
     return (
-      <View style={[commonStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={textStyles.body}>Loading your habits...</Text>
+        <Text style={{ ...typography.body, marginTop: spacing.md }}>Loading your habits...</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={[commonStyles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-        <Text style={[textStyles.h3, { color: colors.danger, marginBottom: 16 }]}>Oops! Something went wrong.</Text>
-        <Text style={[textStyles.body, { textAlign: 'center', marginBottom: 24 }]}>{error}</Text>
-        <TouchableOpacity style={buttonStyles.primary} onPress={() => refetch()}>
-          <Text style={textStyles.button}>Try Again</Text>
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.lg }}>
+        <Text style={{ ...typography.h3, color: colors.danger, marginBottom: spacing.lg }}>Oops! Something went wrong.</Text>
+        <Text style={{ ...typography.body, textAlign: 'center', marginBottom: spacing.xl }}>{error}</Text>
+        <TouchableOpacity 
+          style={{ backgroundColor: colors.primary, borderRadius: radii.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.xl, ...shadows.sm }} 
+          onPress={() => refetch()}
+        >
+          <Text style={typography.button}>Try Again</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flex: 1,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radii.lg,
+      padding: spacing.lg,
+      marginVertical: spacing.sm,
+      ...shadows.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardSmall: {
+      backgroundColor: colors.surface,
+      padding: spacing.md,
+      marginVertical: spacing.xs,
+      ...shadows.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    spaceBetween: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    disabled: {
+      opacity: 0.5,
+    },
+  });
+
   return (
-    <View style={commonStyles.container}>
+    <View style={styles.container}>
       <ScrollView
-        style={commonStyles.content}
+        style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 80 }}
       >
-        <Animated.View entering={FadeInDown} style={{ marginVertical: 20 }}>
-          <Text style={[textStyles.h1, { color: colors.primary }]}>Daily Habits 🎯</Text>
-          <Text style={[textStyles.bodyLight, { marginTop: 8 }]}>Build healthy routines, one day at a time</Text>
+        <Animated.View entering={FadeInDown} style={{ marginVertical: spacing.xl }}>
+          <Text style={[typography.h1, { color: colors.primary }]}>Daily Habits 🎯</Text>
+          <Text style={[typography.bodySmall, { marginTop: spacing.sm }]}>Build healthy routines, one day at a time</Text>
         </Animated.View>
 
-        {/* Progress Card */}
-        <Animated.View entering={FadeInDown.delay(100)} style={[commonStyles.card, { marginBottom: 20 }]}>
-          <View style={[commonStyles.spaceBetween, { marginBottom: 16 }]}>
-            <Text style={[textStyles.h3]}>Today&apos;s Progress</Text>
+        <Animated.View entering={FadeInDown.delay(100)} style={[styles.card, { marginBottom: spacing.lg }]}>
+          <View style={[styles.spaceBetween, { marginBottom: spacing.lg }]}>
+            <Text style={typography.h3}>Today&apos;s Progress</Text>
           </View>
-          <View style={[commonStyles.row, { justifyContent: 'space-between', marginBottom: 16 }]}>
+          <View style={[styles.row, { justifyContent: 'space-between', marginBottom: spacing.lg }]}>
             <View style={{ alignItems: 'center', flex: 1 }}>
-              <Text style={[textStyles.h2, { color: colors.success }]}>{getCompletionRate()}%</Text>
-              <Text style={[textStyles.caption]}>Completed</Text>
+              <Text style={[typography.h2, { color: colors.success }]}>{getCompletionRate()}%</Text>
+              <Text style={typography.caption}>Completed</Text>
             </View>
             <View style={{ alignItems: 'center', flex: 1 }}>
-              <Text style={[textStyles.h2, { color: colors.primary }]}>{habits.filter((h: Habit) => h.completedToday).length}/{habits.length}</Text>
-              <Text style={textStyles.caption}>Habits Done</Text>
+              <Text style={[typography.h2, { color: colors.primary }]}>{habits.filter((h: Habit) => h.completedToday).length}/{habits.length}</Text>
+              <Text style={typography.caption}>Habits Done</Text>
             </View>
             <View style={{ alignItems: 'center', flex: 1 }}>
-              <Text style={[textStyles.h2, { color: colors.accent }]}>{getTotalStreak()}</Text>
-              <Text style={textStyles.caption}>Total Streak</Text>
+              <Text style={[typography.h2, { color: colors.accent }]}>{getTotalStreak()}</Text>
+              <Text style={typography.caption}>Total Streak</Text>
             </View>
           </View>
           <View style={{ height: 8, backgroundColor: colors.border, borderRadius: 4, overflow: 'hidden' }}>
@@ -181,12 +229,11 @@ export default function HabitsTracker() {
           </View>
         </Animated.View>
 
-        {/* Habits List Card */}
-        <Animated.View entering={FadeInDown.delay(200)} style={[commonStyles.card, { marginBottom: 20 }]}>
-          <View style={[commonStyles.spaceBetween, { marginBottom: 16 }]}>
-            <Text style={[textStyles.h3]}>Your Habits</Text>
+        <Animated.View entering={FadeInDown.delay(200)} style={[styles.card, { marginBottom: spacing.lg }]}>
+          <View style={[styles.spaceBetween, { marginBottom: spacing.lg }]}>
+            <Text style={typography.h3}>Your Habits</Text>
             {habits.length > 0 && (
-              <TouchableOpacity onPress={() => setIsDeleteMode(!isDeleteMode)} style={{ padding: 4 }}>
+              <TouchableOpacity onPress={() => setIsDeleteMode(!isDeleteMode)} style={{ padding: spacing.xs }}>
                 <Text style={{ color: isDeleteMode ? colors.danger : colors.primary }}>
                   {isDeleteMode ? 'Cancel' : 'Manage'}
                 </Text>
@@ -195,10 +242,10 @@ export default function HabitsTracker() {
           </View>
 
           {habits.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-              <Icon name="checkmark-circle-outline" size={40} color={colors.textLight} style={{ marginBottom: 10 }} />
-              <Text style={[textStyles.body, { textAlign: 'center', color: colors.textLight }]}>
-                No habits added yet. Tap &quot;Add New Habit&quot; to get started!
+            <View style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
+              <Icon name="checkmark-circle-outline" size={40} color={colors.textMuted} style={{ marginBottom: spacing.md }} />
+              <Text style={[typography.body, { textAlign: 'center', color: colors.textMuted }]}>
+                No habits added yet. Tap "Add New Habit" to get started!
               </Text>
             </View>
           ) : (
@@ -208,11 +255,11 @@ export default function HabitsTracker() {
                 <Animated.View key={habit.id} entering={FadeInDown.delay(300 + index * 50)}>
                   <TouchableOpacity
                     style={[
-                      commonStyles.cardSmall,
+                      styles.cardSmall,
                       {
                         borderWidth: 1,
                         borderColor: isDeleteMode ? (isSelected ? colors.danger : colors.border) : (habit.completedToday ? habit.color : colors.border),
-                        marginBottom: 12,
+                        marginBottom: spacing.md,
                         backgroundColor: habit.completedToday ? habit.color + '10' : colors.card,
                         opacity: toggleLoading === habit.id ? 0.5 : 1,
                       }
@@ -221,30 +268,30 @@ export default function HabitsTracker() {
                     disabled={toggleLoading === habit.id}
                     activeOpacity={0.7}
                   >
-                    <View style={[commonStyles.spaceBetween, { padding: 12 }]}>
-                      <View style={[commonStyles.row, { flex: 1, alignItems: 'center' }]}>
+                    <View style={[styles.spaceBetween, { padding: spacing.md }]}>
+                      <View style={[styles.row, { flex: 1, alignItems: 'center' }]}>
                         <View style={{
                           width: 40, height: 40, borderRadius: 20,
                           backgroundColor: habit.completedToday ? habit.color : habit.color + '20',
-                          alignItems: 'center', justifyContent: 'center', marginRight: 12,
+                          alignItems: 'center', justifyContent: 'center', marginRight: spacing.md,
                         }}>
                           <Icon 
                             name={habit.completedToday ? "checkmark" : habit.icon}
                             size={20}
-                            color={habit.completedToday ? colors.backgroundAlt : habit.color}
+                            color={habit.completedToday ? colors.textInverse : habit.color}
                           />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={[
-                            textStyles.body,
+                            typography.body,
                             { 
                               textDecorationLine: habit.completedToday ? 'line-through' : 'none',
-                              color: habit.completedToday ? colors.textLight : colors.text
+                              color: habit.completedToday ? colors.textMuted : colors.text
                             }
                           ]}>
                             {habit.name}
                           </Text>
-                          <Text style={textStyles.caption}>{habit.streak} day streak</Text>
+                          <Text style={typography.caption}>{habit.streak} day streak</Text>
                         </View>
                       </View>
                       {toggleLoading === habit.id && <ActivityIndicator size="small" color={colors.primary} />}
@@ -265,33 +312,30 @@ export default function HabitsTracker() {
           )}
 
           {isDeleteMode ? (
-            <View style={[commonStyles.row, { justifyContent: 'space-between', marginTop: 12, gap: 10 }]}>
+            <View style={[styles.row, { justifyContent: 'space-between', marginTop: spacing.md, gap: spacing.md }]}>
               <TouchableOpacity 
-                style={[buttonStyles.danger, { flex: 1 }, selectedHabits.length === 0 && commonStyles.disabled]} 
+                style={[{ backgroundColor: colors.danger, borderRadius: radii.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.xl, alignItems: 'center', flex: 1, ...shadows.sm }, selectedHabits.length === 0 && styles.disabled]} 
                 onPress={handleDeleteSelected}
                 disabled={selectedHabits.length === 0}
               >
-                <Text style={textStyles.button}>Delete</Text>
+                <Text style={typography.button}>Delete</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[buttonStyles.dangerOutline, { flex: 1 }]} 
+                style={[styles.cardSmall, { flex: 1, alignItems: 'center', backgroundColor: 'transparent', borderWidth: 2, borderColor: colors.danger }]} 
                 onPress={handleDeleteAll}
               >
-                <Text style={[textStyles.button, { color: colors.danger }]}>Delete All</Text>
+                <Text style={[typography.button, { color: colors.danger }]}>Delete All</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity 
-              style={[buttonStyles.primary, { marginTop: 12 }]} 
+              style={[styles.card, { marginTop: spacing.md, backgroundColor: colors.primary, alignItems: 'center', ...shadows.sm }]} 
               onPress={handleOpenAddModal}
             >
-              <Text style={textStyles.button}>Add New Habit</Text>
+              <Text style={typography.button}>Add New Habit</Text>
             </TouchableOpacity>
           )}
         </Animated.View>
-
-        {/* Tip Cards... */}
-
       </ScrollView>
       <AddHabitModal
         visible={isAddModalVisible}

@@ -3,11 +3,14 @@ import { db } from "../config/db.js";
 import * as schema from "../db/schema.js";
 
 import { authMiddleware } from "../middleware/authMiddleware.js";
+import { userLookupMiddleware } from "../middleware/userLookupMiddleware.js";
+import { validate } from "../validation/schemas.js";
+import { createEnvironmentDataSchema } from "../validation/schemas.js";
 
 const router = express.Router();
 
 // Create new environment record
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", authMiddleware, userLookupMiddleware, validate(createEnvironmentDataSchema), async (req, res) => {
   const {
     temperature,
     humidity,
@@ -20,7 +23,7 @@ router.post("/", authMiddleware, async (req, res) => {
     const [env] = await db
       .insert(schema.environmentData)
       .values({
-        userId: req.userId,
+        userId: req.internalUserId,
         temperature,
         humidity,
         airQualityIndex,

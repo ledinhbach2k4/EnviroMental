@@ -7,25 +7,30 @@ import { ENV } from "../env";
 import SafeScreen from "@/components/SafeScreen";
 import { useEffect } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import * as Notifications from 'expo-notifications';
+import { setNotificationHandler, isSupported } from "@/utils/notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-
-// Configure the notification handler for the entire app
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true, // Added for compatibility
-    shouldShowList: true,   // Added for compatibility
-  }),
-});
+import { DesignSystemProvider } from "@/src/design";
 
 // Main layout component that determines which screen to show based on auth state
 const InitialLayout = () => {
   const { isLoaded, isSignedIn } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Configure the notification handler for the entire app (no-op in Expo Go)
+  useEffect(() => {
+    if (isSupported) {
+      setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -37,7 +42,7 @@ const InitialLayout = () => {
       router.replace("/(tabs)/home");
     } else if (!isSignedIn && inTabsGroup) {
       // Redirect unauthenticated users to the sign-in screen
-      router.replace("/sign-in");
+      router.replace("/(auth)/sign-in");
     }
   }, [isLoaded, isSignedIn, segments, router]);
 
@@ -71,9 +76,11 @@ export default function RootLayout() {
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <SafeScreen>
-            <InitialLayout />
-          </SafeScreen>
+          <DesignSystemProvider>
+            <SafeScreen>
+              <InitialLayout />
+            </SafeScreen>
+          </DesignSystemProvider>
         </GestureHandlerRootView>
       </SafeAreaProvider>
     </ClerkProvider>

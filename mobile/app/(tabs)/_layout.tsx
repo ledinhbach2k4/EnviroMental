@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { API_URL } from '../../constants/api';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { ENV } from '../../constants/api';
 import {
   TouchableOpacity,
   View,
@@ -10,6 +10,7 @@ import {
   Platform,
   useWindowDimensions,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { Redirect, Tabs } from 'expo-router';
 import { useSafeAreaInsets, EdgeInsets } from 'react-native-safe-area-context';
@@ -17,7 +18,8 @@ import { useAuth } from '@clerk/clerk-expo';
 import Modal from 'react-native-modal';
 import axios from 'axios';
 import { FontAwesome5 } from '@expo/vector-icons';
-import { colors, commonStyles, chatStyles } from '@/assets/styles/commonStyles';
+import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { HabitsProvider } from '../../context/HabitsContext';
 import Animated, {
   useSharedValue,
@@ -30,6 +32,8 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Markdown from 'react-native-markdown-display';
+import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 
 interface Message {
   id: string;
@@ -38,47 +42,25 @@ interface Message {
   fullyRendered?: boolean;
 }
 
-// --- Typewriter Text Component ---
-const TypewriterText = ({ text, onComplete, selectable }: { text: string; onComplete: () => void; selectable?: boolean }) => {
-  const [displayedText, setDisplayedText] = useState('');
-
-  useEffect(() => {
-    setDisplayedText(''); // Reset when text prop changes
-    let i = 0;
-    const intervalId = setInterval(() => {
-      if (i < text.length) {
-        setDisplayedText(text.slice(0, i + 1));
-        i++;
-      } else {
-        clearInterval(intervalId);
-        if (onComplete) onComplete(); // Signal that typing is done
-      }
-    }, 30); // Adjust typing speed (ms per character)
-
-    return () => clearInterval(intervalId); // Cleanup on unmount
-  }, [text, onComplete]);
-
-  return <Text selectable={selectable}>{displayedText}</Text>;
+const TypingIndicator = () => {
+  const colors = useColors();
+  const spacing = useSpacing();
+  
+  return (
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.xs,
+    }}>
+      <Dot delay={0} color={colors.textMuted} size={8} />
+      <Dot delay={200} color={colors.textMuted} size={8} />
+      <Dot delay={400} color={colors.textMuted} size={8} />
+    </View>
+  );
 };
 
-// --- Typing Indicator Component ---
-const typingIndicatorStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 5,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.textLight,
-    marginHorizontal: 3,
-  },
-});
-
-const Dot = ({ delay }: { delay: number }) => {
+const Dot = ({ delay, color, size }: { delay: number; color: string; size: number }) => {
   const y = useSharedValue(0);
 
   useEffect(() => {
@@ -89,8 +71,8 @@ const Dot = ({ delay }: { delay: number }) => {
           withTiming(-6, { duration: 400 }),
           withTiming(0, { duration: 400 })
         ),
-        -1, // infinite loop
-        true // reverse on repeat
+        -1,
+        true
       )
     );
   }, [delay, y]);
@@ -99,26 +81,49 @@ const Dot = ({ delay }: { delay: number }) => {
     transform: [{ translateY: y.value }],
   }));
 
-  return <Animated.View style={[typingIndicatorStyles.dot, animatedStyle]} />;
+  return <Animated.View style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, marginHorizontal: 3 }, animatedStyle]} />;
 };
 
-const TypingIndicator = () => (
-  <View style={typingIndicatorStyles.container}>
-    <Dot delay={0} />
-    <Dot delay={200} />
-    <Dot delay={400} />
-  </View>
-);
+// --- Typewriter Text Component ---
+const TypewriterText = ({ text, onComplete, messageId, selectable, forceComplete }: { text: string; onComplete: (id: string) => void; messageId: string; selectable?: boolean; forceComplete?: boolean }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [isComplete, setIsComplete] = useState(false);
 
+  useEffect(() => {
+    if (isComplete || forceComplete) return;
+    
+    setDisplayedText('');
+    let i = 0;
+    const intervalId = setInterval(() => {
+      if (i < text.length) {
+        setDisplayedText(text.slice(0, i + 1));
+        i++;
+      } else {
+        clearInterval(intervalId);
+        setIsComplete(true);
+        if (onComplete) onComplete(messageId);
+      }
+    }, 30);
+
+    return () => clearInterval(intervalId);
+  }, [text, messageId, onComplete, forceComplete]);
+
+  if (forceComplete || isComplete) {
+    return <Markdown selectable={selectable}>{text}</Markdown>;
+  }
+
+  return <Text selectable={selectable}>{displayedText}</Text>;
+};
 
 // Draggable Chat Icon Component
 const DraggableChatIcon = ({ onPress, insets }: { onPress: () => void; insets: EdgeInsets }) => {
+  const colors = useColors();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   const BALLOON_SIZE = 56;
   const STARTING_RIGHT = 20;
   const STARTING_BOTTOM = 100;
-  const PADDING = 10; // Padding from screen edges
+  const PADDING = 10;
 
   const tabBarHeight = (Platform.OS === 'ios' ? 70 : 60) + insets.bottom;
   const initialX = screenWidth - BALLOON_SIZE - STARTING_RIGHT;
@@ -159,25 +164,55 @@ const DraggableChatIcon = ({ onPress, insets }: { onPress: () => void; insets: E
 
   return (
     <GestureDetector gesture={composed}>
-      <Animated.View style={[chatStyles.chatBalloon, { position: 'absolute', top: 0, left: 0, right: undefined, bottom: undefined }, animatedStyle]}>
+      <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: undefined, bottom: undefined }, animatedStyle, {
+        width: BALLOON_SIZE,
+        height: BALLOON_SIZE,
+        borderRadius: BALLOON_SIZE / 2,
+        backgroundColor: colors.surfaceAlt,
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 10,
+        shadowColor: colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.5,
+        shadowRadius: 3.5,
+        zIndex: 9999,
+      }]}>
         <FontAwesome5 name="robot" size={24} color={colors.primary} />
       </Animated.View>
     </GestureDetector>
   );
 };
 
-
 export default function TabLayout() {
   const { isSignedIn, isLoaded, getToken } = useAuth();
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const typography = useTypography();
+  const spacing = useSpacing();
+  const radii = useRadii();
+  const shadows = useShadows();
+  
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const initialMessageIdsRef = useRef<Set<string>>(new Set());
+  const hasInitializedRef = useRef(false);
 
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href={"/(auth)/sign-in" as any} />;
+
+  // Track initial messages when modal opens to prevent typing animation replay
+  useEffect(() => {
+    if (isModalVisible && !hasInitializedRef.current) {
+      initialMessageIdsRef.current = new Set(messages.map(m => m.id));
+      hasInitializedRef.current = true;
+    } else if (!isModalVisible) {
+      hasInitializedRef.current = false;
+    }
+  }, [isModalVisible, messages]);
 
   const openChat = () => setIsModalVisible(true);
   const closeChat = () => setIsModalVisible(false);
@@ -188,6 +223,16 @@ export default function TabLayout() {
         msg.id === messageId ? { ...msg, fullyRendered: true } : msg
       )
     );
+  }, []);
+
+  const handleCopy = useCallback(async (text: string) => {
+    try {
+      await Clipboard.setStringAsync(text);
+      Alert.alert('Copied', 'Message copied to clipboard');
+    } catch (err) {
+      console.error('Copy failed:', err);
+      Alert.alert('Error', 'Failed to copy message');
+    }
   }, []);
 
   const sendMessage = async () => {
@@ -204,7 +249,7 @@ export default function TabLayout() {
     try {
       const token = await getToken();
       const res = await axios.post(
-        `${API_URL}/chat`,
+        `${ENV.API_URL}/chat`,
         { message: messageToSend },
         { headers: { Authorization: `Bearer ${token}` }, timeout: 20000, }
       );
@@ -226,21 +271,79 @@ export default function TabLayout() {
     }
   };
 
+  const chatStyles = useMemo(() => StyleSheet.create({
+    modal: {
+      margin: 0,
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.background,
+      padding: spacing.lg,
+      borderTopLeftRadius: radii.xl,
+      borderTopRightRadius: radii.xl,
+      height: '60%',
+    },
+    chatHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.md,
+    },
+    chatTitle: {
+      ...typography.h3,
+      color: colors.primary,
+    },
+    messageBubble: {
+      borderRadius: radii.md,
+      padding: spacing.sm,
+      marginVertical: spacing.xs,
+      maxWidth: '80%',
+    },
+    userMessage: {
+      alignSelf: 'flex-end',
+      backgroundColor: colors.primaryLight,
+    },
+    aiMessage: {
+      alignSelf: 'flex-start',
+      backgroundColor: colors.surfaceAlt,
+    },
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: spacing.sm,
+    },
+    inputBox: {
+      flex: 1,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: radii.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      backgroundColor: colors.backgroundAlt,
+    },
+    sendIcon: {
+      marginLeft: spacing.sm,
+    },
+  }), [colors, spacing, radii, typography]);
+
+  const tabBarStyle = useMemo(() => ({
+    backgroundColor: colors.backgroundAlt,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    paddingBottom: insets.bottom || (Platform.OS === 'ios' ? 20 : 10),
+    paddingTop: spacing.sm,
+    height: (Platform.OS === 'ios' ? 70 : 60) + (insets.bottom || 0),
+    ...shadows.lg,
+  }), [colors, spacing, shadows, insets]);
+
   return (
     <HabitsProvider>
       <Tabs
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.textLight,
-          tabBarStyle: {
-            backgroundColor: colors.backgroundAlt,
-            borderTopColor: colors.border,
-            borderTopWidth: 1,
-            paddingBottom: insets.bottom || (Platform.OS === 'ios' ? 20 : 10),
-            paddingTop: 10,
-            height: (Platform.OS === 'ios' ? 70 : 60) + (insets.bottom || 0),
-          },
+          tabBarInactiveTintColor: colors.textMuted,
+          tabBarStyle: tabBarStyle,
           tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
           tabBarIcon: ({ color, size }) => {
             const icons: Record<string, string> = { home: 'home', mood: 'smile', habits: 'check-circle', profile: 'user', mindfulness: 'leaf' };
@@ -263,7 +366,7 @@ export default function TabLayout() {
             <FontAwesome5 name="robot" size={20} color={colors.primary} />
             <Text style={chatStyles.chatTitle}>Chat with AI</Text>
             <TouchableOpacity onPress={closeChat}>
-              <FontAwesome5 name="times" size={20} color={colors.textLight} />
+              <FontAwesome5 name="times" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -283,7 +386,8 @@ export default function TabLayout() {
               }
 
               const isAiMessage = item.role === 'assistant';
-              const shouldAnimate = isAiMessage && !item.fullyRendered;
+              const isInitialMessage = initialMessageIdsRef.current.has(item.id);
+              const shouldAnimate = isAiMessage && !item.fullyRendered && !isInitialMessage;
 
               return (
                 <View
@@ -295,11 +399,27 @@ export default function TabLayout() {
                   {shouldAnimate ? (
                     <TypewriterText
                       text={item.content}
-                      onComplete={() => handleAnimationComplete(item.id)}
+                      onComplete={handleAnimationComplete}
+                      messageId={item.id}
                       selectable={true}
                     />
                   ) : (
-                    <Text selectable={isAiMessage}>{item.content}</Text>
+                    <View>
+                      {isAiMessage ? (
+                        <Markdown selectable={true}>{item.content}</Markdown>
+                      ) : (
+                        <Text selectable={true}>{item.content}</Text>
+                      )}
+                      {isAiMessage && (
+                        <TouchableOpacity
+                          onPress={() => handleCopy(item.content)}
+                          style={{ marginTop: 6, alignSelf: 'flex-end' }}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="copy-outline" size={16} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   )}
                 </View>
               );
@@ -318,7 +438,7 @@ export default function TabLayout() {
               <FontAwesome5
                 name="paper-plane"
                 size={20}
-                color={isLoading ? colors.textLight : colors.primary}
+                color={isLoading ? colors.textMuted : colors.primary}
                 style={chatStyles.sendIcon}
               />
             </TouchableOpacity>

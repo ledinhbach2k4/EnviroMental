@@ -1,5 +1,4 @@
 import { useAuth } from '@clerk/clerk-expo';
-import { router } from 'expo-router';
 import { Alert } from 'react-native';
 
 export const useLogout = () => {
@@ -17,7 +16,6 @@ export const useLogout = () => {
           onPress: async () => {
             try {
               await signOut();
-              router.replace('/(auth)/sign-in' as any); 
             } catch (error) {
               console.log('Error logging out:', error);
               Alert.alert('Error', 'Failed to log out.');

@@ -1,0 +1,29 @@
+{
+  "name": "enviromental",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "mobile"
+  ],
+  "scripts": {
+    "prepare": "husky",
+    "lint": "npm run lint --workspaces",
+    "format": "npm run format --workspaces",
+    "test": "npm run test --workspaces"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0",
+    "lint-staged": "^15.2.0"
+  },
+  "lint-staged": {
+    "backend/src/**/*.js": [
+      "cd backend && eslint --fix",
+      "cd backend && prettier --write"
+    ],
+    "mobile/**/*.{ts,tsx,js,jsx,json}": [
+      "cd mobile && eslint --fix",
+      "cd mobile && prettier --write"
+    ]
+  }
+}

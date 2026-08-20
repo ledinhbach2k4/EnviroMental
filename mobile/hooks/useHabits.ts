@@ -145,7 +145,7 @@ export const useHabits = () => {
       setLoading(false);
       isFetchingRef.current = false;
     }
-  }, [isLoaded, isSignedIn]); // getToken is removed from dependencies
+  }, []); // Stable deps - uses refs for isLoaded/isSignedIn checks inside
 
   const addHabit = async ({ name, icon }: { name: string; icon: string }) => {
     try {

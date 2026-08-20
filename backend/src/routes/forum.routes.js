@@ -2,12 +2,15 @@ import express from "express";
 import { db } from "../config/db.js";
 import * as schema from "../db/schema.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
+import { userLookupMiddleware } from "../middleware/userLookupMiddleware.js";
+import { validate } from "../validation/schemas.js";
+import { createForumPostSchema, createForumCommentSchema } from "../validation/schemas.js";
 
 const router = express.Router();
 
 // ======= POSTS =======
 
-// Get all forum posts
+// Get all forum posts (public)
 router.get("/posts", async (req, res) => {
   try {
     const posts = await db.select().from(schema.forumPosts);
@@ -20,19 +23,15 @@ router.get("/posts", async (req, res) => {
   }
 });
 
-// Create a new post
-router.post("/posts", authMiddleware, async (req, res) => {
+// Create a new post (authenticated)
+router.post("/posts", authMiddleware, userLookupMiddleware, validate(createForumPostSchema), async (req, res) => {
   const { title, content, isAnonymous } = req.body;
-
-  if (!title || !content) {
-    return res.status(400).json({ error: "Title and content are required." });
-  }
 
   try {
     const [post] = await db
       .insert(schema.forumPosts)
       .values({
-        userId: req.userId,
+        userId: req.internalUserId,
         title,
         content,
         isAnonymous: isAnonymous ?? false,
@@ -50,7 +49,7 @@ router.post("/posts", authMiddleware, async (req, res) => {
 
 // ======= COMMENTS =======
 
-// Get all comments (you might want to filter by postId in future)
+// Get all comments (public, you might want to filter by postId in future)
 router.get("/comments", async (req, res) => {
   try {
     const comments = await db.select().from(schema.forumComments);
@@ -63,22 +62,16 @@ router.get("/comments", async (req, res) => {
   }
 });
 
-// Create a new comment
-router.post("/comments", authMiddleware, async (req, res) => {
+// Create a new comment (authenticated)
+router.post("/comments", authMiddleware, userLookupMiddleware, validate(createForumCommentSchema), async (req, res) => {
   const { postId, comment } = req.body;
-
-  if (!postId || !comment) {
-    return res.status(400).json({
-      error: "postId and comment are required.",
-    });
-  }
 
   try {
     const [newComment] = await db
       .insert(schema.forumComments)
       .values({
         postId,
-        userId: req.userId,
+        userId: req.internalUserId,
         comment,
       })
       .returning();

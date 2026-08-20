@@ -136,6 +136,48 @@ export const hotlines = pgTable("hotlines", {
   description: text("description"),
 });
 
+/* ---------- Stress Wellness Scans ---------- */
+export const stressScans = pgTable("stress_scans", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+
+  // Self-assessment inputs
+  moodLevel: integer("mood_level"), // 1-10
+  stressLevel: integer("stress_level").notNull(), // 1-10
+  anxietyLevel: integer("anxiety_level"), // 1-10
+  sleepQuality: integer("sleep_quality"), // 1-10
+  energyLevel: integer("energy_level"), // 1-10
+  motivationLevel: integer("motivation_level"), // 1-10
+  notes: text("notes"),
+  recentNegativeEvents: json("recent_negative_events"), // array of strings
+
+  // Environmental data snapshot
+  temperature: real("temperature"),
+  humidity: real("humidity"),
+  airQualityIndex: integer("air_quality_index"),
+  uvIndex: integer("uv_index"),
+  noiseLevel: real("noise_level"),
+  timeSpentIndoors: integer("time_spent_indoors"), // minutes
+  timeSpentOutdoors: integer("time_spent_outdoors"), // minutes
+  locationType: text("location_type"), // 'urban', 'suburban', 'rural'
+  timeOfDay: text("time_of_day"), // 'morning', 'afternoon', 'evening', 'night'
+
+  // Results
+  stressScore: integer("stress_score").notNull(), // 0-100
+  riskLevel: text("risk_level").notNull(), // 'Low', 'Moderate', 'High'
+  confidence: real("confidence").notNull(), // 0-1
+  contributingFactors: json("contributing_factors"), // array of strings
+  recommendations: json("recommendations"), // array of strings
+  warningMessage: text("warning_message"),
+
+  // AI Analysis (if applicable)
+  sentimentScore: real("sentiment_score"), // -1 to 1
+  stressKeywords: json("stress_keywords"), // array of strings
+
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 /* ---------- Personal Improvement Suggestions ---------- */
 export const suggestions = pgTable("suggestions", {
   id: serial("id").primaryKey(),
