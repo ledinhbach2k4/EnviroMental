@@ -11,14 +11,14 @@
     },
     "preview": {
       "distribution": "internal",
-      "node": "18.20.2",
+      "node": "20.x",
       "env": {
         "EXPO_USE_TRANSFORM_LEGACY": "true"
       }
     },
     "production": {
       "autoIncrement": true,
-      "node": "18.20.2"
+      "node": "20.x"
     }
   },
   "submit": {
