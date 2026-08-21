@@ -25,6 +25,7 @@ import hotlineRoutes from './routes/hotlines.routes.js';
 import suggestionRoutes from './routes/suggestions.routes.js';
 import environmentRoutes from './routes/environment.routes.js';
 import stressScanRoutes from './routes/stressScans.routes.js';
+import cortisolRoutes from './routes/cortisol.routes.js';
 
 const app = express();
 app.use(express.json());
@@ -123,6 +124,7 @@ app.use('/api/hotlines', hotlineRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/environment', environmentRoutes);
 app.use('/api/stress-scans', stressScanRoutes);
+app.use('/api/cortisol-score', cortisolRoutes);
 
 // Test route
 app.get('/api/test', (req, res) => res.json({ success: true }));

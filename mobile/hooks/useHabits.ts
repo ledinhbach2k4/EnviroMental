@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import api from '../utils/api'; // Using the new axios instance
+import api from '../utils/api';
 
 export interface Habit {
   id: number;
@@ -14,100 +14,56 @@ export interface Habit {
   userId?: number | null;
 }
 
+// MODULE-LEVEL CACHE - persists across all component lifecycles
+let cachedHabitsData: Habit[] | null = null;
+let lastHabitsFetch = 0;
+let isFetchingHabits = false;
+const HABITS_CACHE_TTL = 60000; // 60 seconds
+
 export const useHabits = () => {
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [habits, setHabits] = useState<Habit[]>(cachedHabitsData || []);
+  const [loading, setLoading] = useState(!cachedHabitsData);
   const [error, setError] = useState<string | null>(null);
   const { isSignedIn, isLoaded, getToken } = useAuth();
 
-  const isFetchingRef = useRef(false);
-  // Use a ref to hold the latest getToken function without causing re-renders
   const tokenRef = useRef(getToken);
-  useEffect(() => {
-    tokenRef.current = getToken;
-  }, [getToken]);
+  const isLoadedRef = useRef(isLoaded);
+  const isSignedInRef = useRef(isSignedIn);
 
-  // useEffect for the initial data load
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      if (!isLoaded || !isSignedIn) {
-        if (isLoaded && !isSignedIn) {
-          setHabits([]);
-          setLoading(false);
-        }
-        return;
-      }
+  useEffect(() => { tokenRef.current = getToken; }, [getToken]);
+  useEffect(() => { isLoadedRef.current = isLoaded; }, [isLoaded]);
+  useEffect(() => { isSignedInRef.current = isSignedIn; }, [isSignedIn]);
 
-      if (isFetchingRef.current) return;
-
-      isFetchingRef.current = true;
-      setLoading(true);
-      setError(null);
-
-      try {
-        const token = await tokenRef.current(); // Use the ref to get the token
-        if (!token) {
-          throw new Error("Authentication token not available.");
-        }
-
-        const config = { headers: { Authorization: `Bearer ${token}` } };
-        const [habitsRes, logsRes] = await Promise.all([
-          api.get('/habits', config),
-          api.get('/habits/logs', config),
-        ]);
-
-        const habitsData = habitsRes.data;
-        const logsData = logsRes.data;
-        const today = new Date().toISOString().split('T')[0];
-
-        const processed: Habit[] = habitsData
-          .filter((h: any) => h.userId !== null)
-          .map((h: any) => {
-            const todayLog = logsData.find((l: any) => l.habitId === h.id && l.logDate === today);
-            return {
-              ...h,
-              icon: h.icon || 'happy-outline',
-              color: h.color || '#FF6347',
-              completedToday: !!todayLog?.completed,
-              streak: calculateStreak(h.id, logsData),
-            };
-          });
-
-        setHabits(processed);
-      } catch (err: any) {
-        console.error("useHabits useEffect: --- FULL ERROR OBJECT ---");
-        console.error(err);
-        const errorMessage = err.response?.data?.message || err.message || "An unknown error occurred.";
-        setError(errorMessage);
-        if (err.response?.status === 401) {
-          setError("Authentication token missing or expired. Please try signing in again.");
-        }
-      } finally {
-        setLoading(false);
-        isFetchingRef.current = false;
-      }
-    };
-
-    fetchInitialData();
-  }, [isLoaded, isSignedIn]); // getToken is removed from dependencies
-
-  // Standalone refetch function to be returned by the hook
-  const refetch = useCallback(async () => {
-    if (!isLoaded || !isSignedIn) {
+  // STABLE FETCH FUNCTION - empty deps, uses module-level cache
+  const fetchHabits = useCallback(async (force = false) => {
+    if (!isLoadedRef.current || !isSignedInRef.current) {
       setHabits([]);
+      setLoading(false);
       return;
     }
-    if (isFetchingRef.current) return;
 
-    isFetchingRef.current = true;
+    const now = Date.now();
+
+    // 1. SERVE FROM CACHE if valid (60s TTL)
+    if (!force && cachedHabitsData && now - lastHabitsFetch < 60000) {
+      setHabits(cachedHabitsData);
+      setLoading(false);
+      return;
+    }
+
+    // 2. DEDUPLICATION - prevent concurrent fetches
+    if (isFetchingHabits) {
+      return;
+    }
+
+    // 3. MARK AS FETCHING
+    isFetchingHabits = true;
     setLoading(true);
     setError(null);
 
     try {
-      const token = await tokenRef.current(); // Use the ref to get the token
-      if (!token) {
-        throw new Error("Authentication token not available.");
-      }
+      const token = await tokenRef.current();
+      if (!token) throw new Error("Authentication token not available.");
 
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const [habitsRes, logsRes] = await Promise.all([
@@ -132,24 +88,37 @@ export const useHabits = () => {
           };
         });
 
+      // UPDATE CACHE
+      cachedHabitsData = processed;
+      lastHabitsFetch = Date.now();
       setHabits(processed);
     } catch (err: any) {
-      console.error("useHabits refetch: --- FULL ERROR OBJECT ---");
-      console.error(err);
+      console.error("useHabits fetch:", err);
       const errorMessage = err.response?.data?.message || err.message || "An unknown error occurred.";
       setError(errorMessage);
       if (err.response?.status === 401) {
         setError("Authentication token missing or expired. Please try signing in again.");
       }
+      setHabits([]);
     } finally {
       setLoading(false);
-      isFetchingRef.current = false;
+      isFetchingHabits = false;
     }
-  }, []); // Stable deps - uses refs for isLoaded/isSignedIn checks inside
+  }, []); // STRICTLY EMPTY DEPS
+
+  // SINGLE MOUNT EFFECT - RUNS ONCE
+  useEffect(() => {
+    fetchHabits();
+  }, []); // STRICTLY EMPTY ARRAY
+
+  // STABLE REFETCH - bypasses cache
+  const refetch = useCallback(async () => {
+    await fetchHabits(true);
+  }, [fetchHabits]);
 
   const addHabit = async ({ name, icon }: { name: string; icon: string }) => {
     try {
-      const token = await tokenRef.current(); // Use the ref to get the token
+      const token = await tokenRef.current();
       if (!token) throw new Error("Not authenticated");
       await api.post('/habits', { name, icon }, { headers: { Authorization: `Bearer ${token}` } });
       await refetch();
@@ -168,7 +137,7 @@ export const useHabits = () => {
     );
 
     try {
-      const token = await tokenRef.current(); // Use the ref to get the token
+      const token = await tokenRef.current();
       if (!token) throw new Error("Not authenticated");
       const today = new Date().toISOString().split('T')[0];
       await api.post(
@@ -190,7 +159,7 @@ export const useHabits = () => {
     setHabits(prevHabits => prevHabits.filter(habit => !habitIds.includes(habit.id)));
 
     try {
-      const token = await tokenRef.current(); // Use the ref to get the token
+      const token = await tokenRef.current();
       if (!token) throw new Error("Not authenticated");
       const deletePromises = habitIds.map(id =>
         api.delete(`/habits/${id}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -226,7 +195,6 @@ export const useHabits = () => {
   };
 };
 
-// This utility function remains the same
 function calculateStreak(habitId: number, logs: any[]): number {
   const habitLogs = logs
     .filter((l: any) => l.habitId === habitId && l.completed)
@@ -260,3 +228,6 @@ function calculateStreak(habitId: number, logs: any[]): number {
 
   return streak;
 }
+
+export { calculateStreak };
+export default useHabits;

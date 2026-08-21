@@ -20,8 +20,10 @@ import { LineChart } from 'react-native-chart-kit';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
+import CortisolGaugeCard from '../../components/CortisolGaugeCard';
 import { ENV } from '../../constants/api';
 import { useSharedHabits } from '../../context/HabitsContext';
+import { useCortisolScore } from '../../hooks/useCortisolScore';
 import type { Habit } from '../../hooks/useHabits';
 
 // Interfaces
@@ -108,6 +110,7 @@ export default function Home() {
   // Hooks
   const { getToken } = useAuth();
   const { habits, loading: habitsLoading, refetch: refetchHabits } = useSharedHabits();
+  const { data: cortisolData, loading: cortisolLoading, error: cortisolError, refetch: refetchCortisol } = useCortisolScore();
 
   // Create a ref to hold the unstable getToken function
   const tokenRef = useRef(getToken);
@@ -115,15 +118,13 @@ export default function Home() {
     tokenRef.current = getToken;
   }, [getToken]);
 
-  // Cooldown Refs
+  // Cooldown Refs (for mood/weather/airQuality - habits/cortisol use module-level)
   const isFetchingMoodRef = useRef(false);
   const lastFetchMoodTimeRef = useRef(0);
   const isFetchingWeatherRef = useRef(false);
   const lastFetchWeatherTimeRef = useRef(0);
   const isFetchingAirQualityRef = useRef(false);
   const lastFetchAirQualityTimeRef = useRef(0);
-  const isFetchingHabitsRef = useRef(false);
-  const lastFetchHabitsTimeRef = useRef(0);
 
   // Location permission refs
   const locationPermissionDeniedRef = useRef(false);
@@ -352,21 +353,13 @@ export default function Home() {
     useCallback(() => {
       const fetchData = async () => {
         await fetchMood();
-        const now = Date.now();
-        if (!isFetchingHabitsRef.current && now - lastFetchHabitsTimeRef.current >= 30000) {
-          isFetchingHabitsRef.current = true;
-          lastFetchHabitsTimeRef.current = now;
-          try {
-            await refetchHabits();
-          } finally {
-            isFetchingHabitsRef.current = false;
-          }
-        }
+        refetchHabits(); // cooldown handled in hook (module-level)
+        refetchCortisol(); // cooldown handled in hook (module-level)
         setTimeout(() => fetchWeather(), 1000);
         setTimeout(() => fetchAirQuality(), 1500);
       };
       fetchData();
-    }, [])
+    }, [refetchHabits, refetchCortisol])
   );
 
   // Chart Data Processing
@@ -548,7 +541,7 @@ export default function Home() {
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
       >
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
@@ -556,6 +549,22 @@ export default function Home() {
             <Icon name={greetingIcon} size={36} color={colors.primary} style={{ marginLeft: spacing.md, transform: [{ translateY: -2 }] }} />
           </View>
           <Text style={typography.bodySmall}>Take a moment for your mental health</Text>
+        </View>
+
+        {/* Cortisol Risk Score Card */}
+        <View style={[styles.card, { marginBottom: spacing.lg }]}>
+          <CardWrapper>
+            <CortisolGaugeCard
+              score={cortisolData?.score ?? null}
+              category={cortisolData?.category ?? 'unknown'}
+              label={cortisolData?.label ?? 'Insufficient Data'}
+              breakdown={cortisolData?.breakdown ?? { mood: null, habits: null, environment: null }}
+              message={cortisolData?.message ?? ''}
+              loading={cortisolLoading}
+              error={cortisolError}
+              onRetry={refetchCortisol}
+            />
+          </CardWrapper>
         </View>
 
         <View style={[styles.card, { marginBottom: spacing.xl }]}>

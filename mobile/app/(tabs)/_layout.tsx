@@ -118,6 +118,7 @@ const TypewriterText = ({ text, onComplete, messageId, selectable, forceComplete
 // Draggable Chat Icon Component
 const DraggableChatIcon = ({ onPress, insets }: { onPress: () => void; insets: EdgeInsets }) => {
   const colors = useColors();
+  const shadows = useShadows();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   const BALLOON_SIZE = 56;
@@ -168,17 +169,13 @@ const DraggableChatIcon = ({ onPress, insets }: { onPress: () => void; insets: E
         width: BALLOON_SIZE,
         height: BALLOON_SIZE,
         borderRadius: BALLOON_SIZE / 2,
-        backgroundColor: colors.surfaceAlt,
+        backgroundColor: colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
-        elevation: 10,
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.5,
-        shadowRadius: 3.5,
         zIndex: 9999,
+        ...shadows.lg,
       }]}>
-        <FontAwesome5 name="robot" size={24} color={colors.primary} />
+        <FontAwesome5 name="robot" size={24} color={colors.surface} />
       </Animated.View>
     </GestureDetector>
   );
