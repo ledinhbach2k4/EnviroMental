@@ -31,12 +31,18 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.*
 .env*.local
+*.local
 
 # typescript
 *.tsbuildinfo
 
 app-example
 
-.env
+build/
+coverage/
+Thumbs.db
+ios/
 android/
