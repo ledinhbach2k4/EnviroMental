@@ -13,12 +13,20 @@
       "distribution": "internal",
       "node": "20.19.0",
       "env": {
-        "EXPO_USE_TRANSFORM_LEGACY": "true"
+        "EXPO_USE_TRANSFORM_LEGACY": "true",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_Y2VudHJhbC1jYXJkaW5hbC03MC5jbGVyay5hY2NvdW50cy5kZXYk",
+        "EXPO_PUBLIC_API_URL": "https://enviromental-app-api.onrender.com/api",
+        "EXPO_PUBLIC_OPEN_WEATHER_API_KEY": "cc25b05032502e8086fb0fa8d98a99a7"
       }
     },
     "production": {
       "autoIncrement": true,
-      "node": "20.19.0"
+      "node": "20.19.0",
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_Y2VudHJhbC1jYXJkaW5hbC03MC5jbGVyay5hY2NvdW50cy5kZXYk",
+        "EXPO_PUBLIC_API_URL": "https://enviromental-app-api.onrender.com/api",
+        "EXPO_PUBLIC_OPEN_WEATHER_API_KEY": "cc25b05032502e8086fb0fa8d98a99a7"
+      }
     }
   },
   "submit": {
