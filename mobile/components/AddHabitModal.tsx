@@ -1,7 +1,8 @@
 import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, Platform, ScrollView, StyleSheet } from 'react-native';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 import Icon from './Icon';
 
@@ -53,6 +54,7 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
   const spacing = useSpacing();
   const radii = useRadii();
   const shadows = useShadows();
+  const insets = useSafeAreaInsets();
 
   const [habitName, setHabitName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState<keyof typeof Ionicons.glyphMap>('walk-outline');
@@ -117,9 +119,15 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
       borderTopLeftRadius: radii.xl,
       borderTopRightRadius: radii.xl,
       padding: spacing.lg,
-      paddingBottom: Platform.OS === 'ios' ? spacing.xxl : spacing.lg,
-      maxHeight: '80%',
+      paddingBottom: insets.bottom + 16,
+      maxHeight: '85%',
       ...shadows.xl,
+    },
+    scrollContent: {
+      flex: 1,
+    },
+    scrollContentContainer: {
+      paddingBottom: spacing.md,
     },
     header: {
       flexDirection: 'row',
@@ -164,15 +172,29 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
     },
     buttonRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
+      gap: 16,
       marginBottom: spacing.lg,
     },
     buttonCancel: {
       flex: 1,
-      marginRight: spacing.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      backgroundColor: 'transparent',
     },
     buttonSave: {
       flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.lg,
+      backgroundColor: colors.primary,
+      ...shadows.sm,
     },
     showMoreButton: {
       alignSelf: 'center',
@@ -199,11 +221,8 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
         exiting={FadeOut}
         style={styles.overlay}
       >
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={{ paddingBottom: spacing.lg }}
-          showsVerticalScrollIndicator={true}
-        >
+        <View style={[styles.container, { maxHeight: '85%' }]}>
+          {/* 1. Static Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Add New Habit</Text>
             <TouchableOpacity onPress={handleClose}>
@@ -211,56 +230,65 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
             </TouchableOpacity>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Habit Name</Text>
-            <TextInput
-              style={styles.input}
-              value={habitName}
-              onChangeText={setHabitName}
-              placeholder="Enter habit name"
-              placeholderTextColor={colors.textMuted}
-              maxLength={50}
-            />
-            {error ? (
-              <Text style={styles.errorText}>{error}</Text>
-            ) : null}
-          </View>
+          {/* 2. Expanding Middle Content */}
+          <ScrollView
+            style={{ flexShrink: 1, width: '100%' }}
+            contentContainerStyle={{ paddingVertical: 16 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+          >
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Habit Name</Text>
+              <TextInput
+                style={styles.input}
+                value={habitName}
+                onChangeText={setHabitName}
+                placeholder="Enter habit name"
+                placeholderTextColor={colors.textMuted}
+                maxLength={50}
+              />
+              {error ? (
+                <Text style={styles.errorText}>{error}</Text>
+              ) : null}
+            </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Select Icon</Text>
-            <FlatList
-              data={availableIcons}
-              renderItem={renderIconItem}
-              keyExtractor={(item) => item}
-              numColumns={5}
-              contentContainerStyle={styles.flatList}
-              scrollEnabled={false}
-            />
-            <TouchableOpacity
-              style={[styles.showMoreButton, { borderWidth: 1, borderColor: colors.primary }]}
-              onPress={() => setShowMoreIcons(!showMoreIcons)}
-            >
-              <Text style={[styles.showMoreText, { color: colors.primary }]}>
-                {showMoreIcons ? 'Show Less' : 'Show More Icons'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+            {/* Icon Grid (Use map and flexWrap instead of FlatList) */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Select Icon</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 10 }}>
+                {availableIcons.map(icon => (
+                  <React.Fragment key={icon}>
+                    {renderIconItem({ item: icon })}
+                  </React.Fragment>
+                ))}
+              </View>
+              <TouchableOpacity
+                style={[styles.showMoreButton, { borderWidth: 1, borderColor: colors.primary }]}
+                onPress={() => setShowMoreIcons(!showMoreIcons)}
+              >
+                <Text style={[styles.showMoreText, { color: colors.primary }]}>
+                  {showMoreIcons ? 'Show Less' : 'Show More Icons'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
 
-          <View style={styles.buttonRow}>
+          {/* 3. Static Footer */}
+          <View style={[styles.buttonRow, { paddingBottom: 16, flexDirection: 'row', gap: 16 }]}>
             <TouchableOpacity
-              style={[styles.buttonCancel, { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.primary }]}
+              style={styles.buttonCancel}
               onPress={handleClose}
             >
-              <Text style={[typography.button, { color: colors.primary }]}>Cancel</Text>
+              <Text style={[typography.button, { color: colors.primary, textAlign: 'center' }]}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.buttonSave, { backgroundColor: colors.primary, borderRadius: radii.lg, paddingVertical: spacing.md, alignItems: 'center', ...shadows.sm }]}
+              style={styles.buttonSave}
               onPress={handleSave}
             >
-              <Text style={typography.button}>Save Habit</Text>
+              <Text style={[typography.button, { textAlign: 'center' }]}>Save Habit</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
+        </View>
       </Animated.View>
     </Modal>
   );

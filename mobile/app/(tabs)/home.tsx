@@ -15,6 +15,8 @@ import {
   View,
   ViewStyle,
   StyleSheet,
+  Alert,
+  SafeAreaView,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
@@ -25,6 +27,7 @@ import { ENV } from '../../constants/api';
 import { useSharedHabits } from '../../context/HabitsContext';
 import { useCortisolScore } from '../../hooks/useCortisolScore';
 import type { Habit } from '../../hooks/useHabits';
+import * as Notifications from 'expo-notifications';
 
 // Interfaces
 interface QuickStat {
@@ -32,6 +35,7 @@ interface QuickStat {
   value: string;
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
+  onRetry?: () => void;
 }
 
 interface WeatherData {
@@ -131,6 +135,12 @@ export default function Home() {
   const lastLocationErrorTimeRef = useRef(0);
   const LOCATION_ERROR_COOLDOWN = 5 * 60 * 1000;
 
+  // Reset permission denied state - call when user might have granted permission
+  const resetPermissionState = useCallback(() => {
+    locationPermissionDeniedRef.current = false;
+    lastLocationErrorTimeRef.current = 0;
+  }, []);
+
   // Effects
   useEffect(() => {
     const updateGreeting = () => {
@@ -152,6 +162,29 @@ export default function Home() {
     updateGreeting();
     const intervalId = setInterval(updateGreeting, 60000);
     return () => clearInterval(intervalId);
+  }, []);
+
+  // Explicitly request location permissions on mount so the OS shows the prompt
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+          if (newStatus !== 'granted') {
+            console.log('Location permission not granted');
+            locationPermissionDeniedRef.current = true;
+            setErrorMsg('Location permission required for weather & air quality data.');
+          } else {
+            locationPermissionDeniedRef.current = false;
+          }
+        } else {
+          locationPermissionDeniedRef.current = false;
+        }
+      } catch (e) {
+        console.log('Location permission request failed:', e);
+      }
+    })();
   }, []);
 
   // Data Fetching
@@ -199,7 +232,7 @@ export default function Home() {
     }
   }, [moodColors]);
 
-  const fetchWeather = useCallback(async () => {
+  const fetchWeather = useCallback(async (force = false) => {
     const now = Date.now();
     if (now - lastFetchWeatherTimeRef.current < 30000) return;
     if (now - lastLocationErrorTimeRef.current < LOCATION_ERROR_COOLDOWN) return;
@@ -272,7 +305,7 @@ export default function Home() {
     }
   }, []);
 
-  const fetchAirQuality = useCallback(async () => {
+  const fetchAirQuality = useCallback(async (force = false) => {
     const now = Date.now();
     if (now - lastFetchAirQualityTimeRef.current < 30000) return;
     if (now - lastLocationErrorTimeRef.current < LOCATION_ERROR_COOLDOWN) return;
@@ -351,6 +384,24 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
+      // Reset permission state when screen comes into focus (user may have granted permission in settings)
+      resetPermissionState();
+
+      // Request notification permissions on focus
+      (async () => {
+        try {
+          const { status } = await Notifications.getPermissionsAsync();
+          if (status !== 'granted') {
+            const { status: newStatus } = await Notifications.requestPermissionsAsync();
+            if (newStatus !== 'granted') {
+              console.log('Notification permission not granted');
+            }
+          }
+        } catch (e) {
+          console.log('Notification permission request failed:', e);
+        }
+      })();
+
       const fetchData = async () => {
         await fetchMood();
         refetchHabits(); // cooldown handled in hook (module-level)
@@ -359,7 +410,7 @@ export default function Home() {
         setTimeout(() => fetchAirQuality(), 1500);
       };
       fetchData();
-    }, [refetchHabits, refetchCortisol])
+    }, [refetchHabits, refetchCortisol, resetPermissionState])
   );
 
   // Chart Data Processing
@@ -524,6 +575,7 @@ export default function Home() {
       value: loadingWeather ? '...' : errorMsg || (weather ? `${weather.temperature}°C, ${weather.description}` : 'No location'),
       icon: 'cloud-outline',
       color: colors.primary,
+      onRetry: errorMsg ? () => fetchWeather(true) : undefined,
     },
     {
       title: 'Air Quality',
@@ -532,6 +584,7 @@ export default function Home() {
         : errorAirPollution || (airQuality ? `${getAqiLabel(airQuality.aqi)} (AQI: ${airQuality.aqi})` : 'Unavailable'),
       icon: 'leaf-outline',
       color: airQuality ? (airQuality.aqi <= 2 ? colors.success : airQuality.aqi === 3 ? colors.warning : colors.danger) : colors.textMuted,
+      onRetry: errorAirPollution ? () => fetchAirQuality(true) : undefined,
     },
   ];
 
@@ -563,6 +616,9 @@ export default function Home() {
               loading={cortisolLoading}
               error={cortisolError}
               onRetry={refetchCortisol}
+              warnings={cortisolData?.warnings ?? []}
+              circadianMultiplier={cortisolData?.circadianMultiplier ?? 1}
+              timestamp={cortisolData?.timestamp}
             />
           </CardWrapper>
         </View>
@@ -580,10 +636,19 @@ export default function Home() {
                 ]}
               >
                 <Icon name={stat.icon} size={24} color={stat.color} style={{ marginRight: spacing.md }} />
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={typography.caption}>{stat.title}</Text>
                   <Text style={typography.body}>{stat.value}</Text>
                 </View>
+                {stat.onRetry && (
+                  <TouchableOpacity
+                    onPress={stat.onRetry}
+                    style={{ padding: spacing.xs, marginLeft: spacing.md }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="refresh" size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
               </View>
             ))}
           </CardWrapper>

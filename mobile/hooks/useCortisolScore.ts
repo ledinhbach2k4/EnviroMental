@@ -3,8 +3,8 @@ import { useAuth } from '@clerk/clerk-expo';
 import api from '../utils/api';
 
 interface CortisolBreakdown {
-  mood: { score: number; weight: number } | null;
-  habits: { score: number; weight: number } | null;
+  mood: { score: number; weight: number; trend?: 'improving' | 'worsening' | null } | null;
+  habits: { score: number; weight: number; streak?: number } | null;
   environment: { score: number; weight: number } | null;
 }
 
@@ -13,11 +13,14 @@ interface CortisolScoreData {
   category: 'low' | 'medium' | 'high' | 'unknown';
   label: string;
   breakdown: {
-    mood: { score: number; weight: number } | null;
-    habits: { score: number; weight: number } | null;
+    mood: { score: number; weight: number; trend?: 'improving' | 'worsening' | null } | null;
+    habits: { score: number; weight: number; streak?: number } | null;
     environment: { score: number; weight: number } | null;
   };
   message: string;
+  warnings: string[];
+  circadianMultiplier: number;
+  timestamp: string;
 }
 
 interface UseCortisolScoreReturn {

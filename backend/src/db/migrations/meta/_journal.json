@@ -64,6 +64,13 @@
       "when": 1759576268969,
       "tag": "0008_low_crystal",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787381282093,
+      "tag": "0009_woolly_star",
+      "breakpoints": true
     }
   ]
 }

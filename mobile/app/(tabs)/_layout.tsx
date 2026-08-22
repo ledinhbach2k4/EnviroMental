@@ -11,13 +11,15 @@ import {
   useWindowDimensions,
   StyleSheet,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { Redirect, Tabs } from 'expo-router';
-import { useSafeAreaInsets, EdgeInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, EdgeInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import Modal from 'react-native-modal';
 import axios from 'axios';
 import { FontAwesome5 } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { HabitsProvider } from '../../context/HabitsContext';
@@ -201,6 +203,25 @@ export default function TabLayout() {
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href={"/(auth)/sign-in" as any} />;
 
+  // Request notification permissions on app start
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      (async () => {
+        try {
+          const { status } = await Notifications.getPermissionsAsync();
+          if (status !== 'granted') {
+            const { status: newStatus } = await Notifications.requestPermissionsAsync();
+            if (newStatus !== 'granted') {
+              console.log('Notification permission not granted');
+            }
+          }
+        } catch (e) {
+          console.log('Notification permission request failed:', e);
+        }
+      })();
+    }
+  }, [isLoaded, isSignedIn]);
+
   // Track initial messages when modal opens to prevent typing animation replay
   useEffect(() => {
     if (isModalVisible && !hasInitializedRef.current) {
@@ -212,7 +233,10 @@ export default function TabLayout() {
   }, [isModalVisible, messages]);
 
   const openChat = () => setIsModalVisible(true);
-  const closeChat = () => setIsModalVisible(false);
+  const closeChat = useCallback(() => {
+    Keyboard.dismiss();
+    setIsModalVisible(false);
+  }, []);
 
   const handleAnimationComplete = useCallback((messageId: string) => {
     setMessages(prev =>
@@ -279,6 +303,9 @@ export default function TabLayout() {
       borderTopLeftRadius: radii.xl,
       borderTopRightRadius: radii.xl,
       height: '60%',
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
     },
     chatHeader: {
       flexDirection: 'row',
@@ -309,6 +336,9 @@ export default function TabLayout() {
       alignItems: 'center',
       marginTop: spacing.sm,
     },
+    inputContainer: {
+      paddingBottom: 0, // Will be overridden by inline style with insets.bottom
+    },
     inputBox: {
       flex: 1,
       borderColor: colors.border,
@@ -317,6 +347,9 @@ export default function TabLayout() {
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       backgroundColor: colors.backgroundAlt,
+      minHeight: 40,
+      maxHeight: 120,
+      textAlignVertical: 'top',
     },
     sendIcon: {
       marginLeft: spacing.sm,
@@ -357,90 +390,98 @@ export default function TabLayout() {
 
       <DraggableChatIcon onPress={openChat} insets={insets} />
 
-      <Modal isVisible={isModalVisible} onBackdropPress={closeChat} onBackButtonPress={closeChat} style={chatStyles.modal}>
-        <KeyboardAvoidingView behavior="padding" style={chatStyles.modalContent}>
-          <View style={chatStyles.chatHeader}>
-            <FontAwesome5 name="robot" size={20} color={colors.primary} />
-            <Text style={chatStyles.chatTitle}>Chat with AI</Text>
-            <TouchableOpacity onPress={closeChat}>
-              <FontAwesome5 name="times" size={20} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
+      <Modal isVisible={isModalVisible} onBackdropPress={closeChat} onBackButtonPress={closeChat} onRequestClose={closeChat} animationType="slide" transparent={true} style={chatStyles.modal}>
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[chatStyles.modalContent, { paddingTop: insets.top }]}>
+            <View style={chatStyles.chatHeader}>
+              <FontAwesome5 name="robot" size={20} color={colors.primary} />
+              <Text style={chatStyles.chatTitle}>Chat with AI</Text>
+              <TouchableOpacity onPress={closeChat}>
+                <FontAwesome5 name="times" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
 
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-            renderItem={({ item }) => {
-              if (item.content === 'typing...') {
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+              onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              style={{ flex: 1 }}
+              renderItem={({ item }) => {
+                if (item.content === 'typing...') {
+                  return (
+                    <View style={[chatStyles.messageBubble, chatStyles.aiMessage]}>
+                      <TypingIndicator />
+                    </View>
+                  );
+                }
+
+                const isAiMessage = item.role === 'assistant';
+                const isInitialMessage = initialMessageIdsRef.current.has(item.id);
+                const shouldAnimate = isAiMessage && !item.fullyRendered && !isInitialMessage;
+
                 return (
-                  <View style={[chatStyles.messageBubble, chatStyles.aiMessage]}>
-                    <TypingIndicator />
+                  <View
+                    style={[
+                      chatStyles.messageBubble,
+                      item.role === 'user' ? chatStyles.userMessage : chatStyles.aiMessage,
+                    ]}
+                  >
+                    {shouldAnimate ? (
+                      <TypewriterText
+                        text={item.content}
+                        onComplete={handleAnimationComplete}
+                        messageId={item.id}
+                        selectable={true}
+                      />
+                    ) : (
+                      <View>
+                        {isAiMessage ? (
+                          <Markdown selectable={true}>{item.content}</Markdown>
+                        ) : (
+                          <Text selectable={true}>{item.content}</Text>
+                        )}
+                        {isAiMessage && (
+                          <TouchableOpacity
+                            onPress={() => handleCopy(item.content)}
+                            style={{ marginTop: 6, alignSelf: 'flex-end' }}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="copy-outline" size={16} color={colors.textMuted} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
                   </View>
                 );
-              }
-
-              const isAiMessage = item.role === 'assistant';
-              const isInitialMessage = initialMessageIdsRef.current.has(item.id);
-              const shouldAnimate = isAiMessage && !item.fullyRendered && !isInitialMessage;
-
-              return (
-                <View
-                  style={[
-                    chatStyles.messageBubble,
-                    item.role === 'user' ? chatStyles.userMessage : chatStyles.aiMessage,
-                  ]}
-                >
-                  {shouldAnimate ? (
-                    <TypewriterText
-                      text={item.content}
-                      onComplete={handleAnimationComplete}
-                      messageId={item.id}
-                      selectable={true}
-                    />
-                  ) : (
-                    <View>
-                      {isAiMessage ? (
-                        <Markdown selectable={true}>{item.content}</Markdown>
-                      ) : (
-                        <Text selectable={true}>{item.content}</Text>
-                      )}
-                      {isAiMessage && (
-                        <TouchableOpacity
-                          onPress={() => handleCopy(item.content)}
-                          style={{ marginTop: 6, alignSelf: 'flex-end' }}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="copy-outline" size={16} color={colors.textMuted} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
-                </View>
-              );
-            }}
-          />
-
-          <View style={chatStyles.inputRow}>
-            <TextInput
-              style={chatStyles.inputBox}
-              placeholder="Enter your question..."
-              value={input}
-              onChangeText={setInput}
-              editable={!isLoading}
+              }}
             />
-            <TouchableOpacity onPress={sendMessage} disabled={isLoading || !input.trim()}>
-              <FontAwesome5
-                name="paper-plane"
-                size={20}
-                color={isLoading ? colors.textMuted : colors.primary}
-                style={chatStyles.sendIcon}
-              />
-            </TouchableOpacity>
-          </View>
+
+            <View style={[chatStyles.inputContainer, { paddingBottom: insets.bottom }]}>
+              <View style={chatStyles.inputRow}>
+                <TextInput
+                  style={chatStyles.inputBox}
+                  placeholder="Enter your question..."
+                  value={input}
+                  onChangeText={setInput}
+                  editable={!isLoading}
+                  multiline={true}
+                />
+                <TouchableOpacity onPress={sendMessage} disabled={isLoading || !input.trim()}>
+                  <FontAwesome5
+                    name="paper-plane"
+                    size={20}
+                    color={isLoading ? colors.textMuted : colors.primary}
+                    style={chatStyles.sendIcon}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
         </KeyboardAvoidingView>
+        </View>
       </Modal>
     </HabitsProvider>
   );

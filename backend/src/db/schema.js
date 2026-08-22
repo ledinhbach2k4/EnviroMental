@@ -27,6 +27,7 @@ export const habits = pgTable("habits", {
   description: text("description"),
   icon: text("icon"),
   isActive: boolean("is_active").default(true),
+  completionHistory: json("completion_history").default([]),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -3,7 +3,7 @@ import { db } from "../config/db.js";
 import * as schema from "../db/schema.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 import { userLookupMiddleware } from "../middleware/userLookupMiddleware.js";
-import { eq, and, gte, lt, desc } from "drizzle-orm";
+import { eq, and, gte, desc } from "drizzle-orm";
 import { calculateCortisolScore } from "../services/cortisol.service.js";
 
 const router = express.Router();
@@ -83,17 +83,24 @@ router.get("/", async (req, res) => {
 
     const latestEnv = environmentData[0] || null;
 
-    // Calculate cortisol score
+    // Calculate cortisol score - include Vietnam climate, humidity, light circadian, AQI
     const result = calculateCortisolScore({
       moodEntries,
       habits,
-      weather: latestEnv ? {
-        temperature: latestEnv.temperature,
-        description: '', // Could add weather condition from external API
-      } : null,
-      airQuality: latestEnv ? {
-        aqi: latestEnv.airQualityIndex,
-      } : null,
+      weather: latestEnv
+        ? {
+            temperature: latestEnv.temperature,
+            humidity: latestEnv.humidity,
+            lightLevel: latestEnv.lightLevel,
+            description: '',
+          }
+        : null,
+      airQuality: latestEnv
+        ? {
+            aqi: latestEnv.airQualityIndex,
+            lightLevel: latestEnv.lightLevel,
+          }
+        : null,
     });
 
     res.status(200).json({

@@ -6,6 +6,8 @@ import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/sr
 interface CortisolBreakdownItem {
   score: number;
   weight: number;
+  trend?: 'improving' | 'worsening' | null;
+  streak?: number;
 }
 
 interface CortisolBreakdown {
@@ -23,6 +25,9 @@ interface CortisolGaugeCardProps {
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  warnings?: string[];
+  circadianMultiplier?: number;
+  timestamp?: string;
 }
 
 // Helper to capitalize first letter
@@ -37,6 +42,9 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
   loading = false,
   error = null,
   onRetry,
+  warnings = [],
+  circadianMultiplier = 1,
+  timestamp,
 }) => {
   const colors = useColors();
   const typography = useTypography();
@@ -94,32 +102,99 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
 
   // Render breakdown bars - clean progress bars with no artifacts
   const renderBreakdown = () => {
-    if (!breakdown) return null;
-    
+    if (!breakdown) {
+      return null;
+    }
+
     const items = [
       { key: 'mood', label: 'Mood', data: breakdown.mood, color: colors.primary },
       { key: 'habits', label: 'Habits', data: breakdown.habits, color: colors.secondary },
       { key: 'environment', label: 'Environment', data: breakdown.environment, color: colors.accent },
-    ].filter(item => item.data !== null);
+    ].filter((item) => item.data !== null);
 
     return (
       <View style={styles.breakdownContainer}>
-        {items.map(item => (
+        {items.map((item) => (
           <View key={item.key} style={styles.breakdownItem}>
             <View style={styles.breakdownHeader}>
-              <Text style={[typography.caption, { color: item.color, fontWeight: '600' }]}>{item.label}</Text>
-              <Text style={[typography.caption, { color: colors.textMuted, fontWeight: '500' }]}>{Math.round(item.data!.weight * 100)}%</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[typography.caption, { color: item.color, fontWeight: '600' }]}>
+                  {item.label}
+                </Text>
+                {item.key === 'mood' && item.data.trend && (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor:
+                        item.data.trend === 'improving'
+                          ? colors.success + '15'
+                          : colors.danger + '15',
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 10,
+                      gap: 2,
+                    }}
+                  >
+                    <Ionicons
+                      name={item.data.trend === 'improving' ? 'trending-up' : 'trending-down'}
+                      size={12}
+                      color={item.data.trend === 'improving' ? colors.success : colors.danger}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontWeight: '600',
+                        color:
+                          item.data.trend === 'improving' ? colors.success : colors.danger,
+                      }}
+                    >
+                      {item.data.trend === 'improving' ? 'Improving' : 'Worsening'}
+                    </Text>
+                  </View>
+                )}
+                {item.key === 'habits' &&
+                  item.data.streak !== undefined &&
+                  item.data.streak > 0 && (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: colors.warning + '15',
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 10,
+                        gap: 2,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10 }}>🔥</Text>
+                      <Text style={{ fontSize: 10, fontWeight: '600', color: colors.warning }}>
+                        {item.data.streak}-day streak
+                      </Text>
+                    </View>
+                  )}
+              </View>
+              <Text style={[typography.caption, { color: colors.textMuted, fontWeight: '500' }]}>
+                {Math.round(item.data.weight * 100)}%
+              </Text>
             </View>
             {/* Clean progress bar - parent with overflow hidden, inner fill with dynamic width */}
             <View style={styles.breakdownBarTrack}>
               <View
                 style={[
                   styles.breakdownBarFill,
-                  { width: `${item.data!.score}%`, backgroundColor: item.color },
+                  { width: `${item.data.score}%`, backgroundColor: item.color },
                 ]}
               />
             </View>
-            <Text style={[typography.caption, { color: colors.textMuted, fontSize: 11, fontWeight: '600', marginTop: 2 }]}>{item.data!.score}</Text>
+            <Text
+              style={[
+                typography.caption,
+                { color: colors.textMuted, fontSize: 11, fontWeight: '600', marginTop: 2 },
+              ]}
+            >
+              {item.data.score}
+            </Text>
           </View>
         ))}
       </View>
@@ -218,6 +293,39 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
       {renderGauge()}
 
       {renderBreakdown()}
+
+      {warnings && warnings.length > 0 && (
+        <View
+          style={[
+            styles.warningBanner,
+            { backgroundColor: colors.warning + '12', borderColor: colors.warning + '30' },
+          ]}
+        >
+          {warnings.map((w, idx) => (
+            <View key={idx} style={styles.warningRow}>
+              <Ionicons name="time-outline" size={14} color={colors.warning} />
+              <Text
+                style={[
+                  typography.caption,
+                  { color: colors.warning, flex: 1, marginLeft: 6, flexShrink: 1, lineHeight: 16 },
+                ]}
+              >
+                {w}
+              </Text>
+            </View>
+          ))}
+          {timestamp && (
+            <Text
+              style={[
+                typography.caption,
+                { color: colors.textMuted, fontSize: 10, marginTop: 6, textAlign: 'right' },
+              ]}
+            >
+              Updated: {new Date(timestamp).toLocaleString()}
+            </Text>
+          )}
+        </View>
+      )}
 
       <View style={[styles.messageContainer, { backgroundColor: bg }]}>
         <Ionicons 
@@ -322,6 +430,20 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     marginTop: 4,
+    width: '100%',
+  },
+  warningBanner: {
+    flexDirection: 'column',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 6,
+    width: '100%',
+  },
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     width: '100%',
   },
   errorContainer: {

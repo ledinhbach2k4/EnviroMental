@@ -4,8 +4,12 @@ import * as schema from "../db/schema.js";
 
 import { authMiddleware } from "../middleware/authMiddleware.js";
 import { userLookupMiddleware } from "../middleware/userLookupMiddleware.js";
-import { validate } from "../validation/schemas.js";
-import { createHabitSchema, habitLogSchema, habitIdParamSchema } from "../validation/schemas.js";
+import {
+  validate,
+  createHabitSchema,
+  habitLogSchema,
+  habitIdParamSchema,
+} from "../validation/schemas.js";
 import { eq, and } from "drizzle-orm";
 
 const router = express.Router();
@@ -123,6 +127,7 @@ router.post("/:habitId/log", authMiddleware, userLookupMiddleware, validate(habi
         )
       );
 
+    let resultLog;
     if (existingLogs.length > 0) {
       // If logs exist, update them all to the new 'completed' status
       const [updatedLog] = await db
@@ -135,7 +140,7 @@ router.post("/:habitId/log", authMiddleware, userLookupMiddleware, validate(habi
           )
         )
         .returning();
-      res.status(200).json(updatedLog);
+      resultLog = updatedLog;
     } else {
       // If no log exists, insert a new one
       const [loggedHabit] = await db
@@ -146,8 +151,26 @@ router.post("/:habitId/log", authMiddleware, userLookupMiddleware, validate(habi
           completed: completed !== undefined ? completed : true,
         })
         .returning();
-      res.status(201).json(loggedHabit);
+      resultLog = loggedHabit;
     }
+
+    // Update completion_history (keep last 30 days)
+    try {
+      const currentHistory = Array.isArray(habit.completionHistory)
+        ? habit.completionHistory
+        : [];
+      const completedValue = completed !== undefined ? completed : true;
+      const updatedHistory = [...currentHistory, completedValue].slice(-30);
+      await db
+        .update(schema.habits)
+        .set({ completionHistory: updatedHistory })
+        .where(eq(schema.habits.id, parseInt(habitId)));
+    } catch (historyErr) {
+      console.error("Failed to update completion_history:", historyErr);
+      // Do not fail the request if history update fails
+    }
+
+    res.status(existingLogs.length > 0 ? 200 : 201).json(resultLog);
   } catch (err) {
     console.error("Error in habit log upsert:", err);
     res.status(500).json({ error: "Failed to log habit", detail: err.message });
