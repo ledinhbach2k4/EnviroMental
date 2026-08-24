@@ -4,6 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleProp, Text, TouchableOpacity, View, ViewStyle, StyleSheet } from 'react-native';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Button from '../../components/Button';
 import { useLogout } from '../../hooks/useLogout';
 import { Image } from 'expo-image';
@@ -82,6 +83,7 @@ export default function Profile() {
   const spacing = useSpacing();
   const radii = useRadii();
   const shadows = useShadows();
+  const insets = useSafeAreaInsets();
 
   const [userStats, setUserStats] = useState<UserStats>({
     totalMoodEntries: 0,
@@ -358,7 +360,7 @@ export default function Profile() {
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xxl, alignItems: 'center' }}>
           <View style={{ position: 'relative' }}>

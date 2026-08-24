@@ -64,11 +64,16 @@
 | `mobile/app/(tabs)/_layout.tsx` | 369-391 | High | Tab navigator has `headerShown: false` but the `DraggableChatIcon` at line 391 is positioned absolutely without safe area consideration — can be hidden by notch/status bar | Wrap `DraggableChatIcon` in `SafeAreaView` or use `useSafeAreaInsets()` for bounds |
 | `mobile/app/(tabs)/_layout.tsx` | 393-485 | Medium | Chat modal uses `KeyboardAvoidingView` but the outer modal `View` at line 394 doesn't have `safeArea` props — content can be obscured | Add `paddingTop={insets.top}` to modal content wrapper |
 | `mobile/app/(tabs)/home.tsx` | 593-787 | Medium | Home screen ScrollView doesn't use `SafeAreaView` as wrapper — status bar/ notch can overlap content | Wrap root in `SafeAreaView` or ensure `useSafeAreaInsets()` is applied | **Fixed** → `mobile/app/(tabs)/home.tsx` |
-| `mobile/app/(tabs)/profile.tsx` | 340-546 | Medium | Profile screen ScrollView uses `styles.content` but no `SafeAreaView` wrapper — notch/status bar can overlap | Add `SafeAreaView` as root wrapper |
+| `mobile/app/(tabs)/profile.tsx` | 340-546 | Medium | Profile screen ScrollView uses `styles.content` but no `SafeAreaView` wrapper — notch/status bar can overlap | Add `SafeAreaView` as root wrapper | **Fixed** → `mobile/app/(tabs)/profile.tsx` (added `paddingTop: insets.top`) |
 | `mobile/components/CortisolGaugeCard.tsx` | 275-273 | Low | Empty/loading states don't account for notch — fixed `width: '100%'` may peek into notch area | Use `useSafeAreaInsets()` for padding |
 | `mobile/components/AddHabitModal.tsx` | 213-294 | Low | Modal uses `transparent={true}` but no safe area bottom padding consideration — on iPhone with home indicator, buttons can be obscured | Add `paddingBottom={insets.bottom}` to modal container |
 | `mobile/app/(tabs)/_layout.tsx` | 359-367 | High | Tab bar `tabBarStyle` uses `insets.bottom || fallback` — on Android with gesture nav, `insets.bottom` can be 0, leaving pale blue background exposed below tab bar | Use `insets.bottom` directly without fallback; ensure tab bar background extends fully into bottom safe area | **Fixed** → `mobile/app/(tabs)/_layout.tsx`, `mobile/components/SafeScreen.tsx` |
 | `mobile/components/SafeScreen.tsx` | 11-25 | High | Root `SafeScreen` applies `paddingTop: insets.top` with pale blue background (`COLORS.background`) — individual screens use own `SafeAreaView`, causing status-bar-area color bleed | Remove `paddingTop` from `SafeScreen`; let screens handle top insets via their own `SafeAreaView` | **Fixed** → `mobile/components/SafeScreen.tsx` |
+| `mobile/app/(tabs)/mood.tsx` | 354-358 | Medium | Mood screen missing top safe area inset — header overlaps system status bar | Add `useSafeAreaInsets` and `paddingTop: insets.top` to container | **Fixed** → `mobile/app/(tabs)/mood.tsx` |
+| `mobile/app/(tabs)/habits.tsx` | 199-200 | Medium | Habits screen missing top safe area inset — header overlaps system status bar | Add `useSafeAreaInsets` and `paddingTop: insets.top` to container | **Fixed** → `mobile/app/(tabs)/habits.tsx` |
+| `mobile/app/(tabs)/mindfulness.tsx` | 163-164 | Medium | Mindfulness screen missing top safe area inset — header overlaps system status bar | Add `useSafeAreaInsets` and `paddingTop: insets.top` to container | **Fixed** → `mobile/app/(tabs)/mindfulness.tsx` |
+| `mobile/app/(tabs)/profile.tsx` | 362-363 | Medium | Profile screen missing top safe area inset — header overlaps system status bar | Add `useSafeAreaInsets` and `paddingTop: insets.top` to container | **Fixed** → `mobile/app/(tabs)/profile.tsx` |
+| `mobile/app/(tabs)/home.tsx` | 593-594 | High | Home screen has double bottom inset — `SafeAreaView` with `edges={['top','bottom']}` conflicts with `<Tabs>` built-in bottom handling, creating unwanted gap below tab bar | Change `SafeAreaView` to `edges={['top']}` only | **Fixed** → `mobile/app/(tabs)/home.tsx` |
 
 **Subtotal: 6 findings**
 
@@ -212,11 +217,11 @@
 
 | Metric | Count |
 |--------|-------|
-| **Total Findings** | 50 |
-| **High Severity** | 20 (11 open, 9 fixed) |
-| **Medium Severity** | 20 (18 open, 2 fixed) |
+| **Total Findings** | 55 |
+| **High Severity** | 20 (10 open, 10 fixed) |
+| **Medium Severity** | 25 (18 open, 7 fixed) |
 | **Low Severity** | 10 (10 open, 0 fixed) |
-| **Fixed This Batch** | 11 |
+| **Fixed This Batch** | 17 |
 
 ---
 
@@ -235,6 +240,11 @@
 | 9 | Avatar edit button has accessibilityLabel | Profile | VoiceOver/TalkBack announces "Change profile picture" when focused on edit button |
 | 10 | Tab bar bottom gap fixed | All tab screens (Home, Mood, Habits, Mindfulness, Profile) | No pale blue gap between tab bar bottom and Android gesture nav bar; tab bar white background extends fully to bottom of screen |
 | 11 | Status bar top gap fixed | All tab screens | No pale blue gap in status bar area; content starts flush under status bar (or status bar has correct theme color) |
+| 12 | Mood screen top inset added | Mood | Header no longer overlaps system status bar; correct spacing at top |
+| 13 | Habits screen top inset added | Habits | Header no longer overlaps system status bar; correct spacing at top |
+| 14 | Mindfulness screen top inset added | Mindfulness | Header no longer overlaps system status bar; correct spacing at top |
+| 15 | Profile screen top inset added | Profile | Header no longer overlaps system status bar; correct spacing at top |
+| 16 | Home screen double bottom inset removed | Home | No extra colored gap/bar below the Bottom Tab Navigator; smooth transition to gesture nav bar |
 
 ---
 

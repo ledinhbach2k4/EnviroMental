@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Alert, Platform, ScrollView, StyleProp, Text, TouchableOpacity, View, ViewStyle, StyleSheet } from 'react-native';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../components/Icon';
 
 interface MeditationSession {
@@ -27,6 +28,7 @@ export default function Mindfulness() {
   const spacing = useSpacing();
   const radii = useRadii();
   const shadows = useShadows();
+  const insets = useSafeAreaInsets();
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSession, setCurrentSession] = useState<MeditationSession | null>(null);
@@ -159,7 +161,7 @@ export default function Mindfulness() {
   const CardWrapper = Platform.OS === 'android' ? AndroidCardContent : CardContent;
 
   return (
-    <View style={cardStyles.container}>
+    <View style={[cardStyles.container, { paddingTop: insets.top }]}>
       <ScrollView style={cardStyles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xxl }}>
           <Text style={[typography.h1, { color: colors.primary }]}>Mindfulness 🧘‍♀️</Text>

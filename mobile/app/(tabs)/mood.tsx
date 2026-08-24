@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert, Switch, Platform, StyleSheet } from 'react-native';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 import Icon from '../../components/Icon';
 import Button from '../../components/Button';
@@ -37,6 +38,7 @@ export default function MoodTracker() {
   const spacing = useSpacing();
   const radii = useRadii();
   const shadows = useShadows();
+  const insets = useSafeAreaInsets();
   
   const moodColors = [
     colors.mood.verySad,
@@ -352,7 +354,7 @@ export default function MoodTracker() {
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xxl }}>
           <Text style={[typography.h1, { color: colors.primary }]}>

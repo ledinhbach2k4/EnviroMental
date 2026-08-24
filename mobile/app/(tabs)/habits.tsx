@@ -6,6 +6,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSharedHabits } from '../../context/HabitsContext';
 import type { Habit } from '../../hooks/useHabits';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../components/Icon';
 
 export default function HabitsTracker() {
@@ -14,6 +15,7 @@ export default function HabitsTracker() {
   const spacing = useSpacing();
   const radii = useRadii();
   const shadows = useShadows();
+  const insets = useSafeAreaInsets();
 
   const {
     habits,
@@ -195,7 +197,7 @@ export default function HabitsTracker() {
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
