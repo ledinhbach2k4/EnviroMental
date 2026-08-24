@@ -360,9 +360,9 @@ export default function TabLayout() {
     backgroundColor: colors.backgroundAlt,
     borderTopColor: colors.border,
     borderTopWidth: 1,
-    paddingBottom: insets.bottom || (Platform.OS === 'ios' ? 20 : 10),
+    paddingBottom: insets.bottom,
     paddingTop: spacing.sm,
-    height: (Platform.OS === 'ios' ? 70 : 60) + (insets.bottom || 0),
+    height: (Platform.OS === 'ios' ? 70 : 60) + insets.bottom,
     ...shadows.lg,
   }), [colors, spacing, shadows, insets]);
 
@@ -392,11 +392,11 @@ export default function TabLayout() {
 
       <Modal isVisible={isModalVisible} onBackdropPress={closeChat} onBackButtonPress={closeChat} onRequestClose={closeChat} animationType="slide" transparent={true} style={chatStyles.modal}>
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[chatStyles.modalContent, { paddingTop: insets.top }]}>
+<KeyboardAvoidingView behavior="padding" style={[chatStyles.modalContent, { paddingTop: insets.top }]}>
             <View style={chatStyles.chatHeader}>
               <FontAwesome5 name="robot" size={20} color={colors.primary} />
               <Text style={chatStyles.chatTitle}>Chat with AI</Text>
-              <TouchableOpacity onPress={closeChat}>
+              <TouchableOpacity onPress={closeChat} accessibilityLabel="Close chat" activeOpacity={0.8}>
                 <FontAwesome5 name="times" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
@@ -470,7 +470,12 @@ export default function TabLayout() {
                   editable={!isLoading}
                   multiline={true}
                 />
-                <TouchableOpacity onPress={sendMessage} disabled={isLoading || !input.trim()}>
+                <TouchableOpacity
+                  onPress={sendMessage}
+                  disabled={isLoading || !input.trim()}
+                  accessibilityLabel="Send message"
+                  activeOpacity={0.8}
+                >
                   <FontAwesome5
                     name="paper-plane"
                     size={20}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
@@ -51,6 +51,188 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
   const spacing = useSpacing();
   const radii = useRadii();
   const shadows = useShadows();
+
+  const styles = useMemo(() => StyleSheet.create({
+    // Main card - uses design tokens for consistent theming
+    card: {
+      backgroundColor: colors.background,
+      borderRadius: radii.lg,
+      padding: spacing.xl,
+      marginVertical: spacing.sm,
+      marginBottom: 80, // Extra space for floating AI chat button
+      borderWidth: 1,
+      overflow: 'hidden',
+      width: '100%',
+      maxWidth: '100%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.xl,
+      minHeight: 56,
+    },
+    scoreBadge: {
+      backgroundColor: colors.surfaceAlt,
+      borderRadius: radii.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      minWidth: 72,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    gaugeContainer: {
+      marginBottom: spacing.xl,
+      width: '100%',
+    },
+    gaugeTrack: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      height: 10,
+      borderRadius: 5,
+      overflow: 'hidden',
+      backgroundColor: colors.surfaceAlt,
+      marginBottom: spacing.xs,
+      width: '100%',
+    },
+    gaugeSegment: {
+      flex: 1,
+      marginHorizontal: 1,
+    },
+    gaugeSegmentFilled: {},
+    gaugeSegmentEmpty: {
+      backgroundColor: colors.surfaceAlt,
+    },
+    gaugeLabels: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      width: '100%',
+      marginTop: spacing.xs,
+    },
+    breakdownContainer: {
+      marginBottom: spacing.lg,
+      width: '100%',
+    },
+    breakdownItem: {
+      marginBottom: spacing.md,
+      width: '100%',
+    },
+    breakdownHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: spacing.xs,
+      width: '100%',
+    },
+    // Clean progress bar track - parent with overflow hidden and borderRadius
+    breakdownBarTrack: {
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.surfaceAlt,
+      overflow: 'hidden',
+      width: '100%',
+    },
+    // Inner fill - simple dynamic width, height 100%
+    breakdownBarFill: {
+      height: '100%',
+      borderRadius: 4,
+    },
+    messageContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: spacing.md,
+      borderRadius: radii.md,
+      marginTop: spacing.xs,
+      width: '100%',
+    },
+    warningBanner: {
+      flexDirection: 'column',
+      padding: spacing.md,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      marginBottom: spacing.md,
+      gap: spacing.xs,
+      width: '100%',
+    },
+    warningRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      width: '100%',
+    },
+    errorContainer: {
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      width: '100%',
+    },
+    retryButton: {
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+      borderRadius: radii.md,
+      marginTop: spacing.xs,
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      paddingVertical: spacing.xl,
+      width: '100%',
+    },
+    // Skeleton styles - using surface colors for skeleton placeholders
+    skeletonLabelContainer: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    skeletonLabel: {
+      height: 16,
+      width: '60%',
+      borderRadius: radii.xs,
+      backgroundColor: colors.surfaceAlt,
+      marginBottom: spacing.xs,
+    },
+    skeletonValue: {
+      height: 24,
+      width: '40%',
+      borderRadius: radii.xs,
+      backgroundColor: colors.surfaceAlt,
+    },
+    skeletonScore: {
+      width: 80,
+      height: 56,
+      borderRadius: radii.lg,
+      backgroundColor: colors.surfaceAlt,
+    },
+    skeletonGaugeTrack: {
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.surfaceAlt,
+      marginBottom: spacing.xs,
+      width: '100%',
+    },
+    skeletonGauge: {
+      width: '100%',
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.surfaceAlt,
+    },
+    skeletonGaugeLabels: {
+      height: 12,
+      width: '100%',
+    },
+    skeletonBreakdownContainer: {
+      marginBottom: spacing.lg,
+      width: '100%',
+    },
+    skeletonBreakdownItem: {
+      width: '100%',
+      height: 44,
+      borderRadius: radii.md,
+      backgroundColor: colors.surfaceAlt,
+      marginBottom: spacing.md,
+    },
+    skeletonMessage: {
+      height: 40,
+      borderRadius: radii.md,
+      backgroundColor: colors.surfaceAlt,
+      width: '100%',
+    },
+  }), [colors, spacing, radii]);
 
   // Determine colors based on category
   const getCategoryColors = () => {
@@ -339,187 +521,5 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  // Main card - fixed width, overflow hidden, consistent dimensions, marginBottom for floating button
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginVertical: 8,
-    marginBottom: 80, // Extra space for floating AI chat button
-    borderWidth: 1,
-    overflow: 'hidden',
-    width: '100%',
-    maxWidth: '100%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    minHeight: 56,
-  },
-  scoreBadge: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    minWidth: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gaugeContainer: {
-    marginBottom: 20,
-    width: '100%',
-  },
-  gaugeTrack: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
-    marginBottom: 6,
-    width: '100%',
-  },
-  gaugeSegment: {
-    flex: 1,
-    marginHorizontal: 1,
-  },
-  gaugeSegmentFilled: {},
-  gaugeSegmentEmpty: {
-    backgroundColor: '#f0f0f0',
-  },
-  gaugeLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 4,
-  },
-  breakdownContainer: {
-    marginBottom: 16,
-    width: '100%',
-  },
-  breakdownItem: {
-    marginBottom: 14,
-    width: '100%',
-  },
-  breakdownHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-    width: '100%',
-  },
-  // Clean progress bar track - parent with overflow hidden and borderRadius
-  breakdownBarTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#f0f0f0',
-    overflow: 'hidden',
-    width: '100%',
-  },
-  // Inner fill - simple dynamic width, height 100%
-  breakdownBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  messageContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 4,
-    width: '100%',
-  },
-  warningBanner: {
-    flexDirection: 'column',
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 12,
-    gap: 6,
-    width: '100%',
-  },
-  warningRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-  },
-  errorContainer: {
-    alignItems: 'center',
-    paddingVertical: 8,
-    width: '100%',
-  },
-  retryButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    width: '100%',
-  },
-  // Skeleton styles
-  skeletonLabelContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  skeletonLabel: {
-    height: 16,
-    width: '60%',
-    borderRadius: 4,
-    backgroundColor: '#f0f0f0',
-    marginBottom: 4,
-  },
-  skeletonValue: {
-    height: 24,
-    width: '40%',
-    borderRadius: 4,
-    backgroundColor: '#f0f0f0',
-  },
-  skeletonScore: {
-    width: 80,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: '#f0f0f0',
-  },
-  skeletonGaugeTrack: {
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#f0f0f0',
-    marginBottom: 6,
-    width: '100%',
-  },
-  skeletonGauge: {
-    width: '100%',
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#f0f0f0',
-  },
-  skeletonGaugeLabels: {
-    height: 12,
-    width: '100%',
-  },
-  skeletonBreakdownContainer: {
-    marginBottom: 16,
-    width: '100%',
-  },
-  skeletonBreakdownItem: {
-    width: '100%',
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-    marginBottom: 12,
-  },
-  skeletonMessage: {
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#f0f0f0',
-    width: '100%',
-  },
-});
 
 export default CortisolGaugeCard;

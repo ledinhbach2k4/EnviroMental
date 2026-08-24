@@ -12,7 +12,8 @@ const SafeScreen: React.FC<SafeScreenProps> = ({ children, style }) => {
   const insets = useSafeAreaInsets();
 
   const containerStyle: ViewStyle = {
-    paddingTop: insets.top,
+    // Screens now handle their own top insets via SafeAreaView.
+    // Only apply horizontal and bottom insets here to prevent background bleed.
     paddingBottom: insets.bottom,
     paddingLeft: insets.left,
     paddingRight: insets.right,

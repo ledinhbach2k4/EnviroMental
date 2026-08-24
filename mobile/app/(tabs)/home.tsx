@@ -16,8 +16,8 @@ import {
   ViewStyle,
   StyleSheet,
   Alert,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-chart-kit';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 import Button from '../../components/Button';
@@ -88,6 +88,7 @@ export default function Home() {
   const spacing = useSpacing();
   const radii = useRadii();
   const shadows = useShadows();
+  const insets = useSafeAreaInsets();
 
   const moodColors = useMemo(() => [
     colors.mood.verySad,
@@ -539,8 +540,8 @@ export default function Home() {
       position: 'absolute',
       bottom: spacing.lg,
       right: spacing.lg,
-      width: 56,
-      height: 56,
+      width: spacing.xxxl + spacing.md,
+      height: spacing.xxxl + spacing.md,
       borderRadius: radii.full,
       backgroundColor: colors.accent,
       alignItems: 'center',
@@ -590,7 +591,7 @@ export default function Home() {
 
   // Render
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
@@ -785,6 +786,6 @@ export default function Home() {
           </CardWrapper>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }

@@ -334,6 +334,27 @@ export default function Profile() {
       justifyContent: 'space-between',
       alignItems: 'center',
     },
+    avatar: {
+      width: spacing.xxxl + spacing.xl,
+      height: spacing.xxxl + spacing.xl,
+      borderRadius: (spacing.xxxl + spacing.xl) / 2,
+      overflow: 'hidden',
+      borderWidth: 3,
+      borderColor: colors.primary,
+      marginBottom: spacing.md,
+    },
+    avatarEditButton: {
+      position: 'absolute',
+      bottom: spacing.xs,
+      right: spacing.xs,
+      backgroundColor: colors.backgroundAlt,
+      borderRadius: radii.md,
+      width: spacing.lg + spacing.md,
+      height: spacing.lg + spacing.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...shadows.sm,
+    },
   });
 
   return (
@@ -341,36 +362,10 @@ export default function Profile() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xxl, alignItems: 'center' }}>
           <View style={{ position: 'relative' }}>
-            <TouchableOpacity onPress={pickImage}
-              style={{
-                width: 100,
-                height: 100,
-                borderRadius: 50,
-                overflow: 'hidden',
-                borderWidth: 3,
-                borderColor: colors.primary,
-                marginBottom: spacing.md,
-              }}>
+            <TouchableOpacity onPress={pickImage} style={styles.avatar} accessibilityLabel="Change profile picture">
               <Image source={{ uri: userAvatar }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={pickImage}
-              style={{
-                position: 'absolute',
-                bottom: 4,
-                right: 4,
-                backgroundColor: colors.backgroundAlt,
-                borderRadius: 20,
-                width: 28,
-                height: 28,
-                justifyContent: 'center',
-                alignItems: 'center',
-                shadowColor: colors.shadow,
-                shadowOpacity: 0.1,
-                shadowOffset: { width: 0, height: 2 },
-                shadowRadius: 3,
-                elevation: 3,
-              }}>
+            <TouchableOpacity onPress={pickImage} style={styles.avatarEditButton} accessibilityLabel="Change profile picture" activeOpacity={0.8}>
               <Icon name="create" size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
