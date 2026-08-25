@@ -7,7 +7,7 @@ import Icon from '../../components/Icon';
 import Button from '../../components/Button';
 import { useAuth } from '@clerk/clerk-expo';
 import { ENV } from '../../constants/api';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { isSupported, cancelAllScheduledNotificationsAsync, scheduleNotificationAsync, getPermissionsAsync, requestPermissionsAsync, setNotificationChannelAsync, AndroidImportance } from '@/utils/notifications';
 import * as SecureStore from 'expo-secure-store';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -20,7 +20,7 @@ interface MoodEntry {
   factors: string[];
 }
 
-const moodEmojis = ['😢', '😕', '😐', '😊', '😄'];
+const moodEmojis = ['😫', '🙁', '😐', '🙂', '😄'];
 const moodLabels = ['Very Sad', 'Sad', 'Neutral', 'Happy', 'Very Happy'];
 
 const moodFactors = [
@@ -57,9 +57,13 @@ export default function MoodTracker() {
   const [timeToNextLog, setTimeToNextLog] = useState('');
   const [lastFetched, setLastFetched] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { getToken } = useAuth();
+const { getToken } = useAuth();
+const router = useRouter();
 
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+// Read presetMood from notification action deep link
+const { presetMood } = useLocalSearchParams<{ presetMood?: string }>();
+
+const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationTime, setNotificationTime] = useState(new Date(new Date().setHours(20, 0, 0, 0)));
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -76,10 +80,21 @@ export default function MoodTracker() {
         }
       }
     };
-    loadSettings();
+loadSettings();
   }, []);
 
-  const scheduleNotification = async (time: Date) => {
+  // Handle presetMood from notification action deep link
+  useEffect(() => {
+    if (presetMood !== undefined) {
+      const parsed = parseInt(presetMood, 10);
+      if (!isNaN(parsed) && parsed >= 0 && parsed <= 4) {
+        // Only set if not already selected (avoid overwriting user selection)
+        setSelectedMood(prev => prev === null ? parsed : prev);
+      }
+    }
+  }, [presetMood]);
+
+const scheduleNotification = async (time: Date) => {
     if (!isSupported) return;
     await cancelAllScheduledNotificationsAsync();
     const identifier = await scheduleNotificationAsync({
@@ -87,6 +102,7 @@ export default function MoodTracker() {
         title: "How are you feeling?",
         body: 'Time to log your mood for today!',
         data: { screen: 'mood' },
+        categoryIdentifier: 'MOOD_REMINDER',
       },
       trigger: {
         repeats: true,
@@ -254,10 +270,14 @@ export default function MoodTracker() {
 
     setIsSubmitting(true);
 
+    // Track if this mood was pre-selected from a notification action
+    const source = presetMood !== undefined ? 'notification_action' : 'manual';
+
     const newEntry = {
       moodLevel: selectedMood,
       note: moodNote,
       factors: selectedFactors,
+      source,
     };
 
     try {
@@ -284,6 +304,11 @@ export default function MoodTracker() {
       setSelectedFactors([]);
       setMoodNote('');
       await loadMoodData(true);
+
+      // Clear presetMood from URL after successful save to allow manual mood selection
+      if (presetMood !== undefined) {
+        router.replace('/(tabs)/mood');
+      }
     } catch (error) {
       console.log('Error saving mood:', error);
       Alert.alert('Error', 'Failed to save your mood entry');
@@ -358,7 +383,7 @@ export default function MoodTracker() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xxl }}>
           <Text style={[typography.h1, { color: colors.primary }]}>
-            Mood Tracker 💭
+            Mood Tracker 🧠
           </Text>
           <Text style={typography.bodySmall}>
             How are you feeling right now?

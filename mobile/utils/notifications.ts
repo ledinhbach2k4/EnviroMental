@@ -25,6 +25,7 @@ export type NotificationRequestInput = {
     body?: string;
     data?: Record<string, any>;
     sound?: string | boolean;
+    categoryIdentifier?: string;
   };
   trigger?: {
     repeats?: boolean;
