@@ -113,6 +113,20 @@ const scheduleNotification = async (time: Date) => {
     console.log('Scheduled notification with id:', identifier);
   };
 
+  const testNotification = async () => {
+    if (!isSupported) return;
+    await scheduleNotificationAsync({
+      content: {
+        title: "Test: How are you feeling?",
+        body: 'This is a test reminder!',
+        data: { screen: 'mood' },
+        categoryIdentifier: 'MOOD_REMINDER',
+      },
+      trigger: { seconds: 5 },
+    });
+    Alert.alert("Test Scheduled", "Close the app or wait 5 seconds to see the notification with action buttons.");
+  };
+
   const handlePermissions = async () => {
     if (!isSupported) {
       Alert.alert("Not supported", "Notifications are not available in Expo Go. Please use a development build.");
@@ -551,6 +565,11 @@ const scheduleNotification = async (time: Date) => {
                   </Text>
                 </TouchableOpacity>
               )}
+              <Button
+                text="Test Notification Now"
+                onPress={testNotification}
+                style={{ marginTop: spacing.lg, backgroundColor: colors.secondary }}
+              />
             </>
           ) : (
             <Text style={[typography.body, { color: colors.textMuted, textAlign: 'center' }]}>

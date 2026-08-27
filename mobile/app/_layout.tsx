@@ -11,6 +11,16 @@ import { setNotificationHandler, isSupported } from "@/utils/notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DesignSystemProvider } from "@/src/design";
 
+import * as Notifications from 'expo-notifications';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 // Main layout component that determines which screen to show based on auth state
 const InitialLayout = () => {
   const { isLoaded, isSignedIn } = useAuth();
@@ -18,21 +28,6 @@ const InitialLayout = () => {
   const router = useRouter();
   const listenerRef = useRef<any>(null);
   const coldStartHandledRef = useRef(false);
-
-  // Configure the notification handler for the entire app (no-op in Expo Go)
-  useEffect(() => {
-    if (isSupported) {
-      setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: false,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
-      });
-    }
-  }, []);
 
   // Register notification category and set up response listener once app is loaded
   useEffect(() => {
