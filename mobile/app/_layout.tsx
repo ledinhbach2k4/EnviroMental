@@ -10,6 +10,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { setNotificationHandler, isSupported } from "@/utils/notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DesignSystemProvider } from "@/src/design";
+import { NotificationProvider } from "@/context/NotificationContext";
 
 import * as Notifications from 'expo-notifications';
 
@@ -29,7 +30,8 @@ const InitialLayout = () => {
   const listenerRef = useRef<any>(null);
   const coldStartHandledRef = useRef(false);
 
-  // Register notification category and set up response listener once app is loaded
+  // Register empty MOOD_REMINDER category (no action buttons) to avoid Android 3-action limit
+  // Tapping the notification body will trigger the default content intent (opens app)
   useEffect(() => {
     if (!isLoaded || !isSupported) return;
 
@@ -39,60 +41,32 @@ const InitialLayout = () => {
       try {
         const Notifications = await import('expo-notifications');
 
-        // Register MOOD_REMINDER category with 5 mood actions
+        // Register MOOD_REMINDER category with NO action buttons
+        // This avoids Android's 3-action limit while keeping the category for identification
         if (Platform.OS === 'android' || Platform.OS === 'ios') {
-          await Notifications.setNotificationCategoryAsync('MOOD_REMINDER', [
-            {
-              identifier: '0',
-              buttonTitle: '😫 Very Sad',
-              options: { opensAppToForeground: true },
-            },
-            {
-              identifier: '1',
-              buttonTitle: '🙁 Sad',
-              options: { opensAppToForeground: true },
-            },
-            {
-              identifier: '2',
-              buttonTitle: '😐 Neutral',
-              options: { opensAppToForeground: true },
-            },
-            {
-              identifier: '3',
-              buttonTitle: '🙂 Happy',
-              options: { opensAppToForeground: true },
-            },
-            {
-              identifier: '4',
-              buttonTitle: '😄 Very Happy',
-              options: { opensAppToForeground: true },
-            },
-          ]);
+          await Notifications.setNotificationCategoryAsync('MOOD_REMINDER', []);
         }
 
-        // Handle cold start: app launched from killed state via notification action
+        // Handle cold start: app launched from killed state via notification tap
         if (!coldStartHandledRef.current) {
           const response = await Notifications.getLastNotificationResponseAsync();
           coldStartHandledRef.current = true;
-          if (response?.actionIdentifier && response.actionIdentifier !== 'DEFAULT') {
-            const actionId = response.actionIdentifier;
-            if (actionId >= '0' && actionId <= '4') {
-              // Defer navigation until router is ready
-              setTimeout(() => {
-                if (mounted) {
-                  router.replace(`/(tabs)/mood?presetMood=${actionId}`);
-                }
-              }, 0);
-            }
+          if (response) {
+            // Navigate to mood screen for any tap (DEFAULT action or category tap)
+            setTimeout(() => {
+              if (mounted) {
+                router.replace('/(tabs)/mood');
+              }
+            }, 0);
           }
         }
 
         // Set up notification response listener for foreground/background taps
+        // actionIdentifier === 'DEFAULT' means user tapped the notification body
         listenerRef.current = Notifications.addNotificationResponseReceivedListener(
           (response) => {
-            const actionId = response.actionIdentifier;
-            if (actionId >= '0' && actionId <= '4') {
-              router.replace(`/(tabs)/mood?presetMood=${actionId}`);
+            if (response.actionIdentifier === 'DEFAULT' || response.notification.request.content.categoryIdentifier === 'MOOD_REMINDER') {
+              router.replace('/(tabs)/mood');
             }
           }
         );
@@ -155,9 +129,11 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <DesignSystemProvider>
-            <SafeScreen>
-              <InitialLayout />
-            </SafeScreen>
+            <NotificationProvider>
+              <SafeScreen>
+                <InitialLayout />
+              </SafeScreen>
+            </NotificationProvider>
           </DesignSystemProvider>
         </GestureHandlerRootView>
       </SafeAreaProvider>

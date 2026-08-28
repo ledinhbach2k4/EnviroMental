@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, Switch, Platform, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Platform, StyleSheet } from 'react-native';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,9 +8,6 @@ import Button from '../../components/Button';
 import { useAuth } from '@clerk/clerk-expo';
 import { ENV } from '../../constants/api';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { isSupported, cancelAllScheduledNotificationsAsync, scheduleNotificationAsync, getPermissionsAsync, requestPermissionsAsync, setNotificationChannelAsync, AndroidImportance } from '@/utils/notifications';
-import * as SecureStore from 'expo-secure-store';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface MoodEntry {
   id: string;
@@ -29,8 +26,6 @@ const moodFactors = [
 
 const MAX_LOGS_PER_DAY = 6;
 const LOG_INTERVAL_HOURS = 2;
-
-const NOTIFICATION_SETTINGS_KEY = 'mood_notification_settings';
 
 export default function MoodTracker() {
   const colors = useColors();
@@ -63,26 +58,6 @@ const router = useRouter();
 // Read presetMood from notification action deep link
 const { presetMood } = useLocalSearchParams<{ presetMood?: string }>();
 
-const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [notificationTime, setNotificationTime] = useState(new Date(new Date().setHours(20, 0, 0, 0)));
-  const [showTimePicker, setShowTimePicker] = useState(false);
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      const settingsJSON = await SecureStore.getItemAsync(NOTIFICATION_SETTINGS_KEY);
-      if (settingsJSON) {
-        try {
-          const { enabled, time } = JSON.parse(settingsJSON);
-          setNotificationsEnabled(enabled);
-          setNotificationTime(new Date(time));
-        } catch (e) {
-          console.error("Failed to parse mood notification settings:", e);
-        }
-      }
-    };
-loadSettings();
-  }, []);
-
   // Handle presetMood from notification action deep link
   useEffect(() => {
     if (presetMood !== undefined) {
@@ -93,100 +68,6 @@ loadSettings();
       }
     }
   }, [presetMood]);
-
-const scheduleNotification = async (time: Date) => {
-    if (!isSupported) return;
-    await cancelAllScheduledNotificationsAsync();
-    const identifier = await scheduleNotificationAsync({
-      content: {
-        title: "How are you feeling?",
-        body: 'Time to log your mood for today!',
-        data: { screen: 'mood' },
-        categoryIdentifier: 'MOOD_REMINDER',
-      },
-      trigger: {
-        repeats: true,
-        hour: time.getHours(),
-        minute: time.getMinutes()
-      },
-    });
-    console.log('Scheduled notification with id:', identifier);
-  };
-
-  const testNotification = async () => {
-    if (!isSupported) return;
-    await scheduleNotificationAsync({
-      content: {
-        title: "Test: How are you feeling?",
-        body: 'This is a test reminder!',
-        data: { screen: 'mood' },
-        categoryIdentifier: 'MOOD_REMINDER',
-      },
-      trigger: { seconds: 5 },
-    });
-    Alert.alert("Test Scheduled", "Close the app or wait 5 seconds to see the notification with action buttons.");
-  };
-
-  const handlePermissions = async () => {
-    if (!isSupported) {
-      Alert.alert("Not supported", "Notifications are not available in Expo Go. Please use a development build.");
-      return false;
-    }
-    const { status: existingStatus } = await getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      Alert.alert('Permission required', 'Please enable notifications in your settings to receive reminders.');
-      return false;
-    }
-    if (Platform.OS === 'android') {
-      await setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
-      });
-    }
-    return true;
-  };
-
-  const toggleNotifications = async () => {
-    if (!isSupported) {
-      Alert.alert("Not supported", "Notifications are not available in Expo Go. Please use a development build.");
-      setNotificationsEnabled(false);
-      return;
-    }
-    const newState = !notificationsEnabled;
-    if (newState) {
-      const hasPermission = await handlePermissions();
-      if (!hasPermission) {
-        setNotificationsEnabled(false);
-        return;
-      }
-      await scheduleNotification(notificationTime);
-    } else {
-      await cancelAllScheduledNotificationsAsync();
-    }
-    setNotificationsEnabled(newState);
-    await SecureStore.setItemAsync(NOTIFICATION_SETTINGS_KEY, JSON.stringify({ enabled: newState, time: notificationTime.toISOString() }));
-  };
-
-  const onTimeChange = async (event: any, selectedDate?: Date) => {
-    if (!isSupported) return;
-    const currentDate = selectedDate || notificationTime;
-    setShowTimePicker(Platform.OS === 'ios');
-    setNotificationTime(currentDate);
-
-    const settings = { enabled: notificationsEnabled, time: currentDate.toISOString() };
-    await SecureStore.setItemAsync(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
-
-    if (notificationsEnabled) {
-      await scheduleNotification(currentDate);
-    }
-  };
 
   const canLogNow = () => {
     if (todaysLogCount >= MAX_LOGS_PER_DAY) {
@@ -545,49 +426,7 @@ const scheduleNotification = async (time: Date) => {
           </Text>
         </LinearGradient>
 
-        <View style={[styles.card, { marginBottom: spacing.xxl }]}>
-          <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Daily Reminder</Text>
-          {isSupported ? (
-            <>
-              <View style={[styles.row, { justifyContent: 'space-between', alignItems: 'center' }]}>
-                <Text style={typography.body}>Enable mood logging reminders</Text>
-                <Switch
-                  value={notificationsEnabled}
-                  onValueChange={toggleNotifications}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor={'#FFFFFF'}
-                />
-              </View>
-              {notificationsEnabled && (
-                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={{ marginTop: spacing.lg }}>
-                  <Text style={[typography.body, { color: colors.primary }]}>
-                    Reminder time: {notificationTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <Button
-                text="Test Notification Now"
-                onPress={testNotification}
-                style={{ marginTop: spacing.lg, backgroundColor: colors.secondary }}
-              />
-            </>
-          ) : (
-            <Text style={[typography.body, { color: colors.textMuted, textAlign: 'center' }]}>
-              Daily reminders are not available in Expo Go. Please use a development build to enable this feature.
-            </Text>
-          )}
-        </View>
-
       </ScrollView>
-      {showTimePicker && (
-        <DateTimePicker
-          value={notificationTime}
-          mode="time"
-          is24Hour={true}
-          display="default"
-          onChange={onTimeChange}
-        />
-      )}
     </View>
   );
 }

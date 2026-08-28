@@ -26,13 +26,12 @@ export type NotificationRequestInput = {
     data?: Record<string, any>;
     sound?: string | boolean;
     categoryIdentifier?: string;
+    dismissible?: boolean; // Android: auto-dismiss when tapped
   };
-  trigger?: {
-    repeats?: boolean;
-    hour?: number;
-    minute?: number;
-    type?: string;
-  };
+  trigger?: 
+    | { repeats?: boolean; hour?: number; minute?: number; type?: string }
+    | { seconds: number }
+    | { type: 'date'; timestamp: number };
   identifier?: string;
 };
 

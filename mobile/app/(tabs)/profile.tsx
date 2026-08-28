@@ -11,6 +11,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useSharedHabits } from '../../context/HabitsContext';
 import { ENV } from '../../constants/api';
+import { ProfileNotificationSection } from '@/components/ProfileNotificationSection';
 
 interface MoodEntry {
   createdAt: string;
@@ -433,17 +434,7 @@ export default function Profile() {
         <View style={[styles.card, { marginBottom: spacing.xxl }]}>
           <CardWrapper>
             <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Settings</Text>
-            <TouchableOpacity style={[styles.cardSmall, { marginBottom: spacing.md }]}>
-              <CardWrapper>
-                <View style={styles.spaceBetween}>
-                  <View style={styles.row}>
-                    <Icon name="notifications" size={24} color={colors.primary} style={{ marginRight: spacing.md }} />
-                    <Text style={typography.body}>Notifications</Text>
-                  </View>
-                  <Icon name="chevron-forward" size={20} color={colors.textMuted} />
-                </View>
-              </CardWrapper>
-            </TouchableOpacity>
+            <ProfileNotificationSection />
 
             <TouchableOpacity style={[styles.cardSmall, { marginBottom: spacing.md }]}>
               <CardWrapper>

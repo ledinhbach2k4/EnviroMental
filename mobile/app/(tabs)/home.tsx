@@ -2,11 +2,13 @@ import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
+  PanResponder,
   Platform,
   ScrollView,
   StyleProp,
@@ -16,6 +18,8 @@ import {
   ViewStyle,
   StyleSheet,
   Alert,
+  Animated,
+  Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-chart-kit';
@@ -112,6 +116,51 @@ export default function Home() {
   const [loadingAirQuality, setLoadingAirQuality] = useState(true);
   const [errorAirPollution, setErrorAirPollution] = useState<string | null>(null);
 
+  // Emergency Modal State
+  const [isEmergencyModalVisible, setIsEmergencyModalVisible] = useState(false);
+  const [emergencyStep, setEmergencyStep] = useState<1 | 2>(1);
+  const [selectedTarget, setSelectedTarget] = useState<{ title: string; phone: string } | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<string>('Updating your location...');
+  const [locationFetched, setLocationFetched] = useState(false);
+  const swipeAnim = useRef(new Animated.Value(0)).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        // Use setOffset with 0, the animation will handle the current position
+        swipeAnim.setOffset(0);
+        swipeAnim.setValue(0);
+      },
+      onPanResponderMove: (_, gesture) => {
+        const translateX = Math.max(0, Math.min(gesture.dx, Dimensions.get('window').width - 100));
+        swipeAnim.setValue(translateX);
+      },
+      onPanResponderRelease: (_, gesture) => {
+        const threshold = Dimensions.get('window').width * 0.75;
+        if (gesture.dx >= threshold) {
+          // Swipe complete - trigger call
+          Animated.spring(swipeAnim, {
+            toValue: Dimensions.get('window').width - 100,
+            useNativeDriver: true,
+          }).start(() => {
+            if (selectedTarget) {
+              Linking.openURL(`tel:${selectedTarget.phone}`);
+            }
+            closeEmergencyModal();
+          });
+        } else {
+          // Snap back
+          Animated.spring(swipeAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+        swipeAnim.flattenOffset();
+      },
+    })
+  ).current;
+
   // Hooks
   const { getToken } = useAuth();
   const { habits, loading: habitsLoading, refetch: refetchHabits } = useSharedHabits();
@@ -141,6 +190,44 @@ export default function Home() {
     locationPermissionDeniedRef.current = false;
     lastLocationErrorTimeRef.current = 0;
   }, []);
+
+  // Emergency Modal Helpers
+  const fetchCurrentLocation = useCallback(async () => {
+    setCurrentLocation('Updating your location...');
+    setLocationFetched(false);
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+        if (newStatus !== 'granted') {
+          setCurrentLocation('Location permission denied');
+          return;
+        }
+      }
+      const location = await Location.getCurrentPositionAsync({});
+      setCurrentLocation(`Lat: ${location.coords.latitude.toFixed(4)}, Lon: ${location.coords.longitude.toFixed(4)}`);
+      setLocationFetched(true);
+    } catch (error) {
+      console.error('Failed to get location:', error);
+      setCurrentLocation('Unable to fetch location');
+    }
+  }, []);
+
+  const closeEmergencyModal = useCallback(() => {
+    setEmergencyStep(1);
+    setSelectedTarget(null);
+    setCurrentLocation('Updating your location...');
+    setLocationFetched(false);
+    setIsEmergencyModalVisible(false);
+    swipeAnim.setValue(0);
+  }, []);
+
+  const handleEmergencyOptionPress = useCallback((target: { title: string; phone: string }) => {
+    setSelectedTarget(target);
+    setEmergencyStep(2);
+    // Fetch location immediately when entering step 2
+    fetchCurrentLocation();
+  }, [fetchCurrentLocation]);
 
   // Effects
   useEffect(() => {
@@ -551,10 +638,101 @@ export default function Home() {
     disabled: {
       opacity: 0.5,
     },
-  }), [colors, spacing, radii, shadows]);
+    // Emergency Modal Styles
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContainer: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: radii.xl,
+      borderTopRightRadius: radii.xl,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.xl + insets.bottom,
+      maxHeight: '85%',
+      ...shadows.lg,
+    },
+    closeButton: {
+      position: 'absolute',
+      top: spacing.sm,
+      right: spacing.sm,
+      zIndex: 10,
+      padding: spacing.xs,
+    },
+    modalContent: {
+      width: '100%',
+    },
+    optionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radii.lg,
+      padding: spacing.lg,
+      marginBottom: spacing.md,
+      ...shadows.xs,
+    },
+    optionIconWrapper: {
+      width: 56,
+      height: 56,
+      borderRadius: radii.full,
+      backgroundColor: colors.primary + '15',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: spacing.md,
+    },
+    optionTextWrapper: {
+      flex: 1,
+    },
+    locationCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primary + '10',
+      borderRadius: radii.md,
+      padding: spacing.md,
+      marginBottom: spacing.xl,
+      borderWidth: 1,
+      borderColor: colors.primary + '30',
+    },
+    swipeContainer: {
+      marginTop: spacing.md,
+    },
+    swipeTrack: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      height: 64,
+      backgroundColor: colors.danger,
+      borderRadius: radii.full,
+      paddingHorizontal: spacing.md,
+      overflow: 'hidden',
+      ...shadows.md,
+    },
+    swipeThumb: {
+      width: 64,
+      height: 64,
+      borderRadius: radii.full,
+      backgroundColor: colors.textInverse,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...shadows.md,
+    },
+    swipeLabel: {
+      flex: 1,
+      textAlign: 'center',
+      marginRight: 64,
+    },
+  }), [colors, spacing, radii, shadows, insets]);
 
   // Other Logic
-  const handleEmergency = () => router.push('/emergency');
+  const handleEmergency = () => {
+    setIsEmergencyModalVisible(true);
+    setEmergencyStep(1);
+    setSelectedTarget(null);
+  };
   const completedHabits = habits.filter((h: Habit) => h.completedToday).length;
   const totalHabits = habits.length;
 
@@ -786,6 +964,107 @@ export default function Home() {
           </CardWrapper>
         </View>
       </ScrollView>
+
+      {/* Emergency SOS Modal */}
+      <Modal
+        visible={isEmergencyModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeEmergencyModal}
+      >
+        <View style={styles.modalBackdrop} onTouchStart={closeEmergencyModal}>
+          <View style={styles.modalContainer}>
+            {/* Close Button */}
+            <TouchableOpacity style={styles.closeButton} onPress={closeEmergencyModal} activeOpacity={0.7}>
+              <Ionicons name="close" size={28} color={colors.textMuted} />
+            </TouchableOpacity>
+
+            {emergencyStep === 1 && (
+              <View style={styles.modalContent}>
+                {/* Step 1: Selection View */}
+                <Text style={[typography.h3, { marginBottom: spacing.sm, color: colors.text }]}>Emergency Assistance</Text>
+                <Text style={[typography.body, { color: colors.textMuted, marginBottom: spacing.xl, textAlign: 'center' }]}>
+                  Who would you like to contact?
+                </Text>
+
+                {/* Option A: Authorities */}
+                <TouchableOpacity
+                  style={styles.optionButton}
+                  onPress={() => handleEmergencyOptionPress({ title: 'Authorities', phone: '113' })}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.optionIconWrapper}>
+                    <Ionicons name="shield-checkmark" size={28} color={colors.primary} />
+                  </View>
+                  <View style={styles.optionTextWrapper}>
+                    <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Authorities</Text>
+                    <Text style={[typography.caption, { color: colors.textMuted }]}>113 (Emergency Services)</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+
+                {/* Option B: Personal Emergency Contact */}
+                <TouchableOpacity
+                  style={styles.optionButton}
+                  onPress={() => handleEmergencyOptionPress({ title: 'Personal Contact', phone: '0123456789' })}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.optionIconWrapper}>
+                    <Ionicons name="person-outline" size={28} color={colors.success} />
+                  </View>
+                  <View style={styles.optionTextWrapper}>
+                    <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Personal Emergency Contact</Text>
+                    <Text style={[typography.caption, { color: colors.textMuted }]}>0123456789</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {emergencyStep === 2 && selectedTarget && (
+              <View style={styles.modalContent}>
+                {/* Step 2: Swipe-to-Call & Location View */}
+                <Text style={[typography.h3, { marginBottom: spacing.sm, color: colors.text }]}>Confirm Call</Text>
+                <Text style={[typography.body, { color: colors.textMuted, marginBottom: spacing.lg, textAlign: 'center' }]}>
+                  Calling <Text style={{ fontWeight: '600', color: colors.danger }}>{selectedTarget.title}</Text>
+                </Text>
+
+                {/* Location Display */}
+                <View style={styles.locationCard}>
+                  <Ionicons name="location" size={20} color={locationFetched ? colors.success : colors.warning} style={{ marginRight: spacing.sm }} />
+                  <Text style={[typography.body, { color: colors.text, flex: 1 }]}>{currentLocation}</Text>
+                  {!locationFetched && <Ionicons name="refresh" size={20} color={colors.primary} />}
+                </View>
+
+                {/* Swipe to Call Button */}
+                <View style={styles.swipeContainer}>
+                  <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.md, textAlign: 'center' }]}>
+                    Swipe to Call
+                  </Text>
+                  <Animated.View
+                    style={[
+                      styles.swipeTrack,
+                      {
+                        transform: [{ translateX: swipeAnim }],
+                      },
+                    ]}
+                    {...panResponder.panHandlers}
+                  >
+                    <View style={styles.swipeThumb}>
+                      <Ionicons name="call" size={28} color={colors.textInverse} />
+                    </View>
+                    <View style={styles.swipeLabel}>
+                      <Text style={[typography.body, { color: colors.textInverse, fontWeight: '600', letterSpacing: 2 }]}>
+                        SWIPE TO CALL
+                      </Text>
+                    </View>
+                  </Animated.View>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
