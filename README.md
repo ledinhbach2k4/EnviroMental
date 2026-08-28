@@ -184,6 +184,17 @@ We welcome contributions from developers, designers, and researchers.
 
 ---
 
+## ☕ Sponsor
+
+Like what I'm building? A ⭐ on the repo is already appreciated.
+
+If you'd like to support me and help keep my little projects going, you can **[buy me a coffee](https://buymeacoffee.com/bachle8404)**. ☕
+
+Every coffee helps me keep experimenting, learning, and building more stuff.
+
+**Thanks for the support! 🫶**
+
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
