@@ -226,6 +226,19 @@ const { presetMood } = useLocalSearchParams<{ presetMood?: string }>();
     return sum / recentEntries.length;
   };
 
+  const getMoodFrequencies = () => {
+    const frequencies = [0, 0, 0, 0, 0];
+    recentEntries.forEach(entry => {
+      if (entry.moodLevel >= 0 && entry.moodLevel <= 4) {
+        frequencies[entry.moodLevel]++;
+      }
+    });
+    const maxFrequency = Math.max(...frequencies, 1); // Avoid division by zero
+    return { frequencies, maxFrequency };
+  };
+
+  const { frequencies, maxFrequency } = getMoodFrequencies();
+
   const { canLog, reason } = canLogNow();
 
   const styles = StyleSheet.create<{
@@ -369,18 +382,39 @@ const { presetMood } = useLocalSearchParams<{ presetMood?: string }>();
         {recentEntries.length > 0 && (
           <View style={[styles.card, { marginBottom: spacing.xxl }]}>
             <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Your Mood Insights</Text>
-            <View style={[styles.cardSmall, { backgroundColor: colors.primary + '10' }]}>
-              <View style={styles.spaceBetween}>
-                <Text style={[typography.body, { flexShrink: 1, marginRight: spacing.md }]}>Average Mood (last 5 entries)</Text>
-                <View style={styles.row}>
-                  <Text style={[typography.h3, { color: colors.primary, marginRight: spacing.sm }]}>
-                    {moodEmojis[Math.round(getAverageMood())]}
-                  </Text>
-                  <Text style={[typography.body, { color: colors.primary }]}>
-                    {moodLabels[Math.round(getAverageMood())]}
-                  </Text>
-                </View>
-              </View>
+            {/* Adjust container height slightly for breathing room */}
+            <View style={[
+              styles.cardSmall,
+              { height: 180, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', paddingTop: spacing.md, paddingBottom: spacing.sm }
+            ]}>
+              {moodEmojis.map((emoji, index) => {
+                const count = frequencies[index];
+                const chartMax = Math.max(maxFrequency * 1.25, 1); // 25% buffer for text labels
+                const barHeight = Math.max((count / chartMax) * 100, 5); // 5% min height
+                const isMostFrequent = count === maxFrequency && count > 0;
+
+                return (
+                  <View key={index} style={{ alignItems: 'center', height: '100%', flex: 1 }}>
+                    {/* CHART AREA: flex: 1 ensures it NEVER exceeds available space above the emoji */}
+                    <View style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center', width: '100%', paddingBottom: spacing.xs }}>
+                      {count > 0 && (
+                        <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 4 }]}>
+                          {count}
+                        </Text>
+                      )}
+                      <View style={{
+                        width: 32,
+                        height: `${barHeight}%`,
+                        backgroundColor: isMostFrequent ? moodColors[index] : moodColors[index] + '50',
+                        borderRadius: radii.sm,
+                      }} />
+                    </View>
+
+                    {/* EMOJI AREA: Fixed at the bottom */}
+                    <Text style={{ fontSize: 20 }}>{emoji}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
