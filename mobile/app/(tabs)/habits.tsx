@@ -171,16 +171,13 @@ export default function HabitsTracker() {
       padding: spacing.lg,
       marginVertical: spacing.sm,
       ...shadows.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     cardSmall: {
       backgroundColor: colors.surface,
+      borderRadius: radii.md, // <-- Add this line
       padding: spacing.md,
       marginVertical: spacing.xs,
       ...shadows.xs,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     row: {
       flexDirection: 'row',
@@ -259,10 +256,8 @@ export default function HabitsTracker() {
                     style={[
                       styles.cardSmall,
                       {
-                        borderWidth: 1,
-                        borderColor: isDeleteMode ? (isSelected ? colors.danger : colors.border) : (habit.completedToday ? habit.color : colors.border),
                         marginBottom: spacing.md,
-                        backgroundColor: habit.completedToday ? habit.color + '10' : colors.card,
+                        backgroundColor: habit.completedToday ? habit.color + '15' : colors.background,
                         opacity: toggleLoading === habit.id ? 0.5 : 1,
                       }
                     ]}

@@ -317,16 +317,12 @@ export default function Profile() {
       padding: spacing.lg,
       marginVertical: spacing.sm,
       ...shadows.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     cardSmall: {
       backgroundColor: colors.surface,
       padding: spacing.md,
       marginVertical: spacing.xs,
       ...shadows.xs,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     row: {
       flexDirection: 'row',
@@ -383,7 +379,7 @@ export default function Profile() {
               <View
                 style={[
                   styles.cardSmall,
-                  { width: '48%', alignItems: 'center', borderColor: colors.mood.happy + '30' },
+                  { width: '48%', alignItems: 'center' },
                 ]}>
                 <CardWrapper>
                   <Icon name="happy" size={24} color={colors.mood.happy} style={{ marginBottom: spacing.sm }} />
@@ -395,7 +391,7 @@ export default function Profile() {
               <View
                 style={[
                   styles.cardSmall,
-                  { width: '48%', alignItems: 'center', borderColor: colors.success + '30' },
+                  { width: '48%', alignItems: 'center' },
                 ]}>
                 <CardWrapper>
                   <Icon name="flame" size={24} color={colors.success} style={{ marginBottom: spacing.sm }} />
@@ -407,7 +403,7 @@ export default function Profile() {
               <View
                 style={[
                   styles.cardSmall,
-                  { width: '48%', alignItems: 'center', borderColor: colors.primary + '30', marginTop: spacing.md },
+                  { width: '48%', alignItems: 'center', marginTop: spacing.md },
                 ]}>
                 <CardWrapper>
                   <Icon name="leaf" size={24} color={colors.primary} style={{ marginBottom: spacing.sm }} />
@@ -419,7 +415,7 @@ export default function Profile() {
               <View
                 style={[
                   styles.cardSmall,
-                  { width: '48%', alignItems: 'center', borderColor: colors.accent + '30', marginTop: spacing.md },
+                  { width: '48%', alignItems: 'center', marginTop: spacing.md },
                 ]}>
                 <CardWrapper>
                   <Icon name="checkmark-circle" size={24} color={colors.accent} style={{ marginBottom: spacing.sm }} />
@@ -503,7 +499,7 @@ export default function Profile() {
           </CardWrapper>
         </View>
 
-        <View style={[styles.card, { borderColor: colors.danger + '30', marginBottom: spacing.xxl }]}>
+        <View style={[styles.card, { marginBottom: spacing.xxl }]}>
           <CardWrapper>
             <Text style={[typography.h3, { color: colors.danger, marginBottom: spacing.lg }]}>Danger Zone</Text>
             <Button

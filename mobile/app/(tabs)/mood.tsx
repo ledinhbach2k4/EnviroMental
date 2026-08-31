@@ -169,7 +169,7 @@ const { presetMood } = useLocalSearchParams<{ presetMood?: string }>();
     const source = presetMood !== undefined ? 'notification_action' : 'manual';
 
     const newEntry = {
-      moodLevel: selectedMood,
+      moodLevel: selectedMood + 1, // Convert 0-4 UI index to 1-5 API scale
       note: moodNote,
       factors: selectedFactors,
       source,
@@ -223,14 +223,15 @@ const { presetMood } = useLocalSearchParams<{ presetMood?: string }>();
   const getAverageMood = () => {
     if (recentEntries.length === 0) return 0;
     const sum = recentEntries.reduce((acc, entry) => acc + entry.moodLevel, 0);
-    return sum / recentEntries.length;
+    const avg = sum / recentEntries.length; // 1-5 scale from API
+    return Math.max(0, Math.min(4, Math.round(avg - 1))); // Map to 0-4 UI index
   };
 
   const getMoodFrequencies = () => {
     const frequencies = [0, 0, 0, 0, 0];
     recentEntries.forEach(entry => {
-      if (entry.moodLevel >= 0 && entry.moodLevel <= 4) {
-        frequencies[entry.moodLevel]++;
+      if (entry.moodLevel >= 1 && entry.moodLevel <= 5) {
+        frequencies[entry.moodLevel - 1]++; // Convert 1-5 API scale to 0-4 index
       }
     });
     const maxFrequency = Math.max(...frequencies, 1); // Avoid division by zero
@@ -264,16 +265,12 @@ const { presetMood } = useLocalSearchParams<{ presetMood?: string }>();
       padding: spacing.lg,
       marginVertical: spacing.sm,
       ...shadows.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     cardSmall: {
       backgroundColor: colors.surface,
       padding: spacing.md,
       marginVertical: spacing.xs,
       ...shadows.xs,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     row: {
       flexDirection: 'row',
@@ -428,10 +425,10 @@ const { presetMood } = useLocalSearchParams<{ presetMood?: string }>();
                   <View>
                     <View style={[styles.row, { marginBottom: spacing.xs }]}>
                       <Text style={{ fontSize: 20, marginRight: spacing.sm }}>
-                        {moodEmojis[entry.moodLevel]}
+                        {moodEmojis[entry.moodLevel - 1]}
                       </Text>
                       <Text style={typography.body}>
-                        {moodLabels[entry.moodLevel]}
+                        {moodLabels[entry.moodLevel - 1]}
                       </Text>
                     </View>
                     <Text style={typography.caption}>

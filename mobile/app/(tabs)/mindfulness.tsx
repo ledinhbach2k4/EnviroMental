@@ -89,16 +89,12 @@ export default function Mindfulness() {
       padding: spacing.lg,
       marginVertical: spacing.sm,
       ...shadows.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     cardSmall: {
       backgroundColor: colors.surface,
       padding: spacing.md,
       marginVertical: spacing.xs,
       ...shadows.xs,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     container: {
       backgroundColor: colors.background,
@@ -235,7 +231,7 @@ export default function Mindfulness() {
                 <TouchableOpacity
                   style={[
                     cardStyles.cardSmall,
-                    { width: '48%', alignItems: 'center', borderColor: colors.success + '30' },
+                    { width: '48%', alignItems: 'center' },
                   ]}
                   onPress={() => startSession(meditationSessions[1])}>
                   <CardWrapper>
@@ -248,7 +244,7 @@ export default function Mindfulness() {
                 <TouchableOpacity
                   style={[
                     cardStyles.cardSmall,
-                    { width: '48%', alignItems: 'center', borderColor: colors.primary + '30' },
+                    { width: '48%', alignItems: 'center' },
                   ]}
                   onPress={() => startSession(meditationSessions[0])}>
                   <CardWrapper>

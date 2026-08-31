@@ -475,21 +475,6 @@ export default function Home() {
       // Reset permission state when screen comes into focus (user may have granted permission in settings)
       resetPermissionState();
 
-      // Request notification permissions on focus
-      (async () => {
-        try {
-          const { status } = await Notifications.getPermissionsAsync();
-          if (status !== 'granted') {
-            const { status: newStatus } = await Notifications.requestPermissionsAsync();
-            if (newStatus !== 'granted') {
-              console.log('Notification permission not granted');
-            }
-          }
-        } catch (e) {
-          console.log('Notification permission request failed:', e);
-        }
-      })();
-
       const fetchData = async () => {
         await fetchMood();
         refetchHabits(); // cooldown handled in hook (module-level)
@@ -603,16 +588,12 @@ export default function Home() {
       padding: spacing.lg,
       marginVertical: spacing.sm,
       ...shadows.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     cardSmall: {
       backgroundColor: colors.surface,
       padding: spacing.md,
       marginVertical: spacing.xs,
       ...shadows.xs,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     row: {
       flexDirection: 'row',
@@ -784,7 +765,7 @@ export default function Home() {
         </View>
 
         {/* Cortisol Risk Score Card */}
-        <View style={[styles.card, { marginBottom: spacing.lg }]}>
+        <View style={{ marginBottom: spacing.lg }}>
           <CardWrapper>
             <CortisolGaugeCard
               score={cortisolData?.score ?? null}
@@ -811,7 +792,7 @@ export default function Home() {
                 style={[
                   styles.row,
                   { marginTop: spacing.lg, paddingBottom: spacing.lg },
-                  index < quickStats.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                  index < quickStats.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border + '50' },
                 ]}
               >
                 <Icon name={stat.icon} size={24} color={stat.color} style={{ marginRight: spacing.md }} />
@@ -949,7 +930,7 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.card, { borderColor: colors.danger + '30', marginBottom: spacing.xxl }]}>
+        <View style={[styles.card, { marginBottom: spacing.xxl }]}>
           <CardWrapper>
             <View style={{ alignItems: 'center' }}>
               <Icon name="medical" size={32} color={colors.danger} style={{ marginBottom: spacing.lg }} />

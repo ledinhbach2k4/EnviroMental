@@ -58,12 +58,10 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
       backgroundColor: colors.background,
       borderRadius: radii.lg,
       padding: spacing.xl,
-      marginVertical: spacing.sm,
-      marginBottom: 80, // Extra space for floating AI chat button
-      borderWidth: 1,
       overflow: 'hidden',
       width: '100%',
       maxWidth: '100%',
+      ...shadows.sm,
     },
     header: {
       flexDirection: 'row',
@@ -232,7 +230,7 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
       backgroundColor: colors.surfaceAlt,
       width: '100%',
     },
-  }), [colors, spacing, radii]);
+  }), [colors, spacing, radii, shadows]);
 
   // Determine colors based on category
   const getCategoryColors = () => {
