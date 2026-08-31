@@ -33,6 +33,7 @@ export default () => ({
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
       ],
       package: "com.ledinhbach2k4.environmental",
     },

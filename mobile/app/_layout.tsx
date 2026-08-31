@@ -11,6 +11,7 @@ import { setNotificationHandler, isSupported } from "@/utils/notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DesignSystemProvider } from "@/src/design";
 import { NotificationProvider } from "@/context/NotificationContext";
+import * as TaskManager from 'expo-task-manager';
 
 import * as Notifications from 'expo-notifications';
 
@@ -21,6 +22,22 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+const BACKGROUND_NOTIFICATION_TASK = 'BACKGROUND-NOTIFICATION-TASK';
+
+TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, ({ data, error, executionInfo }) => {
+  if (error) {
+    console.error('Background Notification Task Error:', error);
+    return;
+  }
+  if (data) {
+    console.log('Background Notification Task Received:', data);
+  }
+});
+
+Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK).catch(err =>
+  console.warn('Failed to register background notification task', err)
+);
 
 // Main layout component that determines which screen to show based on auth state
 const InitialLayout = () => {
