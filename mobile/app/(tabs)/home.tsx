@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import * as Location from 'expo-location';
-import { router } from 'expo-router';
+import { router, Link } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
@@ -24,6 +24,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-chart-kit';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import fetchWithTimeout from '../../utils/fetchWithTimeout';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import CortisolGaugeCard from '../../components/CortisolGaugeCard';
@@ -285,13 +287,28 @@ export default function Home() {
     lastFetchMoodTimeRef.current = now;
     setLoadingMood(true);
 
+    // 1. STALE: Show cached data immediately
+    try {
+      const cached = await AsyncStorage.getItem('cached_moods');
+      if (cached) {
+        const parsed: MoodEntry[] = JSON.parse(cached);
+        const sorted = parsed.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        setMoodEntries(sorted);
+        if (sorted.length > 0) {
+          const latest = sorted[sorted.length - 1];
+          setMood({ value: moodEmojis[latest.moodLevel], color: moodColors[latest.moodLevel] });
+        }
+      }
+    } catch (_) { /* ignore cache read errors */ }
+
+    // 2. REVALIDATE: Fetch fresh data from API
     try {
       const token = await tokenRef.current();
       if (!token) return;
 
       const url = `${ENV.API_URL}/moods`;
       console.log('[Home] Fetching moods from:', url);
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) {
         if (res.status === 404) {
           setMoodEntries([]);
@@ -301,7 +318,7 @@ export default function Home() {
       }
 
       const entries: MoodEntry[] = await res.json();
-      const sortedEntries = entries.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      const sortedEntries = entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setMoodEntries(sortedEntries);
 
       if (sortedEntries.length > 0) {
@@ -310,10 +327,12 @@ export default function Home() {
       } else {
         setMood(null);
       }
+
+      // Save to cache
+      await AsyncStorage.setItem('cached_moods', JSON.stringify(entries));
     } catch (error) {
       console.error(`Error fetching mood:`, error);
-      setMoodEntries([]);
-      setMood(null);
+      // Keep stale data on screen — no setState to clear entries
     } finally {
       isFetchingMoodRef.current = false;
       setLoadingMood(false);
@@ -334,6 +353,15 @@ export default function Home() {
     isFetchingWeatherRef.current = true;
     lastFetchWeatherTimeRef.current = now;
     setLoadingWeather(true);
+
+    // 1. STALE: Show cached weather immediately
+    try {
+      const cached = await AsyncStorage.getItem('cached_weather');
+      if (cached) {
+        setWeather(JSON.parse(cached));
+      }
+    } catch (_) { /* ignore cache read errors */ }
+
     try {
       const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
       if (currentStatus === 'denied') {
@@ -371,16 +399,23 @@ export default function Home() {
         return;
       }
 
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `https://api.openweathermap.org/data/2.5/weather?lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&units=metric&appid=${apiKey}`
       );
       if (!res.ok) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
-      setWeather({ temperature: Math.round(data.main.temp), description: data.weather[0].description, city: data.name });
+      const weatherData = { temperature: Math.round(data.main.temp), description: data.weather[0].description, city: data.name };
+      setWeather(weatherData);
       setErrorMsg(null);
       locationPermissionDeniedRef.current = false;
+      await AsyncStorage.setItem('cached_weather', JSON.stringify(weatherData));
     } catch (err: any) {
       console.error('Weather fetch error:', err.message);
+      // Keep stale weather on screen; only surface location-specific errors
+      if (err.name === 'AbortError') {
+        console.warn('Weather fetch timed out');
+        return;
+      }
       if (err.message?.includes('location') || err.message?.includes('permission') || err.message?.includes('GPS') || err.message?.includes('unavailable')) {
         lastLocationErrorTimeRef.current = now;
         setErrorMsg('Location unavailable. Weather data cannot be fetched.');
@@ -407,6 +442,15 @@ export default function Home() {
     isFetchingAirQualityRef.current = true;
     lastFetchAirQualityTimeRef.current = now;
     setLoadingAirQuality(true);
+
+    // 1. STALE: Show cached air quality immediately
+    try {
+      const cached = await AsyncStorage.getItem('cached_air_quality');
+      if (cached) {
+        setAirQuality(JSON.parse(cached));
+      }
+    } catch (_) { /* ignore cache read errors */ }
+
     try {
       const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
       if (currentStatus === 'denied') {
@@ -444,20 +488,27 @@ export default function Home() {
         return;
       }
 
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `https://api.openweathermap.org/data/2.5/air_pollution?lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&appid=${apiKey}`
       );
       if (!res.ok) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
       if (data.list && data.list.length > 0) {
-        setAirQuality({ aqi: data.list[0].main.aqi });
+        const aqiData = { aqi: data.list[0].main.aqi };
+        setAirQuality(aqiData);
         setErrorAirPollution(null);
         locationPermissionDeniedRef.current = false;
+        await AsyncStorage.setItem('cached_air_quality', JSON.stringify(aqiData));
       } else {
         throw new Error('No air quality data found');
       }
     } catch (err: any) {
       console.error('Air quality fetch error:', err.message);
+      // Keep stale air quality on screen; only surface location-specific errors
+      if (err.name === 'AbortError') {
+        console.warn('Air quality fetch timed out');
+        return;
+      }
       if (err.message?.includes('location') || err.message?.includes('permission') || err.message?.includes('GPS') || err.message?.includes('unavailable')) {
         lastLocationErrorTimeRef.current = now;
         setErrorAirPollution('Location unavailable. Air quality data cannot be fetched.');
@@ -884,20 +935,22 @@ export default function Home() {
             </CardWrapper>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/forum')}>
-            <CardWrapper>
-              <View style={styles.spaceBetween}>
-                <View style={styles.row}>
-                  <Icon name="chatbubbles" size={24} color={colors.warning} style={{ marginRight: spacing.md }} />
-                  <View>
-                    <Text style={typography.body}>Community Forum</Text>
-                    <Text style={typography.caption}>Connect with others</Text>
+          <Link href="/forum" asChild>
+            <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]}>
+              <CardWrapper>
+                <View style={styles.spaceBetween}>
+                  <View style={styles.row}>
+                    <Icon name="chatbubbles" size={24} color={colors.warning} style={{ marginRight: spacing.md }} />
+                    <View>
+                      <Text style={typography.body}>Community Forum</Text>
+                      <Text style={typography.caption}>Connect with others</Text>
+                    </View>
                   </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textMuted} />
                 </View>
-                <Icon name="chevron-forward" size={20} color={colors.textMuted} />
-              </View>
-            </CardWrapper>
-          </TouchableOpacity>
+              </CardWrapper>
+            </TouchableOpacity>
+          </Link>
 
           <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/(tabs)/mindfulness')}>
             <CardWrapper>
