@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/expo';
 import api from '../utils/api';
 
 interface CortisolBreakdown {
@@ -98,9 +98,15 @@ export const useCortisolScore = (): UseCortisolScoreReturn => {
       }
     } catch (err: any) {
       console.error('Error fetching cortisol score:', err);
-      const errorMessage = err.response?.data?.error || err.message || 'Failed to load cortisol score';
-      setError(errorMessage);
-      setData(null);
+      if (err.response?.status === 404) {
+        console.warn('Cortisol API not found (404). Using fallback.');
+        setData(null);
+        setError('Cortisol API under construction');
+      } else {
+        const errorMessage = err.response?.data?.error || err.message || 'Failed to load cortisol score';
+        setError(errorMessage);
+        setData(null);
+      }
     } finally {
       isFetchingCortisol = false;
       setLoading(false);

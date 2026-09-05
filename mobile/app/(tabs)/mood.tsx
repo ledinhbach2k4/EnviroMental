@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 import Icon from '../../components/Icon';
 import Button from '../../components/Button';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/expo';
 import { ENV } from '../../constants/api';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 

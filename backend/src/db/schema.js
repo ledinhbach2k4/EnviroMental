@@ -196,3 +196,16 @@ export const appointments = pgTable("appointments", {
   status: text("status").default("pending"), // 'pending', 'confirmed', 'cancelled'
   notes: text("notes"),
 });
+
+/* ---------- Community Forum Posts (Frontend-compatible) ---------- */
+export const communityForumPosts = pgTable("community_forum_posts", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  authorName: text("author_name").notNull(),
+  authorColor: text("author_color").notNull(),
+  replyCount: integer("reply_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  hasImage: boolean("has_image").default(false),
+  imageUrl: text("image_url"),
+});

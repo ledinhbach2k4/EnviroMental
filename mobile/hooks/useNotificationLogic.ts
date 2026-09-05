@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { isSupported, getPermissionsAsync, requestPermissionsAsync, setNotificationChannelAsync, AndroidImportance, scheduleNotificationAsync, cancelAllScheduledNotificationsAsync } from '@/utils/notifications';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/expo';
 
 const STORAGE_KEY = 'notification_reminder_settings';
 

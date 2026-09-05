@@ -1,4 +1,4 @@
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/expo';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import api from '../utils/api';
 import { StressScanRequest, StressScanResult, StressScanHistoryItem } from '../types/stressScan';

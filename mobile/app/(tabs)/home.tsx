@@ -1,6 +1,6 @@
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import * as Location from 'expo-location';
@@ -33,7 +33,6 @@ import { ENV } from '../../constants/api';
 import { useSharedHabits } from '../../context/HabitsContext';
 import { useCortisolScore } from '../../hooks/useCortisolScore';
 import type { Habit } from '../../hooks/useHabits';
-import * as Notifications from 'expo-notifications';
 
 // Interfaces
 interface QuickStat {
@@ -893,7 +892,7 @@ export default function Home() {
             <LineChart
               data={processedChartData}
               width={Dimensions.get('window').width - 80}
-              height={220}
+              height={256}
               yAxisLabel=""
               yAxisSuffix=""
               chartConfig={{
@@ -908,7 +907,7 @@ export default function Home() {
                 propsForBackgroundLines: { strokeDasharray: '' },
               }}
               bezier
-              style={{ marginVertical: spacing.md, borderRadius: 16 }}
+              style={{ marginVertical: spacing.md, borderRadius: 16, paddingRight: 32, paddingTop: 16 }}
               fromZero
               formatYLabel={(y) => Math.round(parseFloat(y)).toString()}
             />
@@ -935,8 +934,7 @@ export default function Home() {
             </CardWrapper>
           </TouchableOpacity>
 
-          <Link href="/forum" asChild>
-            <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]}>
+          <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/forum')}>
               <CardWrapper>
                 <View style={styles.spaceBetween}>
                   <View style={styles.row}>
@@ -950,7 +948,6 @@ export default function Home() {
                 </View>
               </CardWrapper>
             </TouchableOpacity>
-          </Link>
 
           <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/(tabs)/mindfulness')}>
             <CardWrapper>

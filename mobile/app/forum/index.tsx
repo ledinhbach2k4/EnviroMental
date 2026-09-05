@@ -1,6 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList, KeyboardAvoidingView, Platform, ScrollView, Keyboard } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList, KeyboardAvoidingView, Platform, ScrollView, Keyboard, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useAuth } from '@clerk/expo';
+import { ENV } from '../../constants/api';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -86,10 +89,36 @@ export default function ForumScreen() {
   const radii = useRadii();
   const shadows = useShadows();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { getToken } = useAuth();
 
+  const [posts, setPosts] = useState<ForumPost[]>([]);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   const [messageInput, setMessageInput] = useState('');
+
+  const fetchPosts = useCallback(async () => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`${ENV.API_URL}/forum`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Sort newest first
+        const sortedData = data.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setPosts(sortedData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch posts from database:', error);
+    }
+  }, [getToken]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPosts();
+    }, [fetchPosts])
+  );
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -348,13 +377,44 @@ export default function ForumScreen() {
     },
   }), [colors, typography, spacing, radii, shadows, insets]);
 
-  const handleSubmitPost = () => {
-    if (titleInput.trim() && messageInput.trim()) {
-      console.log('Post submitted:', { title: titleInput, message: messageInput });
-      setTitleInput('');
-      setMessageInput('');
-      setIsCreateModalVisible(false);
-      Keyboard.dismiss();
+  const handleSubmitPost = async () => {
+    if (!titleInput.trim() || !messageInput.trim()) return;
+
+    const newPost: ForumPost = {
+      id: Date.now().toString(),
+      title: titleInput.trim(),
+      message: messageInput.trim(),
+      author: { name: 'You', color: colors.primary },
+      replyCount: 0,
+      createdAt: new Date(),
+      hasImage: false,
+    };
+
+    // 1. Optimistic UI Update (Shows immediately)
+    setPosts(prev => [newPost, ...prev]);
+    setTitleInput('');
+    setMessageInput('');
+    setIsCreateModalVisible(false);
+    Keyboard.dismiss();
+
+    // 2. Background API Sync
+    try {
+      const token = await getToken();
+      const res = await fetch(`${ENV.API_URL}/forum`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newPost)
+      });
+
+      if (!res.ok) {
+        // Server failed (e.g., 404 Not Found). Revert the optimistic UI update.
+        setPosts(prev => prev.filter(p => p.id !== newPost.id));
+        Alert.alert('Database Error', 'The backend API for forum posts is not ready yet (404 Not Found).');
+      }
+    } catch (error) {
+      // Network failed completely
+      setPosts(prev => prev.filter(p => p.id !== newPost.id));
+      Alert.alert('Network Error', 'Failed to reach the server.');
     }
   };
 
@@ -389,7 +449,12 @@ export default function ForumScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Forum</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: spacing.md }} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={28} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Forum</Text>
+        </View>
       </View>
 
       <View style={styles.searchContainer}>
@@ -408,7 +473,7 @@ export default function ForumScreen() {
       </View>
 
       <FlatList
-        data={MOCK_POSTS}
+        data={posts}
         renderItem={renderPostCard}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}

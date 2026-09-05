@@ -45,19 +45,24 @@ export default () => ({
     },
 
     plugins: [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          image: "./assets/images/splash-icon.png",
-          imageWidth: 200,
-          resizeMode: "contain",
-          backgroundColor: "#ffffff",
-        },
-      ],
-      "expo-secure-store",
-      "expo-location",
-    ],
+          "expo-router",
+          [
+            "expo-splash-screen",
+            {
+              image: "./assets/images/splash-icon.png",
+              imageWidth: 200,
+              resizeMode: "contain",
+              backgroundColor: "#ffffff",
+            },
+          ],
+          "expo-secure-store",
+          "expo-location",
+          "@react-native-community/datetimepicker",
+          "expo-font",
+          "expo-image",
+          "expo-status-bar",
+          "expo-web-browser"
+        ],
 
     experiments: {
       typedRoutes: true,

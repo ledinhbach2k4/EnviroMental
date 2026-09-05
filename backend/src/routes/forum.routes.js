@@ -5,16 +5,33 @@ import { authMiddleware } from "../middleware/authMiddleware.js";
 import { userLookupMiddleware } from "../middleware/userLookupMiddleware.js";
 import { validate } from "../validation/schemas.js";
 import { createForumPostSchema, createForumCommentSchema } from "../validation/schemas.js";
+import { desc } from "drizzle-orm";
 
 const router = express.Router();
 
-// ======= POSTS =======
+// ======= COMMUNITY FORUM POSTS (Frontend-compatible) =======
 
-// Get all forum posts (public)
-router.get("/posts", async (req, res) => {
+// Get all community forum posts (public, sorted newest first)
+router.get("/", async (req, res) => {
   try {
-    const posts = await db.select().from(schema.forumPosts);
-    res.status(200).json(posts);
+    const posts = await db
+      .select()
+      .from(schema.communityForumPosts)
+      .orderBy(desc(schema.communityForumPosts.createdAt));
+    
+    // Transform to match frontend ForumPost interface
+    const transformedPosts = posts.map(post => ({
+      id: post.id,
+      title: post.title,
+      message: post.message,
+      author: { name: post.authorName, color: post.authorColor },
+      replyCount: post.replyCount ?? 0,
+      createdAt: post.createdAt,
+      hasImage: post.hasImage ?? false,
+      imageUrl: post.imageUrl,
+    }));
+    
+    res.status(200).json(transformedPosts);
   } catch (err) {
     res.status(500).json({
       error: "Failed to fetch posts",
@@ -23,22 +40,38 @@ router.get("/posts", async (req, res) => {
   }
 });
 
-// Create a new post (authenticated)
-router.post("/posts", authMiddleware, userLookupMiddleware, validate(createForumPostSchema), async (req, res) => {
-  const { title, content, isAnonymous } = req.body;
+// Create a new community forum post (authenticated)
+router.post("/", authMiddleware, userLookupMiddleware, async (req, res) => {
+  const { id, title, message, author, hasImage, imageUrl } = req.body;
 
   try {
     const [post] = await db
-      .insert(schema.forumPosts)
+      .insert(schema.communityForumPosts)
       .values({
-        userId: req.internalUserId,
+        id: id || Date.now().toString(),
         title,
-        content,
-        isAnonymous: isAnonymous ?? false,
+        message,
+        authorName: author?.name || "Anonymous",
+        authorColor: author?.color || "#8641F4",
+        replyCount: 0,
+        hasImage: hasImage ?? false,
+        imageUrl: imageUrl || null,
       })
       .returning();
 
-    res.status(201).json(post);
+    // Transform to match frontend ForumPost interface
+    const transformedPost = {
+      id: post.id,
+      title: post.title,
+      message: post.message,
+      author: { name: post.authorName, color: post.authorColor },
+      replyCount: post.replyCount ?? 0,
+      createdAt: post.createdAt,
+      hasImage: post.hasImage ?? false,
+      imageUrl: post.imageUrl,
+    };
+
+    res.status(201).json(transformedPost);
   } catch (err) {
     res.status(500).json({
       error: "Failed to create post",

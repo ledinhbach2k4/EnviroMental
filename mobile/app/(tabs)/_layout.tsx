@@ -13,16 +13,16 @@ import {
   Alert,
   Keyboard,
 } from 'react-native';
-import { Redirect, Tabs } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { useSafeAreaInsets, EdgeInsets, SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/expo';
 import Modal from 'react-native-modal';
 import axios from 'axios';
 import { FontAwesome5 } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { HabitsProvider } from '../../context/HabitsContext';
+import { NotificationProvider } from '@/context/NotificationContext';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -33,7 +33,7 @@ import Animated, {
   withTiming,
   withDelay,
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Markdown from 'react-native-markdown-display';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 
@@ -201,26 +201,7 @@ export default function TabLayout() {
   const hasInitializedRef = useRef(false);
 
   if (!isLoaded) return null;
-  if (!isSignedIn) return <Redirect href={"/(auth)/sign-in" as any} />;
-
-  // Request notification permissions on app start
-  useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      (async () => {
-        try {
-          const { status } = await Notifications.getPermissionsAsync();
-          if (status !== 'granted') {
-            const { status: newStatus } = await Notifications.requestPermissionsAsync();
-            if (newStatus !== 'granted') {
-              console.log('Notification permission not granted');
-            }
-          }
-        } catch (e) {
-          console.log('Notification permission request failed:', e);
-        }
-      })();
-    }
-  }, [isLoaded, isSignedIn]);
+  if (!isSignedIn) return null;
 
   // Track initial messages when modal opens to prevent typing animation replay
   useEffect(() => {
@@ -367,39 +348,41 @@ export default function TabLayout() {
   }), [colors, spacing, shadows, insets]);
 
   return (
-    <HabitsProvider>
-      <Tabs
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.textMuted,
-          tabBarStyle: tabBarStyle,
-          tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
-          tabBarIcon: ({ color, size }) => {
-            const icons: Record<string, string> = { home: 'home', mood: 'smile', habits: 'check-circle', profile: 'user', mindfulness: 'leaf' };
-            return <FontAwesome5 name={icons[route.name] || 'question'} size={size} color={color} solid />;
-          },
-        })}
-      >
-        <Tabs.Screen name="home" options={{ title: 'Home' }} />
-        <Tabs.Screen name="mood" options={{ title: 'Mood' }} />
-        <Tabs.Screen name="habits" options={{ title: 'Habits' }} />
-        <Tabs.Screen name="mindfulness" options={{ title: 'Mindfulness' }} />
-        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
-      </Tabs>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <NotificationProvider>
+        <HabitsProvider>
+          <Tabs
+            screenOptions={({ route }) => ({
+              headerShown: false,
+              tabBarActiveTintColor: colors.primary,
+              tabBarInactiveTintColor: colors.textMuted,
+              tabBarStyle: tabBarStyle,
+              tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
+              tabBarIcon: ({ color, size }) => {
+                const icons: Record<string, string> = { home: 'home', mood: 'smile', habits: 'check-circle', profile: 'user', mindfulness: 'leaf' };
+                return <FontAwesome5 name={icons[route.name] || 'question'} size={size} color={color} solid />;
+              },
+            })}
+          >
+            <Tabs.Screen name="home" options={{ title: 'Home' }} />
+            <Tabs.Screen name="mood" options={{ title: 'Mood' }} />
+            <Tabs.Screen name="habits" options={{ title: 'Habits' }} />
+            <Tabs.Screen name="mindfulness" options={{ title: 'Mindfulness' }} />
+            <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+          </Tabs>
 
-      <DraggableChatIcon onPress={openChat} insets={insets} />
+          <DraggableChatIcon onPress={openChat} insets={insets} />
 
-      <Modal isVisible={isModalVisible} onBackdropPress={closeChat} onBackButtonPress={closeChat} onRequestClose={closeChat} animationType="slide" transparent={true} style={chatStyles.modal}>
-        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Modal isVisible={isModalVisible} onBackdropPress={closeChat} onBackButtonPress={closeChat} onRequestClose={closeChat} animationType="slide" transparent={true} style={chatStyles.modal}>
+            <View style={{ flex: 1, justifyContent: 'flex-end' }}>
 <KeyboardAvoidingView behavior="padding" style={[chatStyles.modalContent, { paddingTop: insets.top }]}>
-            <View style={chatStyles.chatHeader}>
-              <FontAwesome5 name="robot" size={20} color={colors.primary} />
-              <Text style={chatStyles.chatTitle}>Chat with AI</Text>
-              <TouchableOpacity onPress={closeChat} accessibilityLabel="Close chat" activeOpacity={0.8}>
-                <FontAwesome5 name="times" size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
+              <View style={chatStyles.chatHeader}>
+                <FontAwesome5 name="robot" size={20} color={colors.primary} />
+                <Text style={chatStyles.chatTitle}>Chat with AI</Text>
+                <TouchableOpacity onPress={closeChat} accessibilityLabel="Close chat" activeOpacity={0.8}>
+                  <FontAwesome5 name="times" size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
 
             <FlatList
               ref={flatListRef}
@@ -487,7 +470,9 @@ export default function TabLayout() {
             </View>
         </KeyboardAvoidingView>
         </View>
-      </Modal>
-    </HabitsProvider>
+        </Modal>
+        </HabitsProvider>
+      </NotificationProvider>
+    </GestureHandlerRootView>
   );
 }
