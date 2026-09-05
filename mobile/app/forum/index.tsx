@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList, KeyboardAvoidingView, Platform, ScrollView, Keyboard, Alert } from 'react-native';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList, KeyboardAvoidingView, Platform, ScrollView, Keyboard, Alert, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@clerk/expo';
@@ -68,7 +69,12 @@ const MOCK_POSTS: ForumPost[] = [
   },
 ];
 
-const formatTimeAgo = (date: Date): string => {
+const formatTimeAgo = (dateValue: Date | string | number): string => {
+  const date = new Date(dateValue);
+
+  // Failsafe for invalid dates
+  if (isNaN(date.getTime())) return 'Unknown time';
+
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -92,31 +98,48 @@ export default function ForumScreen() {
   const router = useRouter();
   const { getToken } = useAuth();
 
+  const tokenRef = useRef(getToken);
+  useEffect(() => {
+    tokenRef.current = getToken;
+  }, [getToken]);
+
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   const [messageInput, setMessageInput] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedPost, setSelectedPost] = useState<ForumPost | null>(null);
+
+  const isMountedRef = useRef(true);
 
   const fetchPosts = useCallback(async () => {
     try {
-      const token = await getToken();
+      const token = await tokenRef.current();
       const res = await fetch(`${ENV.API_URL}/forum`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        // Sort newest first
         const sortedData = data.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setPosts(sortedData);
+        if (isMountedRef.current) {
+          setPosts(sortedData);
+        }
+      } else {
+        const errText = await res.text();
+        console.error(`Failed to fetch posts. Status ${res.status}: ${errText}`);
       }
     } catch (error) {
       console.error('Failed to fetch posts from database:', error);
     }
-  }, [getToken]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
+      isMountedRef.current = true;
       fetchPosts();
+      return () => {
+        isMountedRef.current = false;
+      };
     }, [fetchPosts])
   );
 
@@ -375,7 +398,79 @@ export default function ForumScreen() {
       color: colors.textMuted,
       textAlign: 'center',
     },
+    imagePreview: {
+      width: 52,
+      height: 52,
+      borderRadius: radii.md,
+    },
+    viewModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      padding: spacing.lg,
+    },
+    viewModalContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: radii.xl,
+      maxHeight: '85%',
+      overflow: 'hidden',
+    },
+    viewModalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    viewDeleteButton: {
+      padding: spacing.xs,
+    },
+    viewModalBody: {
+      padding: spacing.lg,
+    },
+    viewPostTitle: {
+      ...typography.h3,
+      color: colors.text,
+      marginBottom: spacing.sm,
+    },
+    viewPostAuthor: {
+      ...typography.caption,
+      fontWeight: '600',
+      marginBottom: spacing.xs,
+    },
+    viewPostTime: {
+      ...typography.caption,
+      color: colors.textMuted,
+      marginBottom: spacing.md,
+    },
+    viewPostMessage: {
+      ...typography.body,
+      color: colors.text,
+      lineHeight: 22,
+      marginBottom: spacing.lg,
+    },
+    viewPostImage: {
+      width: '100%',
+      height: 250,
+      borderRadius: radii.md,
+      backgroundColor: colors.border,
+    },
   }), [colors, typography, spacing, radii, shadows, insets]);
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: true,
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      const asset = result.assets[0];
+      setSelectedImage(`data:image/jpeg;base64,${asset.base64}`);
+    }
+  };
 
   const handleSubmitPost = async () => {
     if (!titleInput.trim() || !messageInput.trim()) return;
@@ -387,19 +482,21 @@ export default function ForumScreen() {
       author: { name: 'You', color: colors.primary },
       replyCount: 0,
       createdAt: new Date(),
-      hasImage: false,
+      hasImage: !!selectedImage,
+      imageUrl: selectedImage || undefined,
     };
 
     // 1. Optimistic UI Update (Shows immediately)
     setPosts(prev => [newPost, ...prev]);
     setTitleInput('');
     setMessageInput('');
+    setSelectedImage(null);
     setIsCreateModalVisible(false);
     Keyboard.dismiss();
 
     // 2. Background API Sync
     try {
-      const token = await getToken();
+      const token = await tokenRef.current();
       const res = await fetch(`${ENV.API_URL}/forum`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -418,8 +515,28 @@ export default function ForumScreen() {
     }
   };
 
+  const handleDeletePost = async (postId: string) => {
+    try {
+      const token = await tokenRef.current();
+      const res = await fetch(`${ENV.API_URL}/forum/${postId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        setPosts(prev => prev.filter(p => p.id !== postId));
+        setSelectedPost(null);
+        Alert.alert('Success', 'Post deleted.');
+      } else {
+        Alert.alert('Error', 'Failed to delete post.');
+      }
+    } catch (error) {
+      Alert.alert('Network Error', 'Failed to reach the server.');
+    }
+  };
+
   const renderPostCard = ({ item }: { item: ForumPost }) => (
-    <TouchableOpacity style={styles.postCard} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.postCard} activeOpacity={0.8} onPress={() => setSelectedPost(item)}>
       <View style={styles.postLeft}>
         <Text style={styles.postTitle} numberOfLines={2}>{item.title}</Text>
         <View style={styles.postAuthorRow}>
@@ -440,8 +557,7 @@ export default function ForumScreen() {
         </View>
       </View>
       {item.hasImage && item.imageUrl && (
-        <View style={styles.postThumbnail}>
-        </View>
+        <Image source={{ uri: item.imageUrl }} style={styles.postThumbnail} />
       )}
     </TouchableOpacity>
   );
@@ -546,14 +662,18 @@ export default function ForumScreen() {
 
                 <View style={styles.mediaSection}>
                   <Text style={styles.mediaLabel}>Add Image (Optional)</Text>
-                  <TouchableOpacity style={styles.imageButton}>
-                    <Ionicons name="image-outline" size={28} color={colors.primary} />
+                  <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
+                    {selectedImage ? (
+                      <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
+                    ) : (
+                      <Ionicons name="image-outline" size={28} color={colors.primary} />
+                    )}
                   </TouchableOpacity>
                 </View>
               </ScrollView>
 
               <View style={styles.modalFooter}>
-                <TouchableOpacity style={styles.emojiButton}>
+                <TouchableOpacity style={styles.emojiButton} onPress={() => setMessageInput(prev => prev + ' 😊')}>
                   <Ionicons name="happy-outline" size={28} color={colors.textMuted} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.postButton} onPress={handleSubmitPost} disabled={!titleInput.trim() || !messageInput.trim()}>
@@ -568,6 +688,48 @@ export default function ForumScreen() {
             </View>
           </TouchableOpacity>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={!!selectedPost}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setSelectedPost(null)}
+      >
+        <View style={styles.viewModalOverlay}>
+          <View style={styles.viewModalContainer}>
+            <View style={styles.viewModalHeader}>
+              <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedPost(null)}>
+                <Ionicons name="close" size={28} color={colors.textMuted} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Post</Text>
+              <TouchableOpacity
+                style={styles.viewDeleteButton}
+                onPress={() => {
+                  if (selectedPost) {
+                    handleDeletePost(selectedPost.id);
+                  }
+                }}
+              >
+                <Ionicons name="trash-outline" size={24} color={colors.danger} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedPost && (
+              <ScrollView style={styles.viewModalBody}>
+                <Text style={styles.viewPostTitle}>{selectedPost.title}</Text>
+                <Text style={[styles.viewPostAuthor, { color: selectedPost.author.color }]}>
+                  {selectedPost.author.name}
+                </Text>
+                <Text style={styles.viewPostTime}>{formatTimeAgo(selectedPost.createdAt)}</Text>
+                <Text style={styles.viewPostMessage}>{selectedPost.message}</Text>
+                {selectedPost.hasImage && selectedPost.imageUrl && (
+                  <Image source={{ uri: selectedPost.imageUrl }} style={styles.viewPostImage} resizeMode="cover" />
+                )}
+              </ScrollView>
+            )}
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );

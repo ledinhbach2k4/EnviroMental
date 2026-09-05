@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "npm run db:sync && node src/server.js",
-    "db:sync": "node src/db/sync_drizzle_migrations.js && node src/db/migrate.js",
+    "start": "node src/server.js",
+    "db:sync": "echo 'Skipping DB Sync - Tables already exist'",
     "test": "vitest run",
     "lint": "eslint src/**/*.js",
     "format": "prettier --write src/**/*.js"

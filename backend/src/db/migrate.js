@@ -4,8 +4,8 @@ import { migrate } from 'drizzle-orm/neon-http/migrator';
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load environment variables from backend/.env
-dotenv.config({ path: path.resolve(process.cwd(), 'backend', '.env') });
+// Load environment variables from .env
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is not set');
@@ -17,7 +17,7 @@ const db = drizzle(sql);
 async function runMigrations() {
   try {
     console.log('Starting database migration...');
-    await migrate(db, { migrationsFolder: 'backend/src/db/migrations' });
+    await migrate(db, { migrationsFolder: 'src/db/migrations' });
     console.log('Database migration completed successfully!');
     process.exit(0);
   } catch (error) {

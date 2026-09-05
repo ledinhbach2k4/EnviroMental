@@ -522,18 +522,18 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
-      // Reset permission state when screen comes into focus (user may have granted permission in settings)
+      // Reset permission state when screen comes into focus
       resetPermissionState();
 
       const fetchData = async () => {
         await fetchMood();
-        refetchHabits(); // cooldown handled in hook (module-level)
-        refetchCortisol(); // cooldown handled in hook (module-level)
+        refetchHabits();
+        refetchCortisol();
         setTimeout(() => fetchWeather(), 1000);
         setTimeout(() => fetchAirQuality(), 1500);
       };
       fetchData();
-    }, [refetchHabits, refetchCortisol, resetPermissionState])
+    }, []) // Critical: Empty array prevents infinite loops
   );
 
   // Chart Data Processing
