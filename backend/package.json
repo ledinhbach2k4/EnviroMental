@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "db:sync": "echo 'Skipping DB Sync - Tables already exist'",
+    "db:push": "drizzle-kit push",
+    "db:sync": "drizzle-kit push",
+    "build:render": "npm install && npm run db:push",
     "test": "vitest run",
     "lint": "eslint src/**/*.js",
     "format": "prettier --write src/**/*.js"
@@ -23,7 +25,7 @@
     "cors": "^2.8.5",
     "cron": "^3.0.0",
     "dotenv": "^16.5.0",
-    "drizzle-orm": "0.45.2",
+    "drizzle-orm": "^0.45.2",
     "express": "^5.1.0",
     "express-rate-limit": "^7.2.0",
     "helmet": "^7.1.0",
@@ -34,7 +36,7 @@
   "devDependencies": {
     "audit-ci": "^6.0.0",
     "cross-env": "^7.0.3",
-    "drizzle-kit": "latest",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^8.57.0",
     "nodemon": "^3.1.10",
     "npm-force-resolutions": "^0.0.10",

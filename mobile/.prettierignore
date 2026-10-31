@@ -1,0 +1,24 @@
+# Build artifacts
+android/
+ios/
+dist/
+build/
+.expo/
+
+# Dependencies
+node_modules/
+
+# Generated files
+*.json
+*.md
+*.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -16,7 +16,15 @@ export const ProfileNotificationSection = ({ style }: ProfileNotificationSection
   const radii = useRadii();
   const shadows = useShadows();
 
-  const { isReminderEnabled, setIsReminderEnabled, notificationTime, setNotificationTime, isLoading, hasPermission, testNotification } = useNotifications();
+  const {
+    isReminderEnabled,
+    setIsReminderEnabled,
+    notificationTime,
+    setNotificationTime,
+    isLoading,
+    hasPermission,
+    testNotification,
+  } = useNotifications();
 
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -49,7 +57,9 @@ export const ProfileNotificationSection = ({ style }: ProfileNotificationSection
 
   return (
     <View style={[styles.section, style]}>
-      <Text style={[typography.h3, { marginBottom: spacing.lg, color: colors.text }]}>Notifications</Text>
+      <Text style={[typography.h3, { marginBottom: spacing.lg, color: colors.text }]}>
+        Notifications
+      </Text>
 
       <View style={[styles.card, shadows.sm]}>
         <View style={styles.settingRow}>
@@ -80,7 +90,8 @@ export const ProfileNotificationSection = ({ style }: ProfileNotificationSection
               <View style={styles.timeInfo}>
                 <Text style={[typography.body, { color: colors.text }]}>Reminder Time</Text>
                 <Text style={[typography.caption, { color: colors.textMuted }]}>
-                  Daily at {notificationTime.hour.toString().padStart(2, '0')}:{notificationTime.minute.toString().padStart(2, '0')}
+                  Daily at {notificationTime.hour.toString().padStart(2, '0')}:
+                  {notificationTime.minute.toString().padStart(2, '0')}
                 </Text>
               </View>
               <Text style={[typography.caption, { color: colors.primary }]}>Change</Text>
@@ -96,10 +107,11 @@ export const ProfileNotificationSection = ({ style }: ProfileNotificationSection
             onPress={handleTestNotification}
             disabled={!isReminderEnabled || !hasPermission}
             style={{
-              backgroundColor: isReminderEnabled && hasPermission ? colors.secondary : colors.border,
+              backgroundColor:
+                isReminderEnabled && hasPermission ? colors.secondary : colors.border,
             }}
             textStyle={{
-              color: isReminderEnabled && hasPermission ? colors.textOnSecondary : colors.textMuted,
+              color: isReminderEnabled && hasPermission ? colors.textInverse : colors.textMuted,
             }}
           />
         </View>

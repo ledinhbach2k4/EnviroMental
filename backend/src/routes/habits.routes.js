@@ -17,35 +17,54 @@ const router = express.Router();
 // Get all habit logs for the current user (MOST SPECIFIC ROUTE FIRST)
 router.get("/logs", authMiddleware, userLookupMiddleware, async (req, res) => {
   try {
-    console.log("Fetching habit logs for userId:", req.internalUserId); // Changed to internalUserId
+    const userId = req.internalUserId;
+    if (!userId) {
+      return res.status(200).json([]);
+    }
+
+    console.log("Fetching habit logs for userId:", userId);
     const logs = await db
       .select()
       .from(schema.habitLogs)
       .innerJoin(schema.habits, eq(schema.habitLogs.habitId, schema.habits.id))
-      .where(eq(schema.habits.userId, req.internalUserId)); // Changed to internalUserId
+      .where(eq(schema.habits.userId, userId));
 
-    console.log("Raw logs from DB:", logs);
-    res.status(200).json(logs.map(l => l.habit_logs));
+    if (!logs || logs.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    const formattedLogs = logs.map(l => l?.habit_logs || l).filter(Boolean);
+    res.status(200).json(formattedLogs);
   } catch (err) {
     console.error("Error fetching habit logs:", err);
-    res.status(500).json({ error: "Failed to fetch habit logs", detail: err.message });
+    // Safe fallback for new accounts without habit records
+    res.status(200).json([]);
   }
 });
 
 // Get list of user habits
 router.get("/", authMiddleware, userLookupMiddleware, async (req, res) => {
   try {
-    console.log("Fetching habits for userId:", req.internalUserId); // Changed to internalUserId
+    const userId = req.internalUserId;
+    if (!userId) {
+      return res.status(200).json([]);
+    }
+
+    console.log("Fetching habits for userId:", userId);
     const habits = await db
       .select()
       .from(schema.habits)
-      .where(eq(schema.habits.userId, req.internalUserId)); // Changed to internalUserId
+      .where(eq(schema.habits.userId, userId));
 
-    console.log("Raw habits from DB:", habits);
+    if (!habits || habits.length === 0) {
+      return res.status(200).json([]);
+    }
+
     res.status(200).json(habits);
   } catch (err) {
     console.error("Error fetching habits:", err);
-    res.status(500).json({ error: "Failed to fetch habits", detail: err.message });
+    // Safe fallback for new accounts
+    res.status(200).json([]);
   }
 });
 

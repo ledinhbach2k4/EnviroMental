@@ -1,87 +1,89 @@
 import { StyleSheet, ViewStyle, TextStyle, ImageStyle } from 'react-native';
 import { createStyles } from './index';
 
-export const createButtonStyles = createStyles(({ colors, spacing, radii, shadows, typography }) => ({
-  base: {
-    borderRadius: radii.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  primary: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    ...shadows.sm,
-  },
-  secondary: {
-    backgroundColor: colors.secondary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    ...shadows.sm,
-  },
-  accent: {
-    backgroundColor: colors.accent,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    ...shadows.sm,
-  },
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: colors.primary,
-    paddingVertical: spacing.md - 1,
-    paddingHorizontal: spacing.xl,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-  },
-  danger: {
-    backgroundColor: colors.danger,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    ...shadows.sm,
-  },
-  dangerOutline: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: colors.danger,
-    paddingVertical: spacing.md - 1,
-    paddingHorizontal: spacing.xl,
-  },
-  small: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.md,
-  },
-  large: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xxl,
-    borderRadius: radii.xl,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  text: {
-    ...typography.button,
-    color: colors.textInverse,
-  },
-  textOutline: {
-    ...typography.button,
-    color: colors.primary,
-  },
-  textDanger: {
-    ...typography.button,
-    color: colors.danger,
-  },
-  textGhost: {
-    ...typography.button,
-    color: colors.primary,
-  },
-}));
+export const createButtonStyles = createStyles(
+  ({ colors, spacing, radii, shadows, typography }) => ({
+    base: {
+      borderRadius: radii.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    primary: {
+      backgroundColor: colors.primary,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+      ...shadows.sm,
+    },
+    secondary: {
+      backgroundColor: colors.secondary,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+      ...shadows.sm,
+    },
+    accent: {
+      backgroundColor: colors.accent,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+      ...shadows.sm,
+    },
+    outline: {
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderColor: colors.primary,
+      paddingVertical: spacing.md - 1,
+      paddingHorizontal: spacing.xl,
+    },
+    ghost: {
+      backgroundColor: 'transparent',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+    },
+    danger: {
+      backgroundColor: colors.danger,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+      ...shadows.sm,
+    },
+    dangerOutline: {
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderColor: colors.danger,
+      paddingVertical: spacing.md - 1,
+      paddingHorizontal: spacing.xl,
+    },
+    small: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.md,
+    },
+    large: {
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.xxl,
+      borderRadius: radii.xl,
+    },
+    disabled: {
+      opacity: 0.5,
+    },
+    text: {
+      ...typography.button,
+      color: colors.textInverse,
+    },
+    textOutline: {
+      ...typography.button,
+      color: colors.primary,
+    },
+    textDanger: {
+      ...typography.button,
+      color: colors.danger,
+    },
+    textGhost: {
+      ...typography.button,
+      color: colors.primary,
+    },
+  })
+);
 
 export const createCardStyles = createStyles(({ colors, spacing, radii, shadows }) => ({
   base: {
@@ -119,60 +121,62 @@ export const createCardStyles = createStyles(({ colors, spacing, radii, shadows 
   },
 }));
 
-export const createInputStyles = createStyles(({ colors, spacing, radii, shadows, typography }) => ({
-  container: {
-    width: '100%',
-  },
-  label: {
-    ...typography.label,
-    marginBottom: spacing.xs,
-    color: colors.textSecondary,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.backgroundAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    ...shadows.xs,
-  },
-  inputWrapperFocused: {
-    borderColor: colors.primary,
-    ...shadows.sm,
-  },
-  inputWrapperError: {
-    borderColor: colors.danger,
-    ...shadows.xs,
-  },
-  input: {
-    flex: 1,
-    ...typography.body,
-    color: colors.text,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  inputPlaceholder: {
-    color: colors.textMuted,
-  },
-  inputDisabled: {
-    opacity: 0.6,
-  },
-  icon: {
-    marginHorizontal: spacing.sm,
-    color: colors.textMuted,
-  },
-  errorText: {
-    ...typography.caption,
-    color: colors.danger,
-    marginTop: spacing.xs,
-  },
-  helperText: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginTop: spacing.xs,
-  },
-}));
+export const createInputStyles = createStyles(
+  ({ colors, spacing, radii, shadows, typography }) => ({
+    container: {
+      width: '100%',
+    },
+    label: {
+      ...typography.label,
+      marginBottom: spacing.xs,
+      color: colors.textSecondary,
+    },
+    inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.backgroundAlt,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radii.md,
+      ...shadows.xs,
+    },
+    inputWrapperFocused: {
+      borderColor: colors.primary,
+      ...shadows.sm,
+    },
+    inputWrapperError: {
+      borderColor: colors.danger,
+      ...shadows.xs,
+    },
+    input: {
+      flex: 1,
+      ...typography.body,
+      color: colors.text,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+    },
+    inputPlaceholder: {
+      color: colors.textMuted,
+    },
+    inputDisabled: {
+      opacity: 0.6,
+    },
+    icon: {
+      marginHorizontal: spacing.sm,
+      color: colors.textMuted,
+    },
+    errorText: {
+      ...typography.caption,
+      color: colors.danger,
+      marginTop: spacing.xs,
+    },
+    helperText: {
+      ...typography.caption,
+      color: colors.textMuted,
+      marginTop: spacing.xs,
+    },
+  })
+);
 
 export const createTabBarStyles = createStyles(({ colors, spacing, radii, shadows }) => ({
   tabBar: {

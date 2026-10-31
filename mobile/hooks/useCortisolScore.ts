@@ -46,10 +46,16 @@ export const useCortisolScore = (): UseCortisolScoreReturn => {
   const tokenRef = useRef(getToken);
   const isLoadedRef = useRef(isLoaded);
   const isSignedInRef = useRef(isSignedIn);
-  
-  useEffect(() => { tokenRef.current = getToken; }, [getToken]);
-  useEffect(() => { isLoadedRef.current = isLoaded; }, [isLoaded]);
-  useEffect(() => { isSignedInRef.current = isSignedIn; }, [isSignedIn]);
+
+  useEffect(() => {
+    tokenRef.current = getToken;
+  }, [getToken]);
+  useEffect(() => {
+    isLoadedRef.current = isLoaded;
+  }, [isLoaded]);
+  useEffect(() => {
+    isSignedInRef.current = isSignedIn;
+  }, [isSignedIn]);
 
   // STABLE FETCH FUNCTION - empty deps, uses refs and module-level cache
   const fetchScore = useCallback(async (force = false) => {
@@ -103,7 +109,8 @@ export const useCortisolScore = (): UseCortisolScoreReturn => {
         setData(null);
         setError('Cortisol API under construction');
       } else {
-        const errorMessage = err.response?.data?.error || err.message || 'Failed to load cortisol score';
+        const errorMessage =
+          err.response?.data?.error || err.message || 'Failed to load cortisol score';
         setError(errorMessage);
         setData(null);
       }

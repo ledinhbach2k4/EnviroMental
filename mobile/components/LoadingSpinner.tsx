@@ -1,21 +1,14 @@
-import {
-  View,
-  ActivityIndicator,
-  Text,
-  StyleSheet,
-  ViewStyle,
-  TextStyle,
-} from "react-native";
-import { COLORS } from "@/constants/colors";
+import { View, ActivityIndicator, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { COLORS } from '@/constants/colors';
 
 interface LoadingSpinnerProps {
   message?: string;
-  size?: "small" | "large" | number;
+  size?: 'small' | 'large' | number;
 }
 
 const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
-  message = "Loading...",
-  size = "large",
+  message = 'Loading...',
+  size = 'large',
 }) => {
   return (
     <View style={styles.container}>
@@ -36,18 +29,18 @@ const styles = StyleSheet.create<{
 }>({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 32,
     backgroundColor: COLORS.background,
   },
   content: {
-    alignItems: "center",
+    alignItems: 'center',
     gap: 16,
   },
   message: {
     fontSize: 16,
     color: COLORS.textLight,
-    textAlign: "center",
+    textAlign: 'center',
   },
 });

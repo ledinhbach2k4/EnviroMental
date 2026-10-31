@@ -8,7 +8,11 @@ import Icon from '../components/Icon';
 const hotlines = [
   { name: 'National Suicide Prevention Lifeline', number: '988', country: 'US' },
   { name: 'Crisis Text Line', number: 'Text HOME to 741741', country: 'US' },
-  { name: 'International Association for Suicide Prevention', number: 'https://www.iasp.info/resources/Crisis_Centres/', country: 'International' },
+  {
+    name: 'International Association for Suicide Prevention',
+    number: 'https://www.iasp.info/resources/Crisis_Centres/',
+    country: 'International',
+  },
 ];
 
 export default function EmergencyScreen() {
@@ -68,7 +72,12 @@ export default function EmergencyScreen() {
           onPress={() => callNumber(hotline.number)}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="call" size={24} color={colors.danger} style={{ marginRight: spacing.md }} />
+            <Ionicons
+              name="call"
+              size={24}
+              color={colors.danger}
+              style={{ marginRight: spacing.md }}
+            />
             <View style={{ flex: 1 }}>
               <Text style={typography.body}>{hotline.name}</Text>
               <Text style={typography.caption}>{hotline.country}</Text>

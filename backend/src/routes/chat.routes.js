@@ -9,98 +9,20 @@ import axios from "axios";
 
 const router = express.Router();
 
-// Load the API key from environment variables (do not hardcode the key)
+// Load the API key from environment variables
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-// Dynamic model selection
-let activeGroqModel = null;
+/**
+ * Strict Model Configuration:
+ * - Chat completions: strictly an LLM (openai/gpt-oss-20b)
+ * - Audio transcription: strictly Whisper (whisper-large-v3)
+ */
+export const GROQ_CHAT_MODEL =
+  process.env.GROQ_CHAT_MODEL && !process.env.GROQ_CHAT_MODEL.toLowerCase().includes("whisper")
+    ? process.env.GROQ_CHAT_MODEL
+    : "openai/gpt-oss-20b";
 
-async function initializeGroqModel() {
-  if (activeGroqModel) return activeGroqModel;
-
-  if (!GROQ_API_KEY) {
-    console.warn("GROQ_API_KEY not set, cannot initialize model");
-    return null;
-  }
-
-  try {
-    const response = await axios.get(
-      "https://api.groq.com/openai/v1/models",
-      {
-        headers: {
-          Authorization: `Bearer ${GROQ_API_KEY}`,
-        },
-        timeout: 5000,
-      }
-    );
-
-    const models = response.data?.data ?? [];
-    if (models.length === 0) {
-      console.warn("No Groq models available for this API key");
-      return null;
-    }
-
-    // Filter out moderation/vision models - only keep conversational models
-    const conversationalModels = models.filter(m => {
-      const id = m.id.toLowerCase();
-      return !id.includes("guard") && !id.includes("vision");
-    });
-
-    if (conversationalModels.length === 0) {
-      console.warn("No conversational models available, falling back to all models");
-      // Fallback to all models if filtering removed everything
-      return models[0].id;
-    }
-
-    // Prefer models: llama-3.3 > llama-3.1 > mixtral > other conversational
-    const preferredOrder = ["llama-3.3", "llama-3.1", "mixtral"];
-    let preferred = null;
-
-    for (const keyword of preferredOrder) {
-      preferred = conversationalModels.find(m => m.id.toLowerCase().includes(keyword));
-      if (preferred) break;
-    }
-
-    activeGroqModel = preferred ? preferred.id : conversationalModels[0].id;
-    console.log("Selected Groq model:", activeGroqModel);
-    return activeGroqModel;
-  } catch (err) {
-    console.error("Failed to initialize Groq model:", err.response?.data || err.message);
-    return null;
-  }
-}
-
-let availableModelsLogged = false;
-
-async function logAvailableModels() {
-  if (availableModelsLogged) return;
-  availableModelsLogged = true;
-
-  // Guard: skip if no API key (prevents crash on startup/config issues)
-  if (!GROQ_API_KEY) {
-    console.warn("GROQ_API_KEY not set, skipping model discovery");
-    return;
-  }
-
-  try {
-    const response = await axios.get(
-      "https://api.groq.com/openai/v1/models",
-      {
-        headers: {
-          Authorization: `Bearer ${GROQ_API_KEY}`,
-        },
-        timeout: 5000, // 5s timeout to prevent hanging
-      }
-    );
-    const modelIds = response.data?.data?.map(m => m.id) ?? [];
-    console.log("=== Available Groq Models for this API Key ===");
-    console.log(modelIds.length ? modelIds.join("\n") : "(none)");
-    console.log("===============================================");
-  } catch (err) {
-    // Never throw - log and continue
-    console.error("Failed to fetch available Groq models:", err.response?.data || err.message);
-  }
-}
+export const GROQ_AUDIO_MODEL = "whisper-large-v3";
 
 /**
  * GET /
@@ -130,7 +52,8 @@ router.get("/", authMiddleware, async (req, res) => {
 
 /**
  * POST /
- * Send a new message and receive a response from the Groq API.
+ * Send a new text message and receive an AI response from Groq.
+ * Strictly uses openai/gpt-oss-20b for /chat/completions.
  */
 router.post("/", authMiddleware, validate(createChatMessageSchema), async (req, res) => {
   const { message } = req.body;
@@ -155,23 +78,13 @@ router.post("/", authMiddleware, validate(createChatMessageSchema), async (req, 
     return res.status(500).json({ error: "Failed to fetch user", detail: err.message });
   }
 
-
   let aiReply;
   try {
-    // Initialize dynamic model on first request
-    if (!activeGroqModel) {
-      await initializeGroqModel();
-    }
+    // Strictly enforce a valid conversational LLM for chat completions
+    const chatModel = GROQ_CHAT_MODEL;
 
-    // Fallback if model initialization failed
-    const modelToUse = activeGroqModel || "llama-3.1-8b-instant";
-
-    // Log available models on first request (for debugging)
-    await logAvailableModels();
-
-    // Send the user message to Groq
     const groqPayload = {
-      model: modelToUse,
+      model: chatModel, // strictly "openai/gpt-oss-20b"
       messages: [
         {
           role: "system",
@@ -181,7 +94,8 @@ router.post("/", authMiddleware, validate(createChatMessageSchema), async (req, 
         { role: "user", content: message },
       ],
     };
-    console.log("Groq request payload:", JSON.stringify(groqPayload, null, 2));
+
+    console.log(`[Groq] Sending chat completion request using model: ${chatModel}`);
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
       groqPayload,
@@ -190,12 +104,13 @@ router.post("/", authMiddleware, validate(createChatMessageSchema), async (req, 
           Authorization: `Bearer ${GROQ_API_KEY}`,
           "Content-Type": "application/json",
         },
+        timeout: 20000,
       }
     );
 
     aiReply = response.data.choices?.[0]?.message?.content ?? "";
     // Strip reasoning tags (e.g., DeepSeek-R1) before returning to client
-    aiReply = aiReply.replace(/<think>[\s\S]*?<\/think>\s*/gi, '').trim();
+    aiReply = aiReply.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
   } catch (err) {
     const status = err.response?.status;
     const data = err.response?.data;
@@ -230,6 +145,56 @@ router.post("/", authMiddleware, validate(createChatMessageSchema), async (req, 
       sender: "ai",
       message: aiReply,
       saved: false,
+    });
+  }
+});
+
+/**
+ * POST /transcribe
+ * Audio transcription endpoint strictly using Groq's whisper-large-v3 model.
+ * Audio is forwarded ONLY to /audio/transcriptions.
+ */
+router.post("/transcribe", authMiddleware, async (req, res) => {
+  if (!GROQ_API_KEY) {
+    return res.status(500).json({
+      error: "Server misconfiguration",
+      detail: "GROQ_API_KEY is missing on the server",
+    });
+  }
+
+  try {
+    const { audioBase64, mimeType = "audio/m4a" } = req.body;
+    if (!audioBase64) {
+      return res.status(400).json({ error: "audioBase64 is required" });
+    }
+
+    const audioBuffer = Buffer.from(audioBase64, "base64");
+    const formData = new FormData();
+    const blob = new Blob([audioBuffer], { type: mimeType });
+    formData.append("file", blob, `audio.${mimeType.split("/")[1] || "m4a"}`);
+    formData.append("model", GROQ_AUDIO_MODEL); // strictly whisper-large-v3 for audio transcriptions
+
+    const response = await axios.post(
+      "https://api.groq.com/openai/v1/audio/transcriptions",
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 30000,
+      }
+    );
+
+    const transcribedText = response.data?.text ?? "";
+    return res.status(200).json({ text: transcribedText });
+  } catch (err) {
+    const status = err.response?.status;
+    const data = err.response?.data;
+    console.error("Groq Transcription error:", status, data || err.message);
+    return res.status(500).json({
+      error: "Failed to transcribe audio with Whisper",
+      detail: data || err.message,
     });
   }
 });

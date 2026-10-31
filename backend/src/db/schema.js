@@ -200,6 +200,7 @@ export const appointments = pgTable("appointments", {
 /* ---------- Community Forum Posts (Frontend-compatible) ---------- */
 export const communityForumPosts = pgTable("community_forum_posts", {
   id: text("id").primaryKey(),
+  userId: text("user_id"),
   title: text("title").notNull(),
   message: text("message").notNull(),
   authorName: text("author_name").notNull(),

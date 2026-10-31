@@ -24,7 +24,7 @@ export const useStressScan = () => {
 
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const response = await api.get('/stress-scans', config);
-      
+
       if (response.data && response.data.success) {
         setScans(response.data.data || []);
       } else {
@@ -38,31 +38,34 @@ export const useStressScan = () => {
     }
   }, [isLoaded, isSignedIn]);
 
-  const submitScan = useCallback(async (requestData: StressScanRequest): Promise<StressScanResult | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = await tokenRef.current();
-      if (!token) throw new Error('Authentication token not available.');
+  const submitScan = useCallback(
+    async (requestData: StressScanRequest): Promise<StressScanResult | null> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = await tokenRef.current();
+        if (!token) throw new Error('Authentication token not available.');
 
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      const response = await api.post('/stress-scans', requestData, config);
-      
-      if (response.data && response.data.success) {
-        // Refresh the scans history list
-        await fetchScans();
-        return response.data.data;
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const response = await api.post('/stress-scans', requestData, config);
+
+        if (response.data && response.data.success) {
+          // Refresh the scans history list
+          await fetchScans();
+          return response.data.data;
+        }
+        return null;
+      } catch (err: any) {
+        console.error('Error submitting stress scan:', err);
+        const msg = err.response?.data?.error || err.message || 'Failed to submit stress scan';
+        setError(msg);
+        throw new Error(msg);
+      } finally {
+        setLoading(false);
       }
-      return null;
-    } catch (err: any) {
-      console.error('Error submitting stress scan:', err);
-      const msg = err.response?.data?.error || err.message || 'Failed to submit stress scan';
-      setError(msg);
-      throw new Error(msg);
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchScans]);
+    },
+    [fetchScans]
+  );
 
   useEffect(() => {
     fetchScans();

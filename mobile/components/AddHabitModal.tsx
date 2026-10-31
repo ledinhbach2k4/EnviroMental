@@ -1,4 +1,14 @@
-import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, Platform, ScrollView, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Modal,
+  FlatList,
+  Platform,
+  ScrollView,
+  StyleSheet,
+} from 'react-native';
 import React, { useState, useEffect } from 'react';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -104,7 +114,11 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
       }}
       onPress={() => setSelectedIcon(item)}
     >
-      <Icon name={item} size={24} color={selectedIcon === item ? colors.primary : colors.textMuted} />
+      <Icon
+        name={item}
+        size={24}
+        color={selectedIcon === item ? colors.primary : colors.textMuted}
+      />
     </TouchableOpacity>
   );
 
@@ -210,17 +224,8 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
   });
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={handleClose}
-    >
-      <Animated.View
-        entering={FadeInDown}
-        exiting={FadeOut}
-        style={styles.overlay}
-      >
+    <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={handleClose}>
+      <Animated.View entering={FadeInDown} exiting={FadeOut} style={styles.overlay}>
         <View style={[styles.container, { maxHeight: '85%' }]}>
           {/* 1. Static Header */}
           <View style={styles.header}>
@@ -247,19 +252,23 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
                 placeholderTextColor={colors.textMuted}
                 maxLength={50}
               />
-              {error ? (
-                <Text style={styles.errorText}>{error}</Text>
-              ) : null}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
 
             {/* Icon Grid (Use map and flexWrap instead of FlatList) */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Select Icon</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 10 }}>
-                {availableIcons.map(icon => (
-                  <React.Fragment key={icon}>
-                    {renderIconItem({ item: icon })}
-                  </React.Fragment>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  gap: 10,
+                  justifyContent: 'center',
+                  marginBottom: 10,
+                }}
+              >
+                {availableIcons.map((icon) => (
+                  <React.Fragment key={icon}>{renderIconItem({ item: icon })}</React.Fragment>
                 ))}
               </View>
               <TouchableOpacity
@@ -275,16 +284,12 @@ export default function AddHabitModal({ visible, onClose, onSave }: AddHabitModa
 
           {/* 3. Static Footer */}
           <View style={[styles.buttonRow, { paddingBottom: 16, flexDirection: 'row', gap: 16 }]}>
-            <TouchableOpacity
-              style={styles.buttonCancel}
-              onPress={handleClose}
-            >
-              <Text style={[typography.button, { color: colors.primary, textAlign: 'center' }]}>Cancel</Text>
+            <TouchableOpacity style={styles.buttonCancel} onPress={handleClose}>
+              <Text style={[typography.button, { color: colors.primary, textAlign: 'center' }]}>
+                Cancel
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.buttonSave}
-              onPress={handleSave}
-            >
+            <TouchableOpacity style={styles.buttonSave} onPress={handleSave}>
               <Text style={[typography.button, { textAlign: 'center' }]}>Save Habit</Text>
             </TouchableOpacity>
           </View>

@@ -1,48 +1,73 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# ==========================================
+# Mobile .gitignore (Expo / React Native)
+# ==========================================
 
-# dependencies
-node_modules/
-
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
+# Environment & Secrets (Crucial)
 .env
 .env.*
 .env*.local
 *.local
+!.env.example
 
-# typescript
-*.tsbuildinfo
+# Native Credentials, Keystores & Certificates
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+*.cert
 
-app-example
+# Dependencies
+node_modules/
 
+# Expo & Build Artifacts
+.expo/
+dist/
+web-build/
 build/
 coverage/
-Thumbs.db
-ios/
+expo-env.d.ts
+
+# Native Prebuild Folders & Caches
 android/
+ios/
+.kotlin/
+.gradle/
+*.orig.*
+
+# Metro & TypeScript
+.metro-health-check*
+*.tsbuildinfo
+
+# Package Manager & Debug Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.*
+*.log
+
+# System & OS Files
+.DS_Store
+.DS_Store?
+._*
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor
+.vscode/
+.idea/
+
+# Example / Template code
+app-example/
+
+# ARTEMIS/MCP Testing (local only - not committed)
+.artemis/
+.mcp/
+artemis-*.log
+mcp-*.log
+artemis-report/
+test-results/
+*.artemis.json
+mcp-config.json

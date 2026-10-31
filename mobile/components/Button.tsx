@@ -13,11 +13,11 @@ interface ButtonProps {
   rightIcon?: React.ReactNode;
 }
 
-export default function Button({ 
-  text, 
-  onPress, 
-  style, 
-  textStyle, 
+export default function Button({
+  text,
+  onPress,
+  style,
+  textStyle,
   variant = 'primary',
   size = 'medium',
   disabled = false,
@@ -99,13 +99,17 @@ export default function Button({
   ].filter(Boolean);
 
   const textStyles = [
-    variant === 'outline' ? styles.textOutline : variant === 'ghost' ? styles.textGhost : styles.text,
+    variant === 'outline'
+      ? styles.textOutline
+      : variant === 'ghost'
+      ? styles.textGhost
+      : styles.text,
     textStyle,
   ].filter(Boolean);
 
   return (
-    <TouchableOpacity 
-      style={buttonStyles} 
+    <TouchableOpacity
+      style={buttonStyles}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.8}

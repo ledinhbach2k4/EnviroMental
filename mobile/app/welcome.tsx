@@ -16,7 +16,10 @@ const WelcomeScreen = () => {
 
   const { started, start, crossfadeSwap } = useTransition({ duration: 450 });
 
-  const { outStyle: introStyle, inStyle: optionsStyle } = crossfadeSwap({ outOffsetY: -10, inOffsetY: 20 });
+  const { outStyle: introStyle, inStyle: optionsStyle } = crossfadeSwap({
+    outOffsetY: -10,
+    inOffsetY: 20,
+  });
 
   const handleGetStarted = () => {
     start();
@@ -50,7 +53,7 @@ const WelcomeScreen = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.centerContent}>        
+      <View style={styles.centerContent}>
         <View style={styles.contentWrapper}>
           <Animated.View
             style={{
@@ -64,10 +67,20 @@ const WelcomeScreen = () => {
               style={{ width: 400, height: 400, marginBottom: 5 }}
               contentFit="contain"
             />
-            <Text style={[typography.h1, { color: colors.primary, marginBottom: spacing.md, textAlign: 'center' }]}> 
+            <Text
+              style={[
+                typography.h1,
+                { color: colors.primary, marginBottom: spacing.md, textAlign: 'center' },
+              ]}
+            >
               Welcome to the app!
             </Text>
-            <Text style={[typography.body, { color: colors.textMuted, textAlign: 'center', marginBottom: spacing.lg }]}> 
+            <Text
+              style={[
+                typography.body,
+                { color: colors.textMuted, textAlign: 'center', marginBottom: spacing.lg },
+              ]}
+            >
               Discover your journey to mental wellness with helpful tools and articles.
             </Text>
             <Button
@@ -85,7 +98,12 @@ const WelcomeScreen = () => {
             }}
             pointerEvents={started ? 'auto' : 'none'}
           >
-            <Text style={[typography.h2, { color: colors.primary, marginBottom: spacing.lg, textAlign: 'center' }]}> 
+            <Text
+              style={[
+                typography.h2,
+                { color: colors.primary, marginBottom: spacing.lg, textAlign: 'center' },
+              ]}
+            >
               Start your journey
             </Text>
             <Button

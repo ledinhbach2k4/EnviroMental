@@ -1,10 +1,7 @@
 import axios, { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import { ENV } from '../constants/api';
 
-// --- NETWORK CONNECTION FIX ---
-// Issue: The mobile app (on an emulator/device) cannot connect to `localhost`.
-// Solution: Use the local IP address of the machine running the backend server.
-// Replace '192.168.1.10' with your IP address if it changes.
-const API_BASE_URL = 'https://enviromental-app-api.onrender.com/api';
+const API_BASE_URL = ENV.API_URL;
 
 // --- REQUEST DEDUPLICATOR (FAILSAFE) ---
 // Prevents duplicate GET requests to the same URL within a 5-second window
@@ -45,7 +42,8 @@ api.interceptors.request.use((config: ExtendedAxiosRequestConfig) => {
   const pending = pendingRequests.get(cacheKey);
   if (pending) {
     const elapsed = now - pending.timestamp;
-    if (elapsed < 5000) { // 5-second deduplication window
+    if (elapsed < 5000) {
+      // 5-second deduplication window
       console.log(`[API Deduplicator] Returning cached promise for: ${cacheKey}`);
       // Reject current request with deduplication marker
       return Promise.reject({ __deduplicated: true, promise: pending.promise });

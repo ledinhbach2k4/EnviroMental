@@ -19,11 +19,7 @@ const HabitsContext = createContext<HabitsContextType | undefined>(undefined);
 // Create the provider component
 export const HabitsProvider = ({ children }: { children: React.ReactNode }) => {
   const habitsData = useHabits();
-  return (
-    <HabitsContext.Provider value={habitsData}>
-      {children}
-    </HabitsContext.Provider>
-  );
+  return <HabitsContext.Provider value={habitsData}>{children}</HabitsContext.Provider>;
 };
 
 // Create a custom hook to consume the context

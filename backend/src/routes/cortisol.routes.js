@@ -11,13 +11,34 @@ const router = express.Router();
 // Apply auth middleware to all routes
 router.use(authMiddleware, userLookupMiddleware);
 
+const SAFE_CORTISOL_FALLBACK = {
+  score: null,
+  category: "unknown",
+  label: "Insufficient Data",
+  breakdown: { mood: null, habits: null, environment: null },
+  message: "Log your first mood or habit to see your cortisol risk score.",
+  warnings: ["No data available — log a mood or complete a habit to get started."],
+  circadianMultiplier: 1,
+  timestamp: new Date().toISOString(),
+};
+
 /**
- * GET /api/cortisol-score
+ * GET /api/cortisol-score (also handles /api/cortisol)
  * Returns the estimated cortisol risk score for the current user
+ * Guaranteed to return safe fallback rather than 500 for new accounts
  */
 router.get("/", async (req, res) => {
   try {
     const userId = req.internalUserId;
+    if (!userId) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          ...SAFE_CORTISOL_FALLBACK,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
 
     // Fetch mood entries (last 7 days for 3-day average)
     const sevenDaysAgo = new Date();
@@ -36,8 +57,8 @@ router.get("/", async (req, res) => {
       .orderBy(desc(schema.moodEntries.createdAt));
 
     // Fetch habits with today's completion status
-    const today = new Date().toISOString().split('T')[0];
-    
+    const today = new Date().toISOString().split("T")[0];
+
     const habitsData = await db
       .select()
       .from(schema.habits)
@@ -56,14 +77,20 @@ router.get("/", async (req, res) => {
 
     // Combine habits with today's completion status
     const logsMap = new Map();
-    habitLogs.forEach(l => {
-      logsMap.set(l.habit_logs.habitId, l.habit_logs.completed);
-    });
+    if (Array.isArray(habitLogs)) {
+      habitLogs.forEach((l) => {
+        if (l?.habit_logs) {
+          logsMap.set(l.habit_logs.habitId, l.habit_logs.completed);
+        }
+      });
+    }
 
-    const habits = habitsData.map(h => ({
-      ...h,
-      completedToday: logsMap.get(h.id) ?? false,
-    }));
+    const habits = Array.isArray(habitsData)
+      ? habitsData.map((h) => ({
+          ...h,
+          completedToday: logsMap.get(h.id) ?? false,
+        }))
+      : [];
 
     // Fetch latest environment data (last 24 hours)
     const dayAgo = new Date();
@@ -81,18 +108,29 @@ router.get("/", async (req, res) => {
       .orderBy(desc(schema.environmentData.recordedAt))
       .limit(1);
 
-    const latestEnv = environmentData[0] || null;
+    const latestEnv = (environmentData && environmentData[0]) || null;
 
-    // Calculate cortisol score - include Vietnam climate, humidity, light circadian, AQI
+    // Fast-path: brand-new account with no records
+    if ((!moodEntries || moodEntries.length === 0) && (!habits || habits.length === 0) && !latestEnv) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          ...SAFE_CORTISOL_FALLBACK,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    // Calculate cortisol score
     const result = calculateCortisolScore({
-      moodEntries,
-      habits,
+      moodEntries: moodEntries || [],
+      habits: habits || [],
       weather: latestEnv
         ? {
             temperature: latestEnv.temperature,
             humidity: latestEnv.humidity,
             lightLevel: latestEnv.lightLevel,
-            description: '',
+            description: "",
           }
         : null,
       airQuality: latestEnv
@@ -105,14 +143,17 @@ router.get("/", async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: result,
+      data: result || SAFE_CORTISOL_FALLBACK,
     });
   } catch (err) {
-    console.error("Error calculating cortisol score:", err);
-    res.status(500).json({ 
-      success: false, 
-      error: "Failed to calculate cortisol score", 
-      detail: err.message 
+    console.error("Error calculating cortisol score (returning safe default):", err);
+    // Return safe default object instead of 500 error for new accounts
+    res.status(200).json({
+      success: true,
+      data: {
+        ...SAFE_CORTISOL_FALLBACK,
+        timestamp: new Date().toISOString(),
+      },
     });
   }
 });

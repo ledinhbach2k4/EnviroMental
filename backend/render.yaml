@@ -3,6 +3,6 @@ services:
     name: enviromental-backend
     env: node
     rootDir: backend
-    buildCommand: npm install
-    preDeployCommand: npm run db:sync
+    buildCommand: npm run build:render
+    preDeployCommand: npm run db:push
     startCommand: npm start

@@ -9,6 +9,7 @@
     "moduleResolution": "bundler",
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
     "downlevelIteration": true,
     "paths": {
       "@/*": [

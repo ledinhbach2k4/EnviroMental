@@ -37,12 +37,12 @@ export interface ColorTokens {
     verySad: string;
   };
   gradients: {
-    primary: string[];
-    secondary: string[];
-    accent: string[];
-    wellness: string[];
-    calm: string[];
-    surface: string[];
+    primary: [string, string, ...string[]];
+    secondary: [string, string, ...string[]];
+    accent: [string, string, ...string[]];
+    wellness: [string, string, ...string[]];
+    calm: [string, string, ...string[]];
+    surface: [string, string, ...string[]];
   };
 }
 
@@ -129,7 +129,7 @@ export interface DesignTokens {
   };
 }
 
-export type ThemeName = 
+export type ThemeName =
   | 'ocean'
   | 'forest'
   | 'mint'

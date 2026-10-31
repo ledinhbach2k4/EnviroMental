@@ -4,7 +4,7 @@ dotenv.config();
 
 import app from './app.js';
 import { ENV } from './config/env.js';
-import forumRoutes from './routes/forum.js';
+import forumRoutes from './routes/forum.routes.js';
 
 const PORT = ENV.PORT || 5001;
 

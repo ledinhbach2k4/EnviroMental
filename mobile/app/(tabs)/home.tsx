@@ -66,24 +66,34 @@ interface MoodEntry {
 // Constants
 const moodEmojis = ['😢', '😕', '😐', '😊', '😄'];
 const TIME_RANGES = ['Day', 'Week', 'Month', 'Year'] as const;
-type TimeRange = typeof TIME_RANGES[number];
+type TimeRange = (typeof TIME_RANGES)[number];
 
 // Helper Functions
 const getAqiLabel = (aqi: number) => {
   switch (aqi) {
-    case 1: return 'Good';
-    case 2: return 'Fair';
-    case 3: return 'Moderate';
-    case 4: return 'Poor';
-    case 5: return 'Very Poor';
-    default: return 'Unknown';
+    case 1:
+      return 'Good';
+    case 2:
+      return 'Fair';
+    case 3:
+      return 'Moderate';
+    case 4:
+      return 'Poor';
+    case 5:
+      return 'Very Poor';
+    default:
+      return 'Unknown';
   }
 };
 
 const CardContent = ({ children }: { children: React.ReactNode }) => <>{children}</>;
-const AndroidCardContent = ({ style, children }: { style?: StyleProp<ViewStyle>; children: React.ReactNode }) => (
-  <View style={style}>{children}</View>
-);
+const AndroidCardContent = ({
+  style,
+  children,
+}: {
+  style?: StyleProp<ViewStyle>;
+  children: React.ReactNode;
+}) => <View style={style}>{children}</View>;
 const CardWrapper = Platform.OS === 'android' ? AndroidCardContent : CardContent;
 
 // Main Component
@@ -95,13 +105,22 @@ export default function Home() {
   const shadows = useShadows();
   const insets = useSafeAreaInsets();
 
-  const moodColors = useMemo(() => [
-    colors.mood.verySad,
-    colors.mood.sad,
-    colors.mood.neutral,
-    colors.mood.happy,
-    colors.mood.veryHappy,
-  ], [colors.mood.verySad, colors.mood.sad, colors.mood.neutral, colors.mood.happy, colors.mood.veryHappy]);
+  const moodColors = useMemo(
+    () => [
+      colors.mood.verySad,
+      colors.mood.sad,
+      colors.mood.neutral,
+      colors.mood.happy,
+      colors.mood.veryHappy,
+    ],
+    [
+      colors.mood.verySad,
+      colors.mood.sad,
+      colors.mood.neutral,
+      colors.mood.happy,
+      colors.mood.veryHappy,
+    ]
+  );
 
   // State
   const [greeting, setGreeting] = useState('');
@@ -120,7 +139,9 @@ export default function Home() {
   // Emergency Modal State
   const [isEmergencyModalVisible, setIsEmergencyModalVisible] = useState(false);
   const [emergencyStep, setEmergencyStep] = useState<1 | 2>(1);
-  const [selectedTarget, setSelectedTarget] = useState<{ title: string; phone: string } | null>(null);
+  const [selectedTarget, setSelectedTarget] = useState<{ title: string; phone: string } | null>(
+    null
+  );
   const [currentLocation, setCurrentLocation] = useState<string>('Updating your location...');
   const [locationFetched, setLocationFetched] = useState(false);
   const swipeAnim = useRef(new Animated.Value(0)).current;
@@ -165,13 +186,24 @@ export default function Home() {
   // Hooks
   const { getToken } = useAuth();
   const { habits, loading: habitsLoading, refetch: refetchHabits } = useSharedHabits();
-  const { data: cortisolData, loading: cortisolLoading, error: cortisolError, refetch: refetchCortisol } = useCortisolScore();
+  const {
+    data: cortisolData,
+    loading: cortisolLoading,
+    error: cortisolError,
+    refetch: refetchCortisol,
+  } = useCortisolScore();
 
   // Create a ref to hold the unstable getToken function
   const tokenRef = useRef(getToken);
   useEffect(() => {
     tokenRef.current = getToken;
   }, [getToken]);
+
+  // Keep moodColors in a ref so fetchMood has an empty dependency array []
+  const moodColorsRef = useRef(moodColors);
+  useEffect(() => {
+    moodColorsRef.current = moodColors;
+  }, [moodColors]);
 
   // Cooldown Refs (for mood/weather/airQuality - habits/cortisol use module-level)
   const isFetchingMoodRef = useRef(false);
@@ -206,7 +238,9 @@ export default function Home() {
         }
       }
       const location = await Location.getCurrentPositionAsync({});
-      setCurrentLocation(`Lat: ${location.coords.latitude.toFixed(4)}, Lon: ${location.coords.longitude.toFixed(4)}`);
+      setCurrentLocation(
+        `Lat: ${location.coords.latitude.toFixed(4)}, Lon: ${location.coords.longitude.toFixed(4)}`
+      );
       setLocationFetched(true);
     } catch (error) {
       console.error('Failed to get location:', error);
@@ -223,12 +257,15 @@ export default function Home() {
     swipeAnim.setValue(0);
   }, []);
 
-  const handleEmergencyOptionPress = useCallback((target: { title: string; phone: string }) => {
-    setSelectedTarget(target);
-    setEmergencyStep(2);
-    // Fetch location immediately when entering step 2
-    fetchCurrentLocation();
-  }, [fetchCurrentLocation]);
+  const handleEmergencyOptionPress = useCallback(
+    (target: { title: string; phone: string }) => {
+      setSelectedTarget(target);
+      setEmergencyStep(2);
+      // Fetch location immediately when entering step 2
+      fetchCurrentLocation();
+    },
+    [fetchCurrentLocation]
+  );
 
   // Effects
   useEffect(() => {
@@ -291,14 +328,18 @@ export default function Home() {
       const cached = await AsyncStorage.getItem('cached_moods');
       if (cached) {
         const parsed: MoodEntry[] = JSON.parse(cached);
-        const sorted = parsed.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        const sorted = parsed.sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
         setMoodEntries(sorted);
         if (sorted.length > 0) {
           const latest = sorted[sorted.length - 1];
-          setMood({ value: moodEmojis[latest.moodLevel], color: moodColors[latest.moodLevel] });
+          setMood({ value: moodEmojis[latest.moodLevel], color: moodColorsRef.current[latest.moodLevel] });
         }
       }
-    } catch (_) { /* ignore cache read errors */ }
+    } catch (_) {
+      /* ignore cache read errors */
+    }
 
     // 2. REVALIDATE: Fetch fresh data from API
     try {
@@ -317,12 +358,17 @@ export default function Home() {
       }
 
       const entries: MoodEntry[] = await res.json();
-      const sortedEntries = entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const sortedEntries = entries.sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
       setMoodEntries(sortedEntries);
 
       if (sortedEntries.length > 0) {
         const latestMood = sortedEntries[sortedEntries.length - 1];
-        setMood({ value: moodEmojis[latestMood.moodLevel], color: moodColors[latestMood.moodLevel] });
+        setMood({
+          value: moodEmojis[latestMood.moodLevel],
+          color: moodColorsRef.current[latestMood.moodLevel],
+        });
       } else {
         setMood(null);
       }
@@ -336,7 +382,7 @@ export default function Home() {
       isFetchingMoodRef.current = false;
       setLoadingMood(false);
     }
-  }, [moodColors]);
+  }, []);
 
   const fetchWeather = useCallback(async (force = false) => {
     const now = Date.now();
@@ -359,7 +405,9 @@ export default function Home() {
       if (cached) {
         setWeather(JSON.parse(cached));
       }
-    } catch (_) { /* ignore cache read errors */ }
+    } catch (_) {
+      /* ignore cache read errors */
+    }
 
     try {
       const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
@@ -389,7 +437,7 @@ export default function Home() {
         loc = await Location.getCurrentPositionAsync({});
       } catch (locErr: any) {
         console.warn('Location unavailable, using fallback:', locErr.message);
-        loc = { coords: { latitude: 40.7128, longitude: -74.0060 } };
+        loc = { coords: { latitude: 40.7128, longitude: -74.006 } };
       }
 
       const apiKey = Constants.expoConfig?.extra?.openWeatherApiKey;
@@ -403,7 +451,11 @@ export default function Home() {
       );
       if (!res.ok) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
-      const weatherData = { temperature: Math.round(data.main.temp), description: data.weather[0].description, city: data.name };
+      const weatherData = {
+        temperature: Math.round(data.main.temp),
+        description: data.weather[0].description,
+        city: data.name,
+      };
       setWeather(weatherData);
       setErrorMsg(null);
       locationPermissionDeniedRef.current = false;
@@ -415,7 +467,12 @@ export default function Home() {
         console.warn('Weather fetch timed out');
         return;
       }
-      if (err.message?.includes('location') || err.message?.includes('permission') || err.message?.includes('GPS') || err.message?.includes('unavailable')) {
+      if (
+        err.message?.includes('location') ||
+        err.message?.includes('permission') ||
+        err.message?.includes('GPS') ||
+        err.message?.includes('unavailable')
+      ) {
         lastLocationErrorTimeRef.current = now;
         setErrorMsg('Location unavailable. Weather data cannot be fetched.');
       } else {
@@ -448,7 +505,9 @@ export default function Home() {
       if (cached) {
         setAirQuality(JSON.parse(cached));
       }
-    } catch (_) { /* ignore cache read errors */ }
+    } catch (_) {
+      /* ignore cache read errors */
+    }
 
     try {
       const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
@@ -463,7 +522,9 @@ export default function Home() {
         if (status === 'denied') {
           locationPermissionDeniedRef.current = true;
           lastLocationErrorTimeRef.current = now;
-          setErrorAirPollution('Location permission denied. Enable in settings to use air quality.');
+          setErrorAirPollution(
+            'Location permission denied. Enable in settings to use air quality.'
+          );
           return;
         }
         if (status !== 'granted') {
@@ -478,7 +539,7 @@ export default function Home() {
         loc = await Location.getCurrentPositionAsync({});
       } catch (locErr: any) {
         console.warn('Location unavailable, using fallback:', locErr.message);
-        loc = { coords: { latitude: 40.7128, longitude: -74.0060 } };
+        loc = { coords: { latitude: 40.7128, longitude: -74.006 } };
       }
 
       const apiKey = Constants.expoConfig?.extra?.openWeatherApiKey;
@@ -508,7 +569,12 @@ export default function Home() {
         console.warn('Air quality fetch timed out');
         return;
       }
-      if (err.message?.includes('location') || err.message?.includes('permission') || err.message?.includes('GPS') || err.message?.includes('unavailable')) {
+      if (
+        err.message?.includes('location') ||
+        err.message?.includes('permission') ||
+        err.message?.includes('GPS') ||
+        err.message?.includes('unavailable')
+      ) {
         lastLocationErrorTimeRef.current = now;
         setErrorAirPollution('Location unavailable. Air quality data cannot be fetched.');
       } else {
@@ -547,21 +613,31 @@ export default function Home() {
     switch (timeRange) {
       case 'Day': {
         const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        const dayEntries = moodEntries.filter(e => new Date(e.createdAt) > oneDayAgo);
+        const dayEntries = moodEntries.filter((e) => new Date(e.createdAt) > oneDayAgo);
         const recentEntries = dayEntries.slice(-10);
-        labels = recentEntries.map(e => new Date(e.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
-        dataPoints = recentEntries.map(e => e.moodLevel);
+        labels = recentEntries.map((e) =>
+          new Date(e.createdAt).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          })
+        );
+        dataPoints = recentEntries.map((e) => e.moodLevel);
         break;
       }
       case 'Week': {
         const weekData = Array(7).fill(null);
         const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const today = now.getDay();
-        labels = Array(7).fill(0).map((_, i) => dayLabels[(today - 6 + i + 7) % 7]);
+        labels = Array(7)
+          .fill(0)
+          .map((_, i) => dayLabels[(today - 6 + i + 7) % 7]);
 
         for (let i = 0; i < 7; i++) {
           const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-          const dayEntries = moodEntries.filter(e => new Date(e.createdAt).toDateString() === day.toDateString());
+          const dayEntries = moodEntries.filter(
+            (e) => new Date(e.createdAt).toDateString() === day.toDateString()
+          );
           if (dayEntries.length > 0) {
             const avg = dayEntries.reduce((sum, e) => sum + e.moodLevel, 0) / dayEntries.length;
             weekData[6 - i] = avg;
@@ -572,11 +648,18 @@ export default function Home() {
       }
       case 'Month': {
         const monthData = Array(30).fill(null);
-        labels = Array(30).fill(0).map((_, i) => `${new Date(now.getFullYear(), now.getMonth(), now.getDate() - (29 - i)).getDate()}`);
+        labels = Array(30)
+          .fill(0)
+          .map(
+            (_, i) =>
+              `${new Date(now.getFullYear(), now.getMonth(), now.getDate() - (29 - i)).getDate()}`
+          );
 
         for (let i = 0; i < 30; i++) {
           const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-          const dayEntries = moodEntries.filter(e => new Date(e.createdAt).toDateString() === day.toDateString());
+          const dayEntries = moodEntries.filter(
+            (e) => new Date(e.createdAt).toDateString() === day.toDateString()
+          );
           if (dayEntries.length > 0) {
             const avg = dayEntries.reduce((sum, e) => sum + e.moodLevel, 0) / dayEntries.length;
             monthData[29 - i] = avg;
@@ -587,14 +670,29 @@ export default function Home() {
       }
       case 'Year': {
         const yearData = Array(12).fill(null);
-        const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthLabels = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ];
         const currentMonth = now.getMonth();
-        labels = Array(12).fill(0).map((_, i) => monthLabels[(currentMonth - 11 + i + 12) % 12]);
+        labels = Array(12)
+          .fill(0)
+          .map((_, i) => monthLabels[(currentMonth - 11 + i + 12) % 12]);
 
         for (let i = 0; i < 12; i++) {
           const month = (now.getMonth() - i + 12) % 12;
           const year = now.getFullYear() - (i > now.getMonth() ? 1 : 0);
-          const monthEntries = moodEntries.filter(e => {
+          const monthEntries = moodEntries.filter((e) => {
             const d = new Date(e.createdAt);
             return d.getMonth() === month && d.getFullYear() === year;
           });
@@ -608,155 +706,161 @@ export default function Home() {
       }
     }
 
-    if (dataPoints.every(p => p === null)) return null;
+    if (dataPoints.every((p) => p === null)) return null;
 
     return {
       labels,
-      datasets: [{
-        data: dataPoints.map(p => p ?? 0),
-        color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
-        strokeWidth: 2,
-      }],
-      legend: [`${timeRange}ly Mood Trend`]
+      datasets: [
+        {
+          data: dataPoints.map((p) => p ?? 0),
+          color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+          strokeWidth: 2,
+        },
+      ],
+      legend: [`${timeRange}ly Mood Trend`],
     };
   }, [moodEntries, timeRange]);
 
   // Styles
-  const styles = useMemo(() => StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    content: {
-      flex: 1,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-    },
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
-      padding: spacing.lg,
-      marginVertical: spacing.sm,
-      ...shadows.sm,
-    },
-    cardSmall: {
-      backgroundColor: colors.surface,
-      padding: spacing.md,
-      marginVertical: spacing.xs,
-      ...shadows.xs,
-    },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    spaceBetween: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    fab: {
-      position: 'absolute',
-      bottom: spacing.lg,
-      right: spacing.lg,
-      width: spacing.xxxl + spacing.md,
-      height: spacing.xxxl + spacing.md,
-      borderRadius: radii.full,
-      backgroundColor: colors.accent,
-      alignItems: 'center',
-      justifyContent: 'center',
-      ...shadows.md,
-    },
-    disabled: {
-      opacity: 0.5,
-    },
-    // Emergency Modal Styles
-    modalBackdrop: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'flex-end',
-    },
-    modalContainer: {
-      backgroundColor: colors.surface,
-      borderTopLeftRadius: radii.xl,
-      borderTopRightRadius: radii.xl,
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.md,
-      paddingBottom: spacing.xl + insets.bottom,
-      maxHeight: '85%',
-      ...shadows.lg,
-    },
-    closeButton: {
-      position: 'absolute',
-      top: spacing.sm,
-      right: spacing.sm,
-      zIndex: 10,
-      padding: spacing.xs,
-    },
-    modalContent: {
-      width: '100%',
-    },
-    optionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radii.lg,
-      padding: spacing.lg,
-      marginBottom: spacing.md,
-      ...shadows.xs,
-    },
-    optionIconWrapper: {
-      width: 56,
-      height: 56,
-      borderRadius: radii.full,
-      backgroundColor: colors.primary + '15',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: spacing.md,
-    },
-    optionTextWrapper: {
-      flex: 1,
-    },
-    locationCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.primary + '10',
-      borderRadius: radii.md,
-      padding: spacing.md,
-      marginBottom: spacing.xl,
-      borderWidth: 1,
-      borderColor: colors.primary + '30',
-    },
-    swipeContainer: {
-      marginTop: spacing.md,
-    },
-    swipeTrack: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      height: 64,
-      backgroundColor: colors.danger,
-      borderRadius: radii.full,
-      paddingHorizontal: spacing.md,
-      overflow: 'hidden',
-      ...shadows.md,
-    },
-    swipeThumb: {
-      width: 64,
-      height: 64,
-      borderRadius: radii.full,
-      backgroundColor: colors.textInverse,
-      alignItems: 'center',
-      justifyContent: 'center',
-      ...shadows.md,
-    },
-    swipeLabel: {
-      flex: 1,
-      textAlign: 'center',
-      marginRight: 64,
-    },
-  }), [colors, spacing, radii, shadows, insets]);
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        content: {
+          flex: 1,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.sm,
+        },
+        card: {
+          backgroundColor: colors.surface,
+          borderRadius: radii.lg,
+          padding: spacing.lg,
+          marginVertical: spacing.sm,
+          ...shadows.sm,
+        },
+        cardSmall: {
+          backgroundColor: colors.surface,
+          padding: spacing.md,
+          marginVertical: spacing.xs,
+          ...shadows.xs,
+        },
+        row: {
+          flexDirection: 'row',
+          alignItems: 'center',
+        },
+        spaceBetween: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        },
+        fab: {
+          position: 'absolute',
+          bottom: spacing.lg,
+          right: spacing.lg,
+          width: spacing.xxxl + spacing.md,
+          height: spacing.xxxl + spacing.md,
+          borderRadius: radii.full,
+          backgroundColor: colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+          ...shadows.md,
+        },
+        disabled: {
+          opacity: 0.5,
+        },
+        // Emergency Modal Styles
+        modalBackdrop: {
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          justifyContent: 'flex-end',
+        },
+        modalContainer: {
+          backgroundColor: colors.surface,
+          borderTopLeftRadius: radii.xl,
+          borderTopRightRadius: radii.xl,
+          paddingHorizontal: spacing.lg,
+          paddingTop: spacing.md,
+          paddingBottom: spacing.xl + insets.bottom,
+          maxHeight: '85%',
+          ...shadows.lg,
+        },
+        closeButton: {
+          position: 'absolute',
+          top: spacing.sm,
+          right: spacing.sm,
+          zIndex: 10,
+          padding: spacing.xs,
+        },
+        modalContent: {
+          width: '100%',
+        },
+        optionButton: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radii.lg,
+          padding: spacing.lg,
+          marginBottom: spacing.md,
+          ...shadows.xs,
+        },
+        optionIconWrapper: {
+          width: 56,
+          height: 56,
+          borderRadius: radii.full,
+          backgroundColor: colors.primary + '15',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: spacing.md,
+        },
+        optionTextWrapper: {
+          flex: 1,
+        },
+        locationCard: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: colors.primary + '10',
+          borderRadius: radii.md,
+          padding: spacing.md,
+          marginBottom: spacing.xl,
+          borderWidth: 1,
+          borderColor: colors.primary + '30',
+        },
+        swipeContainer: {
+          marginTop: spacing.md,
+        },
+        swipeTrack: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: 64,
+          backgroundColor: colors.danger,
+          borderRadius: radii.full,
+          paddingHorizontal: spacing.md,
+          overflow: 'hidden',
+          ...shadows.md,
+        },
+        swipeThumb: {
+          width: 64,
+          height: 64,
+          borderRadius: radii.full,
+          backgroundColor: colors.textInverse,
+          alignItems: 'center',
+          justifyContent: 'center',
+          ...shadows.md,
+        },
+        swipeLabel: {
+          flex: 1,
+          textAlign: 'center',
+          marginRight: 64,
+        },
+      }),
+    [colors, spacing, radii, shadows, insets]
+  );
 
   // Other Logic
   const handleEmergency = () => {
@@ -782,7 +886,10 @@ export default function Home() {
     },
     {
       title: 'Current Weather',
-      value: loadingWeather ? '...' : errorMsg || (weather ? `${weather.temperature}°C, ${weather.description}` : 'No location'),
+      value: loadingWeather
+        ? '...'
+        : errorMsg ||
+          (weather ? `${weather.temperature}°C, ${weather.description}` : 'No location'),
       icon: 'cloud-outline',
       color: colors.primary,
       onRetry: errorMsg ? () => fetchWeather(true) : undefined,
@@ -791,9 +898,16 @@ export default function Home() {
       title: 'Air Quality',
       value: loadingAirQuality
         ? 'Loading...'
-        : errorAirPollution || (airQuality ? `${getAqiLabel(airQuality.aqi)} (AQI: ${airQuality.aqi})` : 'Unavailable'),
+        : errorAirPollution ||
+          (airQuality ? `${getAqiLabel(airQuality.aqi)} (AQI: ${airQuality.aqi})` : 'Unavailable'),
       icon: 'leaf-outline',
-      color: airQuality ? (airQuality.aqi <= 2 ? colors.success : airQuality.aqi === 3 ? colors.warning : colors.danger) : colors.textMuted,
+      color: airQuality
+        ? airQuality.aqi <= 2
+          ? colors.success
+          : airQuality.aqi === 3
+          ? colors.warning
+          : colors.danger
+        : colors.textMuted,
       onRetry: errorAirPollution ? () => fetchAirQuality(true) : undefined,
     },
   ];
@@ -809,7 +923,12 @@ export default function Home() {
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
             <Text style={typography.h1}>{greeting}!</Text>
-            <Icon name={greetingIcon} size={36} color={colors.primary} style={{ marginLeft: spacing.md, transform: [{ translateY: -2 }] }} />
+            <Icon
+              name={greetingIcon}
+              size={36}
+              color={colors.primary}
+              style={{ marginLeft: spacing.md, transform: [{ translateY: -2 }] }}
+            />
           </View>
           <Text style={typography.bodySmall}>Take a moment for your mental health</Text>
         </View>
@@ -842,10 +961,18 @@ export default function Home() {
                 style={[
                   styles.row,
                   { marginTop: spacing.lg, paddingBottom: spacing.lg },
-                  index < quickStats.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border + '50' },
+                  index < quickStats.length - 1 && {
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border + '50',
+                  },
                 ]}
               >
-                <Icon name={stat.icon} size={24} color={stat.color} style={{ marginRight: spacing.md }} />
+                <Icon
+                  name={stat.icon}
+                  size={24}
+                  color={stat.color}
+                  style={{ marginRight: spacing.md }}
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={typography.caption}>{stat.title}</Text>
                   <Text style={typography.body}>{stat.value}</Text>
@@ -865,16 +992,29 @@ export default function Home() {
         </View>
 
         {loadingMood ? (
-          <View style={[styles.card, { marginBottom: spacing.xl, justifyContent: 'center', alignItems: 'center' }]}>
+          <View
+            style={[
+              styles.card,
+              { marginBottom: spacing.xl, justifyContent: 'center', alignItems: 'center' },
+            ]}
+          >
             <Text>Loading mood chart...</Text>
           </View>
         ) : processedChartData ? (
           <View style={[styles.card, { marginBottom: spacing.xl }]}>
             <View style={styles.spaceBetween}>
-              <Text style={typography.h3}>{timeRange === 'Day' ? 'Daily' : `${timeRange}ly`} Mood Chart</Text>
+              <Text style={typography.h3}>
+                {timeRange === 'Day' ? 'Daily' : `${timeRange}ly`} Mood Chart
+              </Text>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: spacing.lg }}>
-              {TIME_RANGES.map(range => (
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-around',
+                marginVertical: spacing.lg,
+              }}
+            >
+              {TIME_RANGES.map((range) => (
                 <TouchableOpacity
                   key={range}
                   onPress={() => setTimeRange(range)}
@@ -885,7 +1025,14 @@ export default function Home() {
                     backgroundColor: timeRange === range ? colors.primary : 'transparent',
                   }}
                 >
-                  <Text style={{ color: timeRange === range ? colors.textInverse : colors.primary, fontWeight: '600' }}>{range}</Text>
+                  <Text
+                    style={{
+                      color: timeRange === range ? colors.textInverse : colors.primary,
+                      fontWeight: '600',
+                    }}
+                  >
+                    {range}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -907,23 +1054,41 @@ export default function Home() {
                 propsForBackgroundLines: { strokeDasharray: '' },
               }}
               bezier
-              style={{ marginVertical: spacing.md, borderRadius: 16, paddingRight: 32, paddingTop: 16 }}
+              style={{
+                marginVertical: spacing.md,
+                borderRadius: 16,
+                paddingRight: 32,
+                paddingTop: 16,
+              }}
               fromZero
               formatYLabel={(y) => Math.round(parseFloat(y)).toString()}
             />
           </View>
         ) : (
-          <View style={[styles.card, { marginBottom: spacing.xl, justifyContent: 'center', alignItems: 'center' }]}>
+          <View
+            style={[
+              styles.card,
+              { marginBottom: spacing.xl, justifyContent: 'center', alignItems: 'center' },
+            ]}
+          >
             <Text>No mood data available to display chart.</Text>
           </View>
         )}
 
         <View style={{ marginBottom: spacing.xl }}>
-          <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/(tabs)/mood')}>
+          <TouchableOpacity
+            style={[styles.card, { marginBottom: spacing.md }]}
+            onPress={() => router.push('/(tabs)/mood')}
+          >
             <CardWrapper>
               <View style={styles.spaceBetween}>
                 <View style={styles.row}>
-                  <Icon name="heart" size={24} color={colors.primary} style={{ marginRight: spacing.md }} />
+                  <Icon
+                    name="heart"
+                    size={24}
+                    color={colors.primary}
+                    style={{ marginRight: spacing.md }}
+                  />
                   <View>
                     <Text style={typography.body}>Log Mood</Text>
                     <Text style={typography.caption}>Track your emotional state</Text>
@@ -934,26 +1099,42 @@ export default function Home() {
             </CardWrapper>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/forum')}>
-              <CardWrapper>
-                <View style={styles.spaceBetween}>
-                  <View style={styles.row}>
-                    <Icon name="chatbubbles" size={24} color={colors.warning} style={{ marginRight: spacing.md }} />
-                    <View>
-                      <Text style={typography.body}>Community Forum</Text>
-                      <Text style={typography.caption}>Connect with others</Text>
-                    </View>
-                  </View>
-                  <Icon name="chevron-forward" size={20} color={colors.textMuted} />
-                </View>
-              </CardWrapper>
-            </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/(tabs)/mindfulness')}>
+          <TouchableOpacity
+            style={[styles.card, { marginBottom: spacing.md }]}
+            onPress={() => router.push('/forum')}
+          >
             <CardWrapper>
               <View style={styles.spaceBetween}>
                 <View style={styles.row}>
-                  <Icon name="leaf" size={24} color={colors.success} style={{ marginRight: spacing.md }} />
+                  <Icon
+                    name="chatbubbles"
+                    size={24}
+                    color={colors.warning}
+                    style={{ marginRight: spacing.md }}
+                  />
+                  <View>
+                    <Text style={typography.body}>Community Forum</Text>
+                    <Text style={typography.caption}>Connect with others</Text>
+                  </View>
+                </View>
+                <Icon name="chevron-forward" size={20} color={colors.textMuted} />
+              </View>
+            </CardWrapper>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.card, { marginBottom: spacing.md }]}
+            onPress={() => router.push('/(tabs)/mindfulness')}
+          >
+            <CardWrapper>
+              <View style={styles.spaceBetween}>
+                <View style={styles.row}>
+                  <Icon
+                    name="leaf"
+                    size={24}
+                    color={colors.success}
+                    style={{ marginRight: spacing.md }}
+                  />
                   <View>
                     <Text style={typography.body}>Mindfulness</Text>
                     <Text style={typography.caption}>Find your inner peace</Text>
@@ -964,11 +1145,19 @@ export default function Home() {
             </CardWrapper>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.card, { marginBottom: spacing.md }]} onPress={() => router.push('/(tabs)/habits')}>
+          <TouchableOpacity
+            style={[styles.card, { marginBottom: spacing.md }]}
+            onPress={() => router.push('/(tabs)/habits')}
+          >
             <CardWrapper>
               <View style={styles.spaceBetween}>
                 <View style={styles.row}>
-                  <Icon name="checkmark-circle" size={24} color={colors.success} style={{ marginRight: spacing.md }} />
+                  <Icon
+                    name="checkmark-circle"
+                    size={24}
+                    color={colors.success}
+                    style={{ marginRight: spacing.md }}
+                  />
                   <View>
                     <Text style={typography.body}>Check Habits</Text>
                     <Text style={typography.caption}>Mark today&apos;s progress</Text>
@@ -983,14 +1172,23 @@ export default function Home() {
         <View style={[styles.card, { marginBottom: spacing.xxl }]}>
           <CardWrapper>
             <View style={{ alignItems: 'center' }}>
-              <Icon name="medical" size={32} color={colors.danger} style={{ marginBottom: spacing.lg }} />
+              <Icon
+                name="medical"
+                size={32}
+                color={colors.danger}
+                style={{ marginBottom: spacing.lg }}
+              />
               <Text style={[typography.h3, { color: colors.danger, marginBottom: spacing.sm }]}>
                 Need Immediate Help?
               </Text>
               <Text style={[typography.caption, { textAlign: 'center', marginBottom: spacing.lg }]}>
                 If you&apos;re in crisis, don&apos;t hesitate to reach out for support
               </Text>
-              <Button text="Emergency Support" onPress={handleEmergency} style={{ backgroundColor: colors.danger, width: '100%' }} />
+              <Button
+                text="Emergency Support"
+                onPress={handleEmergency}
+                style={{ backgroundColor: colors.danger, width: '100%' }}
+              />
             </View>
           </CardWrapper>
         </View>
@@ -1006,15 +1204,26 @@ export default function Home() {
         <View style={styles.modalBackdrop} onTouchStart={closeEmergencyModal}>
           <View style={styles.modalContainer}>
             {/* Close Button */}
-            <TouchableOpacity style={styles.closeButton} onPress={closeEmergencyModal} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={closeEmergencyModal}
+              activeOpacity={0.7}
+            >
               <Ionicons name="close" size={28} color={colors.textMuted} />
             </TouchableOpacity>
 
             {emergencyStep === 1 && (
               <View style={styles.modalContent}>
                 {/* Step 1: Selection View */}
-                <Text style={[typography.h3, { marginBottom: spacing.sm, color: colors.text }]}>Emergency Assistance</Text>
-                <Text style={[typography.body, { color: colors.textMuted, marginBottom: spacing.xl, textAlign: 'center' }]}>
+                <Text style={[typography.h3, { marginBottom: spacing.sm, color: colors.text }]}>
+                  Emergency Assistance
+                </Text>
+                <Text
+                  style={[
+                    typography.body,
+                    { color: colors.textMuted, marginBottom: spacing.xl, textAlign: 'center' },
+                  ]}
+                >
                   Who would you like to contact?
                 </Text>
 
@@ -1028,8 +1237,12 @@ export default function Home() {
                     <Ionicons name="shield-checkmark" size={28} color={colors.primary} />
                   </View>
                   <View style={styles.optionTextWrapper}>
-                    <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Authorities</Text>
-                    <Text style={[typography.caption, { color: colors.textMuted }]}>113 (Emergency Services)</Text>
+                    <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
+                      Authorities
+                    </Text>
+                    <Text style={[typography.caption, { color: colors.textMuted }]}>
+                      113 (Emergency Services)
+                    </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={24} color={colors.textMuted} />
                 </TouchableOpacity>
@@ -1037,15 +1250,21 @@ export default function Home() {
                 {/* Option B: Personal Emergency Contact */}
                 <TouchableOpacity
                   style={styles.optionButton}
-                  onPress={() => handleEmergencyOptionPress({ title: 'Personal Contact', phone: '0123456789' })}
+                  onPress={() =>
+                    handleEmergencyOptionPress({ title: 'Personal Contact', phone: '0123456789' })
+                  }
                   activeOpacity={0.8}
                 >
                   <View style={styles.optionIconWrapper}>
                     <Ionicons name="person-outline" size={28} color={colors.success} />
                   </View>
                   <View style={styles.optionTextWrapper}>
-                    <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>Personal Emergency Contact</Text>
-                    <Text style={[typography.caption, { color: colors.textMuted }]}>0123456789</Text>
+                    <Text style={[typography.body, { color: colors.text, fontWeight: '600' }]}>
+                      Personal Emergency Contact
+                    </Text>
+                    <Text style={[typography.caption, { color: colors.textMuted }]}>
+                      0123456789
+                    </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={24} color={colors.textMuted} />
                 </TouchableOpacity>
@@ -1055,21 +1274,43 @@ export default function Home() {
             {emergencyStep === 2 && selectedTarget && (
               <View style={styles.modalContent}>
                 {/* Step 2: Swipe-to-Call & Location View */}
-                <Text style={[typography.h3, { marginBottom: spacing.sm, color: colors.text }]}>Confirm Call</Text>
-                <Text style={[typography.body, { color: colors.textMuted, marginBottom: spacing.lg, textAlign: 'center' }]}>
-                  Calling <Text style={{ fontWeight: '600', color: colors.danger }}>{selectedTarget.title}</Text>
+                <Text style={[typography.h3, { marginBottom: spacing.sm, color: colors.text }]}>
+                  Confirm Call
+                </Text>
+                <Text
+                  style={[
+                    typography.body,
+                    { color: colors.textMuted, marginBottom: spacing.lg, textAlign: 'center' },
+                  ]}
+                >
+                  Calling{' '}
+                  <Text style={{ fontWeight: '600', color: colors.danger }}>
+                    {selectedTarget.title}
+                  </Text>
                 </Text>
 
                 {/* Location Display */}
                 <View style={styles.locationCard}>
-                  <Ionicons name="location" size={20} color={locationFetched ? colors.success : colors.warning} style={{ marginRight: spacing.sm }} />
-                  <Text style={[typography.body, { color: colors.text, flex: 1 }]}>{currentLocation}</Text>
+                  <Ionicons
+                    name="location"
+                    size={20}
+                    color={locationFetched ? colors.success : colors.warning}
+                    style={{ marginRight: spacing.sm }}
+                  />
+                  <Text style={[typography.body, { color: colors.text, flex: 1 }]}>
+                    {currentLocation}
+                  </Text>
                   {!locationFetched && <Ionicons name="refresh" size={20} color={colors.primary} />}
                 </View>
 
                 {/* Swipe to Call Button */}
                 <View style={styles.swipeContainer}>
-                  <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.md, textAlign: 'center' }]}>
+                  <Text
+                    style={[
+                      typography.caption,
+                      { color: colors.textMuted, marginBottom: spacing.md, textAlign: 'center' },
+                    ]}
+                  >
                     Swipe to Call
                   </Text>
                   <Animated.View
@@ -1085,7 +1326,12 @@ export default function Home() {
                       <Ionicons name="call" size={28} color={colors.textInverse} />
                     </View>
                     <View style={styles.swipeLabel}>
-                      <Text style={[typography.body, { color: colors.textInverse, fontWeight: '600', letterSpacing: 2 }]}>
+                      <Text
+                        style={[
+                          typography.body,
+                          { color: colors.textInverse, fontWeight: '600', letterSpacing: 2 },
+                        ]}
+                      >
                         SWIPE TO CALL
                       </Text>
                     </View>

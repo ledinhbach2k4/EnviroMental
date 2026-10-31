@@ -16,7 +16,13 @@ const baseTypography = {
   button: { fontSize: 16, fontWeight: '600' as const, lineHeight: 24, letterSpacing: 0.3 },
   buttonSmall: { fontSize: 14, fontWeight: '600' as const, lineHeight: 20, letterSpacing: 0.2 },
   label: { fontSize: 13, fontWeight: '500' as const, lineHeight: 20, letterSpacing: 0.1 },
-  overline: { fontSize: 11, fontWeight: '600' as const, lineHeight: 16, letterSpacing: 0.5, textTransform: 'uppercase' as const },
+  overline: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    lineHeight: 16,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase' as const,
+  },
 };
 
 const baseSpacing = {
@@ -40,12 +46,48 @@ const baseRadii = {
 };
 
 const baseShadows = {
-  none: { shadowColor: 'transparent', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0, shadowRadius: 0, elevation: 0 },
-  xs: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-  sm: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  md: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
-  lg: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 8 },
-  xl: { shadowColor: '#000', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 12 },
+  none: {
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  xs: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  sm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  md: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  xl: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 12,
+  },
 };
 
 const createDesignTokens = (theme: ThemeConfig): DesignTokens => ({
@@ -101,7 +143,10 @@ interface DesignSystemProviderProps {
   initialTheme?: ThemeName;
 }
 
-export const DesignSystemProvider = ({ children, initialTheme = DEFAULT_THEME }: DesignSystemProviderProps) => {
+export const DesignSystemProvider = ({
+  children,
+  initialTheme = DEFAULT_THEME,
+}: DesignSystemProviderProps) => {
   const [currentThemeName, setCurrentThemeName] = useState<ThemeName>(() => {
     try {
       const stored = localStorage.getItem('enviromental-theme');

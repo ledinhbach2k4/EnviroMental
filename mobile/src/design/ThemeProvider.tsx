@@ -1,8 +1,23 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { DesignSystemProvider, useDesignSystem, THEMES, DEFAULT_THEME, type ThemeName } from './index';
+import {
+  DesignSystemProvider,
+  useDesignSystem,
+  THEMES,
+  DEFAULT_THEME,
+  type ThemeName,
+} from './index';
 
 interface LegacyThemeContextValue {
-  theme: typeof THEMES[keyof typeof THEMES];
+  theme: {
+    primary: string;
+    background: string;
+    text: string;
+    border: string;
+    white: string;
+    textLight: string;
+    card: string;
+    shadow: string;
+  };
   themeName: ThemeName;
   setTheme: (name: ThemeName) => void;
   availableThemes: typeof THEMES;
@@ -26,37 +41,40 @@ interface ThemeProviderProps {
 export const ThemeProvider = ({ children, initialTheme = DEFAULT_THEME }: ThemeProviderProps) => {
   const { theme, tokens, setTheme, availableThemes } = useDesignSystem();
 
-  const legacyTheme = React.useMemo(() => ({
-    primary: theme.colors.primary,
-    background: theme.colors.background,
-    text: theme.colors.text,
-    border: theme.colors.border,
-    white: theme.colors.textInverse,
-    textLight: theme.colors.textMuted,
-    card: theme.colors.surface,
-    shadow: theme.colors.shadow,
-  }), [theme.colors]);
-
-  const value = React.useMemo(() => ({
-    theme: legacyTheme,
-    themeName: theme.name,
-    setTheme,
-    availableThemes: THEMES,
-  }), [theme.name, legacyTheme, setTheme]);
-
-  return (
-    <LegacyThemeContext.Provider value={value}>
-      {children}
-    </LegacyThemeContext.Provider>
+  const legacyTheme = React.useMemo(
+    () => ({
+      primary: theme.colors.primary,
+      background: theme.colors.background,
+      text: theme.colors.text,
+      border: theme.colors.border,
+      white: theme.colors.textInverse,
+      textLight: theme.colors.textMuted,
+      card: theme.colors.surface,
+      shadow: theme.colors.shadow,
+    }),
+    [theme.colors]
   );
+
+  const value = React.useMemo(
+    () => ({
+      theme: legacyTheme,
+      themeName: theme.name,
+      setTheme,
+      availableThemes: THEMES,
+    }),
+    [theme.name, legacyTheme, setTheme]
+  );
+
+  return <LegacyThemeContext.Provider value={value}>{children}</LegacyThemeContext.Provider>;
 };
 
-export const ThemeProviderWithDesignSystem = ({ children, initialTheme = DEFAULT_THEME }: ThemeProviderProps) => {
+export const ThemeProviderWithDesignSystem = ({
+  children,
+  initialTheme = DEFAULT_THEME,
+}: ThemeProviderProps) => {
   return (
     <DesignSystemProvider initialTheme={initialTheme}>
-      <ThemeProvider initialTheme={initialTheme}>
-        {children}
-      </ThemeProvider>
+      <ThemeProvider initialTheme={initialTheme}>{children}</ThemeProvider>
     </DesignSystemProvider>
   );
 };

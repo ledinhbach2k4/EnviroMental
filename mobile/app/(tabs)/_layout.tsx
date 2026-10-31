@@ -12,11 +12,11 @@ import {
   StyleSheet,
   Alert,
   Keyboard,
+  Modal,
 } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets, EdgeInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/expo';
-import Modal from 'react-native-modal';
 import axios from 'axios';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,14 +47,16 @@ interface Message {
 const TypingIndicator = () => {
   const colors = useColors();
   const spacing = useSpacing();
-  
+
   return (
-    <View style={{
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.xs,
-    }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.xs,
+      }}
+    >
       <Dot delay={0} color={colors.textMuted} size={8} />
       <Dot delay={200} color={colors.textMuted} size={8} />
       <Dot delay={400} color={colors.textMuted} size={8} />
@@ -69,10 +71,7 @@ const Dot = ({ delay, color, size }: { delay: number; color: string; size: numbe
     y.value = withDelay(
       delay,
       withRepeat(
-        withSequence(
-          withTiming(-6, { duration: 400 }),
-          withTiming(0, { duration: 400 })
-        ),
+        withSequence(withTiming(-6, { duration: 400 }), withTiming(0, { duration: 400 })),
         -1,
         true
       )
@@ -83,17 +82,42 @@ const Dot = ({ delay, color, size }: { delay: number; color: string; size: numbe
     transform: [{ translateY: y.value }],
   }));
 
-  return <Animated.View style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, marginHorizontal: 3 }, animatedStyle]} />;
+  return (
+    <Animated.View
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+          marginHorizontal: 3,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
 };
 
 // --- Typewriter Text Component ---
-const TypewriterText = ({ text, onComplete, messageId, selectable, forceComplete }: { text: string; onComplete: (id: string) => void; messageId: string; selectable?: boolean; forceComplete?: boolean }) => {
+const TypewriterText = ({
+  text,
+  onComplete,
+  messageId,
+  selectable,
+  forceComplete,
+}: {
+  text: string;
+  onComplete: (id: string) => void;
+  messageId: string;
+  selectable?: boolean;
+  forceComplete?: boolean;
+}) => {
   const [displayedText, setDisplayedText] = useState('');
   const [isComplete, setIsComplete] = useState(false);
 
   useEffect(() => {
     if (isComplete || forceComplete) return;
-    
+
     setDisplayedText('');
     let i = 0;
     const intervalId = setInterval(() => {
@@ -111,7 +135,7 @@ const TypewriterText = ({ text, onComplete, messageId, selectable, forceComplete
   }, [text, messageId, onComplete, forceComplete]);
 
   if (forceComplete || isComplete) {
-    return <Markdown selectable={selectable}>{text}</Markdown>;
+    return <Markdown>{text}</Markdown>;
   }
 
   return <Text selectable={selectable}>{displayedText}</Text>;
@@ -137,8 +161,10 @@ const DraggableChatIcon = ({ onPress, insets }: { onPress: () => void; insets: E
   const context = useSharedValue({ x: 0, y: 0 });
 
   const pan = Gesture.Pan()
-    .onStart(() => { context.value = { x: offsetX.value, y: offsetY.value }; })
-    .onUpdate(event => {
+    .onStart(() => {
+      context.value = { x: offsetX.value, y: offsetY.value };
+    })
+    .onUpdate((event) => {
       let newX = context.value.x + event.translationX;
       let newY = context.value.y + event.translationY;
       const upperBoundY = insets.top + PADDING;
@@ -158,7 +184,9 @@ const DraggableChatIcon = ({ onPress, insets }: { onPress: () => void; insets: E
       }
     });
 
-  const tap = Gesture.Tap().onEnd(() => { runOnJS(onPress)(); });
+  const tap = Gesture.Tap().onEnd(() => {
+    runOnJS(onPress)();
+  });
   const composed = Gesture.Exclusive(pan, tap);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -167,16 +195,22 @@ const DraggableChatIcon = ({ onPress, insets }: { onPress: () => void; insets: E
 
   return (
     <GestureDetector gesture={composed}>
-      <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: undefined, bottom: undefined }, animatedStyle, {
-        width: BALLOON_SIZE,
-        height: BALLOON_SIZE,
-        borderRadius: BALLOON_SIZE / 2,
-        backgroundColor: colors.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-        ...shadows.lg,
-      }]}>
+      <Animated.View
+        style={[
+          { position: 'absolute', top: 0, left: 0, right: undefined, bottom: undefined },
+          animatedStyle,
+          {
+            width: BALLOON_SIZE,
+            height: BALLOON_SIZE,
+            borderRadius: BALLOON_SIZE / 2,
+            backgroundColor: colors.primary,
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            ...shadows.lg,
+          },
+        ]}
+      >
         <FontAwesome5 name="robot" size={24} color={colors.surface} />
       </Animated.View>
     </GestureDetector>
@@ -191,7 +225,7 @@ export default function TabLayout() {
   const spacing = useSpacing();
   const radii = useRadii();
   const shadows = useShadows();
-  
+
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -200,13 +234,10 @@ export default function TabLayout() {
   const initialMessageIdsRef = useRef<Set<string>>(new Set());
   const hasInitializedRef = useRef(false);
 
-  if (!isLoaded) return null;
-  if (!isSignedIn) return null;
-
   // Track initial messages when modal opens to prevent typing animation replay
   useEffect(() => {
     if (isModalVisible && !hasInitializedRef.current) {
-      initialMessageIdsRef.current = new Set(messages.map(m => m.id));
+      initialMessageIdsRef.current = new Set(messages.map((m) => m.id));
       hasInitializedRef.current = true;
     } else if (!isModalVisible) {
       hasInitializedRef.current = false;
@@ -220,10 +251,8 @@ export default function TabLayout() {
   }, []);
 
   const handleAnimationComplete = useCallback((messageId: string) => {
-    setMessages(prev =>
-      prev.map(msg =>
-        msg.id === messageId ? { ...msg, fullyRendered: true } : msg
-      )
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === messageId ? { ...msg, fullyRendered: true } : msg))
     );
   }, []);
 
@@ -240,10 +269,19 @@ export default function TabLayout() {
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMessage: Message = { id: `user-${Date.now()}`, role: 'user', content: input.trim(), fullyRendered: true };
-    const typingMessage: Message = { id: `typing-${Date.now()}`, role: 'assistant', content: 'typing...' };
-    
-    setMessages(prev => [...prev, userMessage, typingMessage]);
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: input.trim(),
+      fullyRendered: true,
+    };
+    const typingMessage: Message = {
+      id: `typing-${Date.now()}`,
+      role: 'assistant',
+      content: 'typing...',
+    };
+
+    setMessages((prev) => [...prev, userMessage, typingMessage]);
     const messageToSend = input.trim();
     setInput('');
     setIsLoading(true);
@@ -253,12 +291,15 @@ export default function TabLayout() {
       const res = await axios.post(
         `${ENV.API_URL}/chat`,
         { message: messageToSend },
-        { headers: { Authorization: `Bearer ${token}` }, timeout: 20000, }
+        { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 }
       );
 
-      const aiMessage: Message = { id: `ai-${Date.now()}`, role: 'assistant', content: res.data.message };
-      setMessages(prev => [...prev.filter(m => m.content !== 'typing...'), aiMessage]);
-
+      const aiMessage: Message = {
+        id: `ai-${Date.now()}`,
+        role: 'assistant',
+        content: res.data.message,
+      };
+      setMessages((prev) => [...prev.filter((m) => m.content !== 'typing...'), aiMessage]);
     } catch (err: any) {
       const status = err?.response?.status;
       console.error('Chat error:', status, err?.response?.data || err?.message);
@@ -266,86 +307,122 @@ export default function TabLayout() {
       if (status === 401 || status === 403) {
         userMsg = 'Authentication error. Please sign in again.';
       }
-      const errorMessage: Message = { id: `err-${Date.now()}`, role: 'assistant', content: userMsg, fullyRendered: true };
-      setMessages(prev => [...prev.filter(m => m.content !== 'typing...'), errorMessage]);
+      const errorMessage: Message = {
+        id: `err-${Date.now()}`,
+        role: 'assistant',
+        content: userMsg,
+        fullyRendered: true,
+      };
+      setMessages((prev) => [...prev.filter((m) => m.content !== 'typing...'), errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const chatStyles = useMemo(() => StyleSheet.create({
-    modal: {
-      margin: 0,
-      justifyContent: 'flex-end',
-    },
-    modalContent: {
-      backgroundColor: colors.background,
-      padding: spacing.lg,
-      borderTopLeftRadius: radii.xl,
-      borderTopRightRadius: radii.xl,
-      height: '60%',
-      flex: 1,
-      display: 'flex',
-      flexDirection: 'column',
-    },
-    chatHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacing.md,
-    },
-    chatTitle: {
-      ...typography.h3,
-      color: colors.primary,
-    },
-    messageBubble: {
-      borderRadius: radii.md,
-      padding: spacing.sm,
-      marginVertical: spacing.xs,
-      maxWidth: '80%',
-    },
-    userMessage: {
-      alignSelf: 'flex-end',
-      backgroundColor: colors.primaryLight,
-    },
-    aiMessage: {
-      alignSelf: 'flex-start',
-      backgroundColor: colors.surfaceAlt,
-    },
-    inputRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: spacing.sm,
-    },
-    inputContainer: {
-      paddingBottom: 0, // Will be overridden by inline style with insets.bottom
-    },
-    inputBox: {
-      flex: 1,
-      borderColor: colors.border,
-      borderWidth: 1,
-      borderRadius: radii.md,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      backgroundColor: colors.backgroundAlt,
-      minHeight: 40,
-      maxHeight: 120,
-      textAlignVertical: 'top',
-    },
-    sendIcon: {
-      marginLeft: spacing.sm,
-    },
-  }), [colors, spacing, radii, typography]);
+  const chatStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        modalRoot: {
+          flex: 1,
+          justifyContent: 'flex-end',
+          backgroundColor: 'transparent',
+        },
+        modalBackdrop: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+        },
+        modalContent: {
+          backgroundColor: colors.background,
+          padding: spacing.lg,
+          borderTopLeftRadius: radii.xl,
+          borderTopRightRadius: radii.xl,
+          height: '75%',
+          maxHeight: '85%',
+          display: 'flex',
+          flexDirection: 'column',
+          ...shadows.lg,
+        },
+        chatHeader: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: spacing.md,
+        },
+        chatHeaderTitleContainer: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.sm,
+        },
+        chatTitle: {
+          ...typography.h3,
+          color: colors.primary,
+        },
+        messageBubble: {
+          borderRadius: radii.md,
+          padding: spacing.sm,
+          marginVertical: spacing.xs,
+          maxWidth: '80%',
+        },
+        userMessage: {
+          alignSelf: 'flex-end',
+          backgroundColor: colors.primaryLight,
+        },
+        userMessageText: {
+          color: colors.text,
+          ...typography.body,
+        },
+        aiMessage: {
+          alignSelf: 'flex-start',
+          backgroundColor: colors.surfaceAlt,
+        },
+        inputRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: spacing.sm,
+        },
+        inputContainer: {
+          paddingTop: spacing.xs,
+        },
+        inputBox: {
+          flex: 1,
+          borderColor: colors.border,
+          borderWidth: 1,
+          borderRadius: radii.md,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          backgroundColor: colors.backgroundAlt,
+          color: colors.text,
+          minHeight: 40,
+          maxHeight: 120,
+          textAlignVertical: 'top',
+        },
+        sendIcon: {
+          marginLeft: spacing.sm,
+        },
+      }),
+    [colors, spacing, radii, typography, shadows]
+  );
 
-  const tabBarStyle = useMemo(() => ({
-    backgroundColor: colors.backgroundAlt,
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-    paddingBottom: insets.bottom,
-    paddingTop: spacing.sm,
-    height: (Platform.OS === 'ios' ? 70 : 60) + insets.bottom,
-    ...shadows.lg,
-  }), [colors, spacing, shadows, insets]);
+  const tabBarStyle = useMemo(
+    () => ({
+      backgroundColor: colors.backgroundAlt,
+      borderTopColor: colors.border,
+      borderTopWidth: 1,
+      paddingBottom: insets.bottom,
+      paddingTop: spacing.sm,
+      height: (Platform.OS === 'ios' ? 70 : 60) + insets.bottom,
+      ...shadows.lg,
+    }),
+    [colors, spacing, shadows, insets]
+  );
+
+  if (!isLoaded || !isSignedIn) {
+    return null;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -359,8 +436,21 @@ export default function TabLayout() {
               tabBarStyle: tabBarStyle,
               tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
               tabBarIcon: ({ color, size }) => {
-                const icons: Record<string, string> = { home: 'home', mood: 'smile', habits: 'check-circle', profile: 'user', mindfulness: 'leaf' };
-                return <FontAwesome5 name={icons[route.name] || 'question'} size={size} color={color} solid />;
+                const icons: Record<string, string> = {
+                  home: 'home',
+                  mood: 'smile',
+                  habits: 'check-circle',
+                  profile: 'user',
+                  mindfulness: 'leaf',
+                };
+                return (
+                  <FontAwesome5
+                    name={icons[route.name] || 'question'}
+                    size={size}
+                    color={color}
+                    solid
+                  />
+                );
               },
             })}
           >
@@ -373,104 +463,132 @@ export default function TabLayout() {
 
           <DraggableChatIcon onPress={openChat} insets={insets} />
 
-          <Modal isVisible={isModalVisible} onBackdropPress={closeChat} onBackButtonPress={closeChat} onRequestClose={closeChat} animationType="slide" transparent={true} style={chatStyles.modal}>
-            <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-<KeyboardAvoidingView behavior="padding" style={[chatStyles.modalContent, { paddingTop: insets.top }]}>
-              <View style={chatStyles.chatHeader}>
-                <FontAwesome5 name="robot" size={20} color={colors.primary} />
-                <Text style={chatStyles.chatTitle}>Chat with AI</Text>
-                <TouchableOpacity onPress={closeChat} accessibilityLabel="Close chat" activeOpacity={0.8}>
-                  <FontAwesome5 name="times" size={20} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-            <FlatList
-              ref={flatListRef}
-              data={messages}
-              keyExtractor={(item) => item.id}
-              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-              onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
-              style={{ flex: 1 }}
-              renderItem={({ item }) => {
-                if (item.content === 'typing...') {
-                  return (
-                    <View style={[chatStyles.messageBubble, chatStyles.aiMessage]}>
-                      <TypingIndicator />
-                    </View>
-                  );
-                }
-
-                const isAiMessage = item.role === 'assistant';
-                const isInitialMessage = initialMessageIdsRef.current.has(item.id);
-                const shouldAnimate = isAiMessage && !item.fullyRendered && !isInitialMessage;
-
-                return (
-                  <View
-                    style={[
-                      chatStyles.messageBubble,
-                      item.role === 'user' ? chatStyles.userMessage : chatStyles.aiMessage,
-                    ]}
+          <Modal
+            visible={isModalVisible}
+            onRequestClose={closeChat}
+            animationType="slide"
+            transparent={true}
+            statusBarTranslucent={true}
+          >
+            <View style={chatStyles.modalRoot}>
+              <TouchableOpacity
+                style={chatStyles.modalBackdrop}
+                activeOpacity={1}
+                onPress={closeChat}
+                accessibilityLabel="Close chat backdrop"
+              />
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={[
+                  chatStyles.modalContent,
+                  { paddingBottom: Math.max(insets.bottom, spacing.md) },
+                ]}
+              >
+                <View style={chatStyles.chatHeader}>
+                  <View style={chatStyles.chatHeaderTitleContainer}>
+                    <FontAwesome5 name="robot" size={20} color={colors.primary} />
+                    <Text style={chatStyles.chatTitle}>Chat with AI</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={closeChat}
+                    accessibilityLabel="Close chat"
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    {shouldAnimate ? (
-                      <TypewriterText
-                        text={item.content}
-                        onComplete={handleAnimationComplete}
-                        messageId={item.id}
-                        selectable={true}
-                      />
-                    ) : (
-                      <View>
-                        {isAiMessage ? (
-                          <Markdown selectable={true}>{item.content}</Markdown>
+                    <FontAwesome5 name="times" size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+
+                <FlatList
+                  ref={flatListRef}
+                  data={messages}
+                  keyExtractor={(item) => item.id}
+                  onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                  onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+                  keyboardDismissMode="on-drag"
+                  keyboardShouldPersistTaps="handled"
+                  style={{ flex: 1 }}
+                  renderItem={({ item }) => {
+                    if (item.content === 'typing...') {
+                      return (
+                        <View style={[chatStyles.messageBubble, chatStyles.aiMessage]}>
+                          <TypingIndicator />
+                        </View>
+                      );
+                    }
+
+                    const isAiMessage = item.role === 'assistant';
+                    const isInitialMessage = initialMessageIdsRef.current.has(item.id);
+                    const shouldAnimate = isAiMessage && !item.fullyRendered && !isInitialMessage;
+
+                    return (
+                      <View
+                        style={[
+                          chatStyles.messageBubble,
+                          item.role === 'user' ? chatStyles.userMessage : chatStyles.aiMessage,
+                        ]}
+                      >
+                        {shouldAnimate ? (
+                          <TypewriterText
+                            text={item.content}
+                            onComplete={handleAnimationComplete}
+                            messageId={item.id}
+                            selectable={true}
+                          />
                         ) : (
-                          <Text selectable={true}>{item.content}</Text>
-                        )}
-                        {isAiMessage && (
-                          <TouchableOpacity
-                            onPress={() => handleCopy(item.content)}
-                            style={{ marginTop: 6, alignSelf: 'flex-end' }}
-                            activeOpacity={0.7}
-                          >
-                            <Ionicons name="copy-outline" size={16} color={colors.textMuted} />
-                          </TouchableOpacity>
+                          <View>
+                            {isAiMessage ? (
+                              <Markdown>{item.content}</Markdown>
+                            ) : (
+                              <Text selectable={true} style={chatStyles.userMessageText}>
+                                {item.content}
+                              </Text>
+                            )}
+                            {isAiMessage && (
+                              <TouchableOpacity
+                                onPress={() => handleCopy(item.content)}
+                                style={{ marginTop: 6, alignSelf: 'flex-end' }}
+                                activeOpacity={0.7}
+                              >
+                                <Ionicons name="copy-outline" size={16} color={colors.textMuted} />
+                              </TouchableOpacity>
+                            )}
+                          </View>
                         )}
                       </View>
-                    )}
-                  </View>
-                );
-              }}
-            />
-
-            <View style={[chatStyles.inputContainer, { paddingBottom: insets.bottom }]}>
-              <View style={chatStyles.inputRow}>
-                <TextInput
-                  style={chatStyles.inputBox}
-                  placeholder="Enter your question..."
-                  value={input}
-                  onChangeText={setInput}
-                  editable={!isLoading}
-                  multiline={true}
+                    );
+                  }}
                 />
-                <TouchableOpacity
-                  onPress={sendMessage}
-                  disabled={isLoading || !input.trim()}
-                  accessibilityLabel="Send message"
-                  activeOpacity={0.8}
-                >
-                  <FontAwesome5
-                    name="paper-plane"
-                    size={20}
-                    color={isLoading ? colors.textMuted : colors.primary}
-                    style={chatStyles.sendIcon}
-                  />
-                </TouchableOpacity>
-              </View>
+
+                <View style={chatStyles.inputContainer}>
+                  <View style={chatStyles.inputRow}>
+                    <TextInput
+                      style={chatStyles.inputBox}
+                      placeholder="Enter your question..."
+                      placeholderTextColor={colors.textMuted}
+                      value={input}
+                      onChangeText={setInput}
+                      editable={!isLoading}
+                      multiline={true}
+                    />
+                    <TouchableOpacity
+                      onPress={sendMessage}
+                      disabled={isLoading || !input.trim()}
+                      accessibilityLabel="Send message"
+                      activeOpacity={0.8}
+                    >
+                      <FontAwesome5
+                        name="paper-plane"
+                        size={20}
+                        color={isLoading || !input.trim() ? colors.textMuted : colors.primary}
+                        style={chatStyles.sendIcon}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </KeyboardAvoidingView>
             </View>
-        </KeyboardAvoidingView>
-        </View>
-        </Modal>
+          </Modal>
         </HabitsProvider>
       </NotificationProvider>
     </GestureHandlerRootView>

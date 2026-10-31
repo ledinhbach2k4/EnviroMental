@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,14 +9,14 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-} from "react-native";
-import { useRouter } from "expo-router";
-import { useSignUp } from "@clerk/expo";
-import { useState } from "react";
-import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+  ActivityIndicator,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSignUp, useClerk, useAuth } from '@clerk/expo';
+import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
-import VerifyEmail from "./verify-email";
+import VerifyEmail from './verify-email';
 
 const SignUpScreen = () => {
   const colors = useColors();
@@ -23,67 +24,90 @@ const SignUpScreen = () => {
   const spacing = useSpacing();
   const radii = useRadii();
   const shadows = useShadows();
-
   const router = useRouter();
-  const { isLoaded, signUp } = useSignUp();
 
-  const [email, setEmail] = useState<string>("");
-  const [firstName, setFirstName] = useState<string>("");
-  const [lastName, setLastName] = useState<string>("");
-  const [username, setUsername] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [rePassword, setRePassword] = useState<string>("");
+  const clerkSignUp = useSignUp() as any;
+  const clerk = useClerk?.() as any;
+  const { isLoaded: authLoaded } = useAuth();
+
+  const signUp = clerkSignUp?.signUp || clerkSignUp;
+  const isLoaded = clerkSignUp?.isLoaded ?? authLoaded;
+  const setActive = clerkSignUp?.setActive || clerk?.setActive;
+
+  const [email, setEmail] = useState<string>('');
+  const [firstName, setFirstName] = useState<string>('');
+  const [lastName, setLastName] = useState<string>('');
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [rePassword, setRePassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [pendingVerification, setPendingVerification] = useState<boolean>(false);
 
   const handleSignUp = async (): Promise<void> => {
     const trimmedEmail = email.trim();
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedUsername = username.trim();
 
-    if (!trimmedEmail || !firstName || !lastName || !username || !password || !rePassword) {
-      return Alert.alert("Error", "Please fill in all fields");
+    if (!trimmedEmail || !trimmedFirstName || !trimmedLastName || !trimmedUsername || !password || !rePassword) {
+      Alert.alert('Missing Fields', 'Please fill in all required fields.');
+      return;
     }
 
-    if (trimmedEmail.length > 50 || firstName.length > 50 || lastName.length > 50 || username.length > 50 || password.length > 50 || rePassword.length > 50) {
-      return Alert.alert("Error", "Fields cannot exceed 50 characters");
-    }
-
-    if (password.length < 6) {
-      return Alert.alert("Error", "Password must be at least 6 characters");
+    if (password.length < 8) {
+      Alert.alert('Weak Password', 'Password must be at least 8 characters long.');
+      return;
     }
 
     if (password !== rePassword) {
-      return Alert.alert("Error", "Passwords do not match");
+      Alert.alert('Password Mismatch', 'Passwords do not match.');
+      return;
     }
 
-    if (!isLoaded) return;
+    if (!isLoaded || !signUp) {
+      Alert.alert('Loading', 'Authentication service is initializing. Please try again.');
+      return;
+    }
 
     setLoading(true);
-
     try {
+      console.log('[AUTH] Calling signUp.create...');
       await signUp.create({
         emailAddress: trimmedEmail,
-        firstName,
-        lastName,
-        username,
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
+        username: trimmedUsername,
         password,
       });
 
-      await signUp.prepareEmailAddressVerification({
-        strategy: "email_code",
-      });
+      console.log('[AUTH] Preparing email verification...');
+      if (typeof signUp.prepareEmailAddressVerification === 'function') {
+        await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      } else if (signUp.emailCode?.sendCode) {
+        await signUp.emailCode.sendCode();
+      }
 
       setPendingVerification(true);
     } catch (err: any) {
-      Alert.alert("Error", err.errors?.[0]?.message || "Failed to create account");
-      console.error(JSON.stringify(err, null, 2));
+      console.error('[AUTH] Sign up error:', err);
+      const msg = err.errors?.[0]?.message || err.message || 'Failed to create account.';
+      Alert.alert('Sign Up Error', msg);
     } finally {
       setLoading(false);
     }
   };
 
   if (pendingVerification) {
-    return <VerifyEmail email={email} username={username} firstName={firstName} lastName={lastName} onBack={() => setPendingVerification(false)} />;
+    return (
+      <VerifyEmail
+        email={email.trim()}
+        username={username.trim()}
+        firstName={firstName.trim()}
+        lastName={lastName.trim()}
+        onBack={() => setPendingVerification(false)}
+      />
+    );
   }
 
   const styles = StyleSheet.create({
@@ -93,221 +117,266 @@ const SignUpScreen = () => {
     },
     keyboardView: {
       flex: 1,
-      behavior: Platform.OS === "ios" ? "padding" : "height",
-      keyboardVerticalOffset: Platform.OS === "ios" ? 64 : 0,
     },
     scrollContent: {
       flexGrow: 1,
       paddingHorizontal: spacing.xl,
-      paddingTop: spacing.xl,
-      justifyContent: 'space-between',
+      paddingTop: spacing.xxl,
+      paddingBottom: spacing.xxxl,
+      justifyContent: 'center',
     },
-    imageContainer: {
-      height: '30%',
+    headerArea: {
+      alignItems: 'center',
       marginBottom: spacing.xl,
-      justifyContent: "center",
-      alignItems: "center",
     },
-    image: {
-      width: 320,
-      height: 320,
+    logoImage: {
+      width: 120,
+      height: 120,
+      marginBottom: spacing.md,
     },
     title: {
       ...typography.h1,
       color: colors.text,
-      textAlign: "center",
+      textAlign: 'center',
+      marginBottom: spacing.xs,
+    },
+    subtitle: {
+      ...typography.body,
+      color: colors.textMuted,
+      textAlign: 'center',
+      paddingHorizontal: spacing.md,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radii.xl,
+      padding: spacing.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...shadows.sm,
       marginBottom: spacing.xl,
     },
-    formContainer: {
-      flex: 1,
+    inputGroup: {
+      marginBottom: spacing.md,
     },
-    inputContainer: {
-      marginBottom: spacing.lg,
-      position: "relative",
+    inputLabel: {
+      ...typography.label,
+      color: colors.textSecondary,
+      marginBottom: spacing.xs,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.backgroundAlt,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radii.md,
+      paddingHorizontal: spacing.md,
+    },
+    inputIcon: {
+      marginRight: spacing.sm,
     },
     textInput: {
+      flex: 1,
       ...typography.body,
       color: colors.text,
       paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
-      backgroundColor: colors.backgroundAlt,
-      borderRadius: radii.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    charCount: {
-      position: "absolute",
-      bottom: 8,
-      right: 12,
-      fontSize: 12,
-      color: colors.textMuted,
     },
     eyeButton: {
-      position: "absolute",
-      right: spacing.md,
-      top: spacing.md,
       padding: spacing.xs,
     },
-    authButton: {
+    primaryButton: {
       backgroundColor: colors.primary,
       paddingVertical: spacing.md,
       borderRadius: radii.md,
-      marginTop: spacing.lg,
-      marginBottom: spacing.xl,
       alignItems: 'center',
       justifyContent: 'center',
       ...shadows.sm,
+      marginTop: spacing.md,
     },
-    buttonDisabled: {
-      opacity: 0.7,
-    },
-    buttonText: {
+    primaryButtonText: {
       ...typography.button,
       color: colors.textInverse,
-      textAlign: "center",
+      fontWeight: '600',
     },
-    linkContainer: {
-      alignItems: "center",
-      paddingBottom: spacing.xl,
+    buttonDisabled: {
+      opacity: 0.6,
     },
-    linkText: {
+    footerLink: {
+      alignItems: 'center',
+      marginTop: spacing.sm,
+    },
+    footerLinkText: {
       ...typography.body,
       color: colors.textMuted,
     },
-    link: {
+    footerLinkHighlight: {
       color: colors.primary,
-      fontWeight: "600",
+      fontWeight: '600',
     },
   });
 
   return (
     <View style={styles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.imageContainer}>
+          {/* Header */}
+          <View style={styles.headerArea}>
             <Image
-              source={require("../../assets/images/i2.png")}
-              style={styles.image}
+              source={require('../../assets/images/i2.png')}
+              style={styles.logoImage}
               contentFit="contain"
             />
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>
+              Begin your personalized mental wellness journey today.
+            </Text>
           </View>
 
-          <Text style={styles.title}>Create Account</Text>
-
-          <View style={styles.formContainer}>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter first name"
-                placeholderTextColor={colors.textMuted}
-                value={firstName}
-                onChangeText={setFirstName}
-                autoCapitalize="words"
-                maxLength={50}
-              />
-              <Text style={styles.charCount}>{firstName.length}/50</Text>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter last name"
-                placeholderTextColor={colors.textMuted}
-                value={lastName}
-                onChangeText={setLastName}
-                autoCapitalize="words"
-                maxLength={50}
-              />
-              <Text style={styles.charCount}>{lastName.length}/50</Text>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter username"
-                placeholderTextColor={colors.textMuted}
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-                maxLength={50}
-              />
-              <Text style={styles.charCount}>{username.length}/50</Text>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter email"
-                placeholderTextColor={colors.textMuted}
-                value={email}
-                onChangeText={(text) => setEmail(text.trim())}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                maxLength={50}
-              />
-              <Text style={styles.charCount}>{email.length}/50</Text>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter password"
-                placeholderTextColor={colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                maxLength={50}
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Ionicons
-                  name={showPassword ? "eye-outline" : "eye-off-outline"}
-                  size={20}
-                  color={colors.textMuted}
+          {/* Form Card */}
+          <View style={styles.card}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>First Name</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="person-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter first name"
+                  placeholderTextColor={colors.textMuted}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  autoCapitalize="words"
+                  maxLength={50}
                 />
-              </TouchableOpacity>
+              </View>
             </View>
 
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Re-enter password"
-                placeholderTextColor={colors.textMuted}
-                value={rePassword}
-                onChangeText={setRePassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                maxLength={50}
-              />
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Last Name</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="person-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter last name"
+                  placeholderTextColor={colors.textMuted}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  autoCapitalize="words"
+                  maxLength={50}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Username</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="at-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Choose a username"
+                  placeholderTextColor={colors.textMuted}
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                  maxLength={50}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email Address</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter email address"
+                  placeholderTextColor={colors.textMuted}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  maxLength={50}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Create password (min 8 chars)"
+                  placeholderTextColor={colors.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  maxLength={50}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                    size={20}
+                    color={colors.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Confirm Password</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Re-enter your password"
+                  placeholderTextColor={colors.textMuted}
+                  value={rePassword}
+                  onChangeText={setRePassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  maxLength={50}
+                />
+              </View>
             </View>
 
             <TouchableOpacity
-              style={[styles.authButton, loading && styles.buttonDisabled]}
+              style={[styles.primaryButton, (loading || !isLoaded) && styles.buttonDisabled]}
               onPress={handleSignUp}
-              disabled={loading}
+              disabled={loading || !isLoaded}
               activeOpacity={0.8}
             >
-              <Text style={styles.buttonText}>
-                {loading ? "Creating Account..." : "Sign Up"}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.linkContainer} onPress={() => router.back()}>
-              <Text style={styles.linkText}>
-                Already have an account? <Text style={styles.link}>Sign In</Text>
-              </Text>
+              {loading ? (
+                <ActivityIndicator color={colors.textInverse} />
+              ) : (
+                <Text style={styles.primaryButtonText}>Sign Up</Text>
+              )}
             </TouchableOpacity>
           </View>
+
+          {/* Footer Navigation */}
+          <TouchableOpacity
+            style={styles.footerLink}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.footerLinkText}>
+              Already have an account?{' '}
+              <Text style={styles.footerLinkHighlight}>Sign In</Text>
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

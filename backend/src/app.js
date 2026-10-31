@@ -29,7 +29,8 @@ import cortisolRoutes from './routes/cortisol.routes.js';
 import cortisolMockRoutes from './routes/cortisolMock.routes.js';
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Security and Optimization Middleware
 app.use(helmet());
@@ -126,7 +127,7 @@ app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/environment', environmentRoutes);
 app.use('/api/stress-scans', stressScanRoutes);
 app.use('/api/cortisol-score', cortisolRoutes);
-app.use('/api/cortisol', cortisolMockRoutes);
+app.use('/api/cortisol', cortisolRoutes);
 
 // Test route
 app.get('/api/test', (req, res) => res.json({ success: true }));

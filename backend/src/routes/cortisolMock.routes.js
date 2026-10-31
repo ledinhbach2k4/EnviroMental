@@ -2,37 +2,38 @@ import express from "express";
 
 const router = express.Router();
 
+const SAFE_CORTISOL_FALLBACK = {
+  score: null,
+  category: "unknown",
+  label: "Insufficient Data",
+  breakdown: {
+    mood: null,
+    habits: null,
+    environment: null,
+  },
+  message: "Log your first mood or habit to see your cortisol risk score.",
+  warnings: ["No data available — log a mood or complete a habit to get started."],
+  circadianMultiplier: 1,
+  timestamp: new Date().toISOString(),
+};
+
 /**
  * GET /api/cortisol
- * Mock endpoint returning safe fallback cortisol data
- * until the real calculation algorithm is ready
+ * Safe fallback endpoint returning default cortisol data
  */
 router.get("/", async (req, res) => {
   try {
-    const mockData = {
-      score: 42,
-      category: "moderate",
-      label: "Normal Level",
-      breakdown: {
-        mood: 15,
-        habits: 10,
-        environment: 17,
-      },
-      message: "Your stress levels are balanced.",
-      warnings: [],
-      circadianMultiplier: 1,
-      timestamp: new Date(),
-    };
-
     res.status(200).json({
       success: true,
-      data: mockData,
+      data: {
+        ...SAFE_CORTISOL_FALLBACK,
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch cortisol data",
-      detail: err.message,
+    res.status(200).json({
+      success: true,
+      data: SAFE_CORTISOL_FALLBACK,
     });
   }
 });

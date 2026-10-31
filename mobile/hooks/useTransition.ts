@@ -7,7 +7,7 @@ export interface TransitionConfig {
   duration?: number;
   easing?: EasingFn;
   from?: number; // initial progress value
-  to?: number;   // target progress value when starting
+  to?: number; // target progress value when starting
   initialStarted?: boolean;
   delay?: number;
 }
@@ -110,7 +110,7 @@ export function useTransition(config: TransitionConfig = {}) {
     const t = opts?.to ?? 1;
     const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [f, t] });
     return { transform: [{ scale }] };
-    };
+  };
 
   const scaleOut = (opts?: { from?: number; to?: number }): AnimatedStyle => {
     const f = opts?.from ?? 1;
@@ -122,27 +122,36 @@ export function useTransition(config: TransitionConfig = {}) {
   const rotateIn = (opts?: { fromDeg?: number; toDeg?: number }): AnimatedStyle => {
     const f = opts?.fromDeg ?? -4;
     const t = opts?.toDeg ?? 0;
-    const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: [`${f}deg`, `${t}deg`] });
+    const rotate = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [`${f}deg`, `${t}deg`],
+    });
     return { transform: [{ rotate }] };
   };
 
   const rotateOut = (opts?: { fromDeg?: number; toDeg?: number }): AnimatedStyle => {
     const f = opts?.fromDeg ?? 0;
     const t = opts?.toDeg ?? 4;
-    const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: [`${f}deg`, `${t}deg`] });
+    const rotate = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [`${f}deg`, `${t}deg`],
+    });
     return { transform: [{ rotate }] };
   };
 
   // Crossfade + swap vertical positions (out goes up, in comes from below)
   const crossfadeSwap = (opts?: {
     outOffsetY?: number; // how much the outgoing view moves up
-    inOffsetY?: number;  // how much the incoming view moves down initially
+    inOffsetY?: number; // how much the incoming view moves down initially
   }): { outStyle: AnimatedStyle; inStyle: AnimatedStyle } => {
     const outOffsetY = opts?.outOffsetY ?? -10;
     const inOffsetY = opts?.inOffsetY ?? 20;
 
     const outOpacity = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
-    const outTranslateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, outOffsetY] });
+    const outTranslateY = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, outOffsetY],
+    });
 
     const inOpacity = progress.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
     const inTranslateY = progress.interpolate({ inputRange: [0, 1], outputRange: [inOffsetY, 0] });

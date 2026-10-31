@@ -2,7 +2,17 @@ import Icon from '@/components/Icon';
 import { useAuth, useUser } from '@clerk/expo';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleProp, Text, TouchableOpacity, View, ViewStyle, StyleSheet } from 'react-native';
+import {
+  Alert,
+  Platform,
+  ScrollView,
+  StyleProp,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+  StyleSheet,
+} from 'react-native';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Button from '../../components/Button';
@@ -12,6 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useSharedHabits } from '../../context/HabitsContext';
 import { ENV } from '../../constants/api';
 import { ProfileNotificationSection } from '@/components/ProfileNotificationSection';
+import { exportLogs } from '@/utils/logger';
 
 interface MoodEntry {
   createdAt: string;
@@ -30,12 +41,9 @@ const calculateMoodStreak = (entries: MoodEntry[]): number => {
     return 0;
   }
 
-  const uniqueDays = [
-    ...new Set(
-      entries.map(entry => new Date(entry.createdAt).toDateString())
-    ),
-  ].map(dateString => new Date(dateString))
-   .sort((a, b) => b.getTime() - a.getTime());
+  const uniqueDays = [...new Set(entries.map((entry) => new Date(entry.createdAt).toDateString()))]
+    .map((dateString) => new Date(dateString))
+    .sort((a, b) => b.getTime() - a.getTime());
 
   if (uniqueDays.length === 0) {
     return 0;
@@ -74,9 +82,13 @@ const calculateMoodStreak = (entries: MoodEntry[]): number => {
 
 const CardContent = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
-const AndroidCardContent = ({ style, children }: { style?: StyleProp<ViewStyle>; children: React.ReactNode }) => (
-  <View style={style}>{children}</View>
-);
+const AndroidCardContent = ({
+  style,
+  children,
+}: {
+  style?: StyleProp<ViewStyle>;
+  children: React.ReactNode;
+}) => <View style={style}>{children}</View>;
 
 export default function Profile() {
   const colors = useColors();
@@ -119,7 +131,7 @@ export default function Profile() {
 
       const totalMoodEntries = moodEntries.length;
       const currentStreak = calculateMoodStreak(moodEntries);
-      const habitsCompleted = habits.filter(habit => habit.completedToday).length;
+      const habitsCompleted = habits.filter((habit) => habit.completedToday).length;
       const meditationMinutes = 150;
 
       setUserStats({
@@ -361,10 +373,23 @@ export default function Profile() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xxl, alignItems: 'center' }}>
           <View style={{ position: 'relative' }}>
-            <TouchableOpacity onPress={pickImage} style={styles.avatar} accessibilityLabel="Change profile picture">
-              <Image source={{ uri: userAvatar }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+            <TouchableOpacity
+              onPress={pickImage}
+              style={styles.avatar}
+              accessibilityLabel="Change profile picture"
+            >
+              <Image
+                source={{ uri: userAvatar }}
+                style={{ width: '100%', height: '100%' }}
+                contentFit="cover"
+              />
             </TouchableOpacity>
-            <TouchableOpacity onPress={pickImage} style={styles.avatarEditButton} accessibilityLabel="Change profile picture" activeOpacity={0.8}>
+            <TouchableOpacity
+              onPress={pickImage}
+              style={styles.avatarEditButton}
+              accessibilityLabel="Change profile picture"
+              activeOpacity={0.8}
+            >
               <Icon name="create" size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
@@ -375,27 +400,35 @@ export default function Profile() {
         <View style={[styles.card, { marginBottom: spacing.xxl }]}>
           <CardWrapper>
             <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Your Progress</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-              <View
-                style={[
-                  styles.cardSmall,
-                  { width: '48%', alignItems: 'center' },
-                ]}>
+            <View
+              style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}
+            >
+              <View style={[styles.cardSmall, { width: '48%', alignItems: 'center' }]}>
                 <CardWrapper>
-                  <Icon name="happy" size={24} color={colors.mood.happy} style={{ marginBottom: spacing.sm }} />
-                  <Text style={[typography.h3, { color: colors.mood.happy, textAlign: 'center' }]}>{userStats.totalMoodEntries}</Text>
+                  <Icon
+                    name="happy"
+                    size={24}
+                    color={colors.mood.happy}
+                    style={{ marginBottom: spacing.sm }}
+                  />
+                  <Text style={[typography.h3, { color: colors.mood.happy, textAlign: 'center' }]}>
+                    {userStats.totalMoodEntries}
+                  </Text>
                   <Text style={typography.caption}>Mood Entries</Text>
                 </CardWrapper>
               </View>
 
-              <View
-                style={[
-                  styles.cardSmall,
-                  { width: '48%', alignItems: 'center' },
-                ]}>
+              <View style={[styles.cardSmall, { width: '48%', alignItems: 'center' }]}>
                 <CardWrapper>
-                  <Icon name="flame" size={24} color={colors.success} style={{ marginBottom: spacing.sm }} />
-                  <Text style={[typography.h3, { color: colors.success, textAlign: 'center' }]}>{userStats.currentStreak}</Text>
+                  <Icon
+                    name="flame"
+                    size={24}
+                    color={colors.success}
+                    style={{ marginBottom: spacing.sm }}
+                  />
+                  <Text style={[typography.h3, { color: colors.success, textAlign: 'center' }]}>
+                    {userStats.currentStreak}
+                  </Text>
                   <Text style={typography.caption}>Day Streak</Text>
                 </CardWrapper>
               </View>
@@ -404,10 +437,18 @@ export default function Profile() {
                 style={[
                   styles.cardSmall,
                   { width: '48%', alignItems: 'center', marginTop: spacing.md },
-                ]}>
+                ]}
+              >
                 <CardWrapper>
-                  <Icon name="leaf" size={24} color={colors.primary} style={{ marginBottom: spacing.sm }} />
-                  <Text style={[typography.h3, { color: colors.primary, textAlign: 'center' }]}>{userStats.meditationMinutes}</Text>
+                  <Icon
+                    name="leaf"
+                    size={24}
+                    color={colors.primary}
+                    style={{ marginBottom: spacing.sm }}
+                  />
+                  <Text style={[typography.h3, { color: colors.primary, textAlign: 'center' }]}>
+                    {userStats.meditationMinutes}
+                  </Text>
                   <Text style={typography.caption}>Meditation Min</Text>
                 </CardWrapper>
               </View>
@@ -416,10 +457,18 @@ export default function Profile() {
                 style={[
                   styles.cardSmall,
                   { width: '48%', alignItems: 'center', marginTop: spacing.md },
-                ]}>
+                ]}
+              >
                 <CardWrapper>
-                  <Icon name="checkmark-circle" size={24} color={colors.accent} style={{ marginBottom: spacing.sm }} />
-                  <Text style={[typography.h3, { color: colors.accent, textAlign: 'center' }]}>{userStats.habitsCompleted}</Text>
+                  <Icon
+                    name="checkmark-circle"
+                    size={24}
+                    color={colors.accent}
+                    style={{ marginBottom: spacing.sm }}
+                  />
+                  <Text style={[typography.h3, { color: colors.accent, textAlign: 'center' }]}>
+                    {userStats.habitsCompleted}
+                  </Text>
                   <Text style={typography.caption}>Habits Done</Text>
                 </CardWrapper>
               </View>
@@ -436,7 +485,12 @@ export default function Profile() {
               <CardWrapper>
                 <View style={styles.spaceBetween}>
                   <View style={styles.row}>
-                    <Icon name="shield-checkmark" size={24} color={colors.success} style={{ marginRight: spacing.md }} />
+                    <Icon
+                      name="shield-checkmark"
+                      size={24}
+                      color={colors.success}
+                      style={{ marginRight: spacing.md }}
+                    />
                     <Text style={typography.body}>Privacy & Security</Text>
                   </View>
                   <Icon name="chevron-forward" size={20} color={colors.textMuted} />
@@ -444,12 +498,45 @@ export default function Profile() {
               </CardWrapper>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.cardSmall, { marginBottom: spacing.md }]} onPress={exportData}>
+            <TouchableOpacity
+              style={[styles.cardSmall, { marginBottom: spacing.md }]}
+              onPress={exportData}
+            >
               <CardWrapper>
                 <View style={styles.spaceBetween}>
                   <View style={styles.row}>
-                    <Icon name="download" size={24} color={colors.secondary} style={{ marginRight: spacing.md }} />
+                    <Icon
+                      name="download"
+                      size={24}
+                      color={colors.secondary}
+                      style={{ marginRight: spacing.md }}
+                    />
                     <Text style={typography.body}>Export Data</Text>
+                  </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textMuted} />
+                </View>
+              </CardWrapper>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.cardSmall, { marginBottom: spacing.md }]}
+              onPress={async () => {
+                const res = await exportLogs();
+                if (!res.success) {
+                  Alert.alert('Export Logs', res.message);
+                }
+              }}
+            >
+              <CardWrapper>
+                <View style={styles.spaceBetween}>
+                  <View style={styles.row}>
+                    <Icon
+                      name="bug"
+                      size={24}
+                      color={colors.primary}
+                      style={{ marginRight: spacing.md }}
+                    />
+                    <Text style={typography.body}>Export Error Logs</Text>
                   </View>
                   <Icon name="chevron-forward" size={20} color={colors.textMuted} />
                 </View>
@@ -461,11 +548,19 @@ export default function Profile() {
         <View style={[styles.card, { marginBottom: spacing.xxl }]}>
           <CardWrapper>
             <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Support</Text>
-            <TouchableOpacity style={[styles.cardSmall, { marginBottom: spacing.md }]} onPress={contactSupport}>
+            <TouchableOpacity
+              style={[styles.cardSmall, { marginBottom: spacing.md }]}
+              onPress={contactSupport}
+            >
               <CardWrapper>
                 <View style={styles.spaceBetween}>
                   <View style={styles.row}>
-                    <Icon name="help-circle" size={24} color={colors.primary} style={{ marginRight: spacing.md }} />
+                    <Icon
+                      name="help-circle"
+                      size={24}
+                      color={colors.primary}
+                      style={{ marginRight: spacing.md }}
+                    />
                     <Text style={typography.body}>Help & FAQ</Text>
                   </View>
                   <Icon name="chevron-forward" size={20} color={colors.textMuted} />
@@ -473,11 +568,19 @@ export default function Profile() {
               </CardWrapper>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.cardSmall, { marginBottom: spacing.md }]} onPress={contactSupport}>
+            <TouchableOpacity
+              style={[styles.cardSmall, { marginBottom: spacing.md }]}
+              onPress={contactSupport}
+            >
               <CardWrapper>
                 <View style={styles.spaceBetween}>
                   <View style={styles.row}>
-                    <Icon name="mail" size={24} color={colors.accent} style={{ marginRight: spacing.md }} />
+                    <Icon
+                      name="mail"
+                      size={24}
+                      color={colors.accent}
+                      style={{ marginRight: spacing.md }}
+                    />
                     <Text style={typography.body}>Contact Support</Text>
                   </View>
                   <Icon name="chevron-forward" size={20} color={colors.textMuted} />
@@ -489,7 +592,12 @@ export default function Profile() {
               <CardWrapper>
                 <View style={styles.spaceBetween}>
                   <View style={styles.row}>
-                    <Icon name="information-circle" size={24} color={colors.textMuted} style={{ marginRight: spacing.md }} />
+                    <Icon
+                      name="information-circle"
+                      size={24}
+                      color={colors.textMuted}
+                      style={{ marginRight: spacing.md }}
+                    />
                     <Text style={typography.body}>About EnviroMental</Text>
                   </View>
                   <Icon name="chevron-forward" size={20} color={colors.textMuted} />
@@ -501,7 +609,9 @@ export default function Profile() {
 
         <View style={[styles.card, { marginBottom: spacing.xxl }]}>
           <CardWrapper>
-            <Text style={[typography.h3, { color: colors.danger, marginBottom: spacing.lg }]}>Danger Zone</Text>
+            <Text style={[typography.h3, { color: colors.danger, marginBottom: spacing.lg }]}>
+              Danger Zone
+            </Text>
             <Button
               text="Clear All Data"
               onPress={clearAllData}
@@ -517,7 +627,11 @@ export default function Profile() {
 
         <View style={[styles.card, { marginBottom: spacing.xxl }]}>
           <CardWrapper>
-            <Button text="Log Out" onPress={logout} style={[{ backgroundColor: colors.secondary, width: '100%' }]} />
+            <Button
+              text="Log Out"
+              onPress={logout}
+              style={[{ backgroundColor: colors.secondary, width: '100%' }]}
+            />
           </CardWrapper>
         </View>
 

@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { isSupported, getPermissionsAsync, requestPermissionsAsync, setNotificationChannelAsync, AndroidImportance, scheduleNotificationAsync, cancelAllScheduledNotificationsAsync } from '@/utils/notifications';
+import {
+  isSupported,
+  getPermissionsAsync,
+  requestPermissionsAsync,
+  setNotificationChannelAsync,
+  AndroidImportance,
+  scheduleNotificationAsync,
+  cancelAllScheduledNotificationsAsync,
+} from '@/utils/notifications';
 import { useAuth } from '@clerk/expo';
 
 const STORAGE_KEY = 'notification_reminder_settings';
@@ -19,7 +27,10 @@ interface NotificationSettings {
  */
 export const useNotificationLogic = () => {
   const [isReminderEnabled, setIsReminderEnabledState] = useState<boolean>(true);
-  const [notificationTime, setNotificationTimeState] = useState<{ hour: number; minute: number }>({ hour: 20, minute: 0 });
+  const [notificationTime, setNotificationTimeState] = useState<{ hour: number; minute: number }>({
+    hour: 20,
+    minute: 0,
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const { isLoaded, isSignedIn } = useAuth();
@@ -68,9 +79,10 @@ export const useNotificationLogic = () => {
           dismissible: true, // Auto-dismiss notification when tapped (Android)
         },
         trigger: {
-          repeats: true,
+          type: 'daily',
           hour,
           minute,
+          channelId: 'default',
         },
       });
       console.log('[Notifications] Daily reminder scheduled:', identifier);
@@ -174,7 +186,9 @@ export const useNotificationLogic = () => {
 
     initialize();
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [isLoaded, isSignedIn, initializeNotificationChannel, notificationTime, persistSettings]);
 
   /**
@@ -184,47 +198,53 @@ export const useNotificationLogic = () => {
    * Schedules or cancels daily reminder accordingly.
    * Persists state to SecureStore.
    */
-  const setIsReminderEnabled = useCallback(async (enabled: boolean) => {
-    setIsReminderEnabledState(enabled);
+  const setIsReminderEnabled = useCallback(
+    async (enabled: boolean) => {
+      setIsReminderEnabledState(enabled);
 
-    if (enabled && !hasPermission) {
-      const permission = await requestPermissionsAsync();
-      const granted = permission.status === 'granted';
-      setHasPermission(granted);
+      if (enabled && !hasPermission) {
+        const permission = await requestPermissionsAsync();
+        const granted = permission.status === 'granted';
+        setHasPermission(granted);
 
-      if (!granted) {
-        setIsReminderEnabledState(false);
-        await persistSettings(false, notificationTime.hour, notificationTime.minute);
-        return;
+        if (!granted) {
+          setIsReminderEnabledState(false);
+          await persistSettings(false, notificationTime.hour, notificationTime.minute);
+          return;
+        }
       }
-    }
 
-    // Schedule or cancel based on new state
-    if (enabled) {
-      await scheduleDailyReminder(notificationTime.hour, notificationTime.minute);
-    } else {
-      await cancelAllScheduledNotificationsAsync();
-    }
+      // Schedule or cancel based on new state
+      if (enabled) {
+        await scheduleDailyReminder(notificationTime.hour, notificationTime.minute);
+      } else {
+        await cancelAllScheduledNotificationsAsync();
+      }
 
-    await persistSettings(enabled, notificationTime.hour, notificationTime.minute);
-  }, [hasPermission, notificationTime, scheduleDailyReminder, persistSettings]);
+      await persistSettings(enabled, notificationTime.hour, notificationTime.minute);
+    },
+    [hasPermission, notificationTime, scheduleDailyReminder, persistSettings]
+  );
 
   /**
    * Update notification time.
    * If reminder is enabled, reschedules with new time.
    * Persists new time to SecureStore.
    */
-  const setNotificationTime = useCallback(async (hour: number, minute: number) => {
-    setNotificationTimeState({ hour, minute });
+  const setNotificationTime = useCallback(
+    async (hour: number, minute: number) => {
+      setNotificationTimeState({ hour, minute });
 
-    // If reminder is enabled, reschedule with new time
-    if (isReminderEnabled) {
-      await scheduleDailyReminder(hour, minute);
-    }
+      // If reminder is enabled, reschedule with new time
+      if (isReminderEnabled) {
+        await scheduleDailyReminder(hour, minute);
+      }
 
-    // Persist new time
-    await persistSettings(isReminderEnabled, hour, minute);
-  }, [isReminderEnabled, scheduleDailyReminder, persistSettings]);
+      // Persist new time
+      await persistSettings(isReminderEnabled, hour, minute);
+    },
+    [isReminderEnabled, scheduleDailyReminder, persistSettings]
+  );
 
   /**
    * Schedule a test notification that fires in 3 seconds.
@@ -257,8 +277,10 @@ export const useNotificationLogic = () => {
           dismissible: true, // Auto-dismiss notification when tapped (Android)
         },
         trigger: {
-          type: 'date',
-          timestamp: triggerTimestamp,
+          type: 'timeInterval',
+          seconds: 3,
+          repeats: false,
+          channelId: 'default',
         },
       });
 

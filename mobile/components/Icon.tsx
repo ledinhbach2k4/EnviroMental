@@ -11,7 +11,7 @@ interface IconProps {
 
 export default function Icon({ name, size = 40, color, style = {} }: IconProps) {
   const colors = useColors();
-  
+
   return (
     <View style={[styles.iconContainer, style]}>
       <Ionicons name={name} size={size} color={color || colors.primary} />

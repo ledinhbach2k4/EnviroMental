@@ -30,9 +30,15 @@ export const useHabits = () => {
   const isLoadedRef = useRef(isLoaded);
   const isSignedInRef = useRef(isSignedIn);
 
-  useEffect(() => { tokenRef.current = getToken; }, [getToken]);
-  useEffect(() => { isLoadedRef.current = isLoaded; }, [isLoaded]);
-  useEffect(() => { isSignedInRef.current = isSignedIn; }, [isSignedIn]);
+  useEffect(() => {
+    tokenRef.current = getToken;
+  }, [getToken]);
+  useEffect(() => {
+    isLoadedRef.current = isLoaded;
+  }, [isLoaded]);
+  useEffect(() => {
+    isSignedInRef.current = isSignedIn;
+  }, [isSignedIn]);
 
   // STABLE FETCH FUNCTION - empty deps, uses module-level cache
   const fetchHabits = useCallback(async (force = false) => {
@@ -63,7 +69,7 @@ export const useHabits = () => {
 
     try {
       const token = await tokenRef.current();
-      if (!token) throw new Error("Authentication token not available.");
+      if (!token) throw new Error('Authentication token not available.');
 
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const [habitsRes, logsRes] = await Promise.all([
@@ -93,11 +99,12 @@ export const useHabits = () => {
       lastHabitsFetch = Date.now();
       setHabits(processed);
     } catch (err: any) {
-      console.error("useHabits fetch:", err);
-      const errorMessage = err.response?.data?.message || err.message || "An unknown error occurred.";
+      console.error('useHabits fetch:', err);
+      const errorMessage =
+        err.response?.data?.message || err.message || 'An unknown error occurred.';
       setError(errorMessage);
       if (err.response?.status === 401) {
-        setError("Authentication token missing or expired. Please try signing in again.");
+        setError('Authentication token missing or expired. Please try signing in again.');
       }
       setHabits([]);
     } finally {
@@ -119,7 +126,7 @@ export const useHabits = () => {
   const addHabit = async ({ name, icon }: { name: string; icon: string }) => {
     try {
       const token = await tokenRef.current();
-      if (!token) throw new Error("Not authenticated");
+      if (!token) throw new Error('Not authenticated');
       await api.post('/habits', { name, icon }, { headers: { Authorization: `Bearer ${token}` } });
       await refetch();
     } catch (err: any) {
@@ -130,15 +137,15 @@ export const useHabits = () => {
 
   const toggleHabitCompletion = async (habitId: number, currentCompleted: boolean) => {
     const originalHabits = [...habits];
-    setHabits(prevHabits =>
-      prevHabits.map(habit =>
+    setHabits((prevHabits) =>
+      prevHabits.map((habit) =>
         habit.id === habitId ? { ...habit, completedToday: !currentCompleted } : habit
       )
     );
 
     try {
       const token = await tokenRef.current();
-      if (!token) throw new Error("Not authenticated");
+      if (!token) throw new Error('Not authenticated');
       const today = new Date().toISOString().split('T')[0];
       await api.post(
         `/habits/${habitId}/log`,
@@ -156,12 +163,12 @@ export const useHabits = () => {
 
   const deleteMultipleHabits = async (habitIds: number[]) => {
     const originalHabits = [...habits];
-    setHabits(prevHabits => prevHabits.filter(habit => !habitIds.includes(habit.id)));
+    setHabits((prevHabits) => prevHabits.filter((habit) => !habitIds.includes(habit.id)));
 
     try {
       const token = await tokenRef.current();
-      if (!token) throw new Error("Not authenticated");
-      const deletePromises = habitIds.map(id =>
+      if (!token) throw new Error('Not authenticated');
+      const deletePromises = habitIds.map((id) =>
         api.delete(`/habits/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       );
       await Promise.all(deletePromises);
@@ -173,8 +180,12 @@ export const useHabits = () => {
     }
   };
 
+  const deleteHabit = async (habitId: number) => {
+    return deleteMultipleHabits([habitId]);
+  };
+
   const deleteAllHabits = async () => {
-    const allHabitIds = habits.map(h => h.id);
+    const allHabitIds = habits.map((h) => h.id);
     try {
       await deleteMultipleHabits(allHabitIds);
     } catch (err: any) {
@@ -190,6 +201,7 @@ export const useHabits = () => {
     refetch,
     addHabit,
     toggleHabitCompletion,
+    deleteHabit,
     deleteMultipleHabits,
     deleteAllHabits,
   };

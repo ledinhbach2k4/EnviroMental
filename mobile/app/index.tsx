@@ -1,5 +1,5 @@
-import { Redirect } from "expo-router";
-import { useAuth } from "@clerk/expo";
+import { Redirect } from 'expo-router';
+import { useAuth } from '@clerk/expo';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
 
@@ -36,5 +36,5 @@ export default function Index() {
   if (!isLoaded || isFirstLaunch === null) return null;
 
   if (isSignedIn) return <Redirect href="/(tabs)/home" />;
-  return <Redirect href={isFirstLaunch ? "/welcome" : "/(auth)/sign-in"} />;
+  return <Redirect href={isFirstLaunch ? '/welcome' : '/(auth)/sign-in'} />;
 }
