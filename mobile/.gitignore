@@ -71,3 +71,4 @@ artemis-report/
 test-results/
 *.artemis.json
 mcp-config.json
+__tests__/

@@ -1,7 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { animationTokens } from '@/src/design/tokens';
+import { PulseSkeleton } from './motion';
 
 interface CortisolBreakdownItem {
   score: number;
@@ -43,7 +51,7 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
   error = null,
   onRetry,
   warnings = [],
-  circadianMultiplier = 1,
+  circadianMultiplier: _circadianMultiplier = 1,
   timestamp,
 }) => {
   const colors = useColors();
@@ -51,6 +59,48 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
   const spacing = useSpacing();
   const radii = useRadii();
   const shadows = useShadows();
+
+  // CRITICAL HOOK SAFETY RULE: All hooks declared unconditionally at the very top
+  const gaugeScoreVal = useSharedValue(0);
+  const moodScoreVal = useSharedValue(0);
+  const habitsScoreVal = useSharedValue(0);
+  const envScoreVal = useSharedValue(0);
+
+  useEffect(() => {
+    const targetScore = score ?? 0;
+    gaugeScoreVal.value = withTiming(Math.min(Math.max(targetScore, 0), 100), {
+      duration: animationTokens.durations.slow,
+      easing: Easing.bezier(0.2, 0.0, 0.0, 1.0),
+    });
+    moodScoreVal.value = withTiming(Math.min(Math.max(breakdown?.mood?.score ?? 0, 0), 100), {
+      duration: animationTokens.durations.slow,
+      easing: Easing.bezier(0.2, 0.0, 0.0, 1.0),
+    });
+    habitsScoreVal.value = withTiming(Math.min(Math.max(breakdown?.habits?.score ?? 0, 0), 100), {
+      duration: animationTokens.durations.slow,
+      easing: Easing.bezier(0.2, 0.0, 0.0, 1.0),
+    });
+    envScoreVal.value = withTiming(Math.min(Math.max(breakdown?.environment?.score ?? 0, 0), 100), {
+      duration: animationTokens.durations.slow,
+      easing: Easing.bezier(0.2, 0.0, 0.0, 1.0),
+    });
+  }, [score, breakdown, gaugeScoreVal, moodScoreVal, habitsScoreVal, envScoreVal]);
+
+  const gaugeAnimatedStyle = useAnimatedStyle(() => ({
+    width: `${gaugeScoreVal.value}%`,
+  }));
+
+  const moodAnimatedStyle = useAnimatedStyle(() => ({
+    width: `${moodScoreVal.value}%`,
+  }));
+
+  const habitsAnimatedStyle = useAnimatedStyle(() => ({
+    width: `${habitsScoreVal.value}%`,
+  }));
+
+  const envAnimatedStyle = useAnimatedStyle(() => ({
+    width: `${envScoreVal.value}%`,
+  }));
 
   const styles = useMemo(
     () =>
@@ -86,8 +136,7 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
           width: '100%',
         },
         gaugeTrack: {
-          flexDirection: 'row',
-          justifyContent: 'space-between',
+          position: 'relative',
           height: 10,
           borderRadius: 5,
           overflow: 'hidden',
@@ -95,13 +144,23 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
           marginBottom: spacing.xs,
           width: '100%',
         },
-        gaugeSegment: {
-          flex: 1,
-          marginHorizontal: 1,
+        gaugeFill: {
+          height: '100%' as const,
+          borderRadius: 5,
         },
-        gaugeSegmentFilled: {},
-        gaugeSegmentEmpty: {
-          backgroundColor: colors.surfaceAlt,
+        gaugeDividerOverlay: {
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          flexDirection: 'row',
+          justifyContent: 'space-evenly',
+        },
+        gaugeDivider: {
+          width: 2,
+          height: '100%',
+          backgroundColor: colors.background,
         },
         gaugeLabels: {
           flexDirection: 'row',
@@ -123,7 +182,6 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
           marginBottom: spacing.xs,
           width: '100%',
         },
-        // Clean progress bar track - parent with overflow hidden and borderRadius
         breakdownBarTrack: {
           height: 8,
           borderRadius: 4,
@@ -131,9 +189,8 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
           overflow: 'hidden',
           width: '100%',
         },
-        // Inner fill - simple dynamic width, height 100%
         breakdownBarFill: {
-          height: '100%',
+          height: '100%' as const,
           borderRadius: 4,
         },
         messageContainer: {
@@ -174,42 +231,9 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
           paddingVertical: spacing.xl,
           width: '100%',
         },
-        // Skeleton styles - using surface colors for skeleton placeholders
         skeletonLabelContainer: {
           flex: 1,
           justifyContent: 'center',
-        },
-        skeletonLabel: {
-          height: 16,
-          width: '60%',
-          borderRadius: radii.xs,
-          backgroundColor: colors.surfaceAlt,
-          marginBottom: spacing.xs,
-        },
-        skeletonValue: {
-          height: 24,
-          width: '40%',
-          borderRadius: radii.xs,
-          backgroundColor: colors.surfaceAlt,
-        },
-        skeletonScore: {
-          width: 80,
-          height: 56,
-          borderRadius: radii.lg,
-          backgroundColor: colors.surfaceAlt,
-        },
-        skeletonGaugeTrack: {
-          height: 10,
-          borderRadius: 5,
-          backgroundColor: colors.surfaceAlt,
-          marginBottom: spacing.xs,
-          width: '100%',
-        },
-        skeletonGauge: {
-          width: '100%',
-          height: 10,
-          borderRadius: 5,
-          backgroundColor: colors.surfaceAlt,
         },
         skeletonGaugeLabels: {
           height: 12,
@@ -217,19 +241,6 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
         },
         skeletonBreakdownContainer: {
           marginBottom: spacing.lg,
-          width: '100%',
-        },
-        skeletonBreakdownItem: {
-          width: '100%',
-          height: 44,
-          borderRadius: radii.md,
-          backgroundColor: colors.surfaceAlt,
-          marginBottom: spacing.md,
-        },
-        skeletonMessage: {
-          height: 40,
-          borderRadius: radii.md,
-          backgroundColor: colors.surfaceAlt,
           width: '100%',
         },
       }),
@@ -252,9 +263,17 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
           border: colors.warning + '30',
         };
       case 'high':
-        return { primary: colors.danger, bg: colors.danger + '15', border: colors.danger + '30' };
+        return {
+          primary: colors.danger,
+          bg: colors.danger + '15',
+          border: colors.danger + '30',
+        };
       default:
-        return { primary: colors.textMuted, bg: colors.surfaceAlt, border: colors.border };
+        return {
+          primary: colors.textMuted,
+          bg: colors.surfaceAlt,
+          border: colors.border,
+        };
     }
   };
 
@@ -263,26 +282,21 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
   // Capitalize message for proper typography
   const displayMessage = message ? capitalizeFirst(message) : '';
 
-  // Render segmented progress bar (gauge) - clean 10-segment bar
+  // Render segmented progress bar (gauge) with animated width and segment markers
   const renderGauge = () => {
     if (score === null) return null;
-
-    const segments = 10;
-    const filledSegments = Math.round((score / 100) * segments);
 
     return (
       <View style={styles.gaugeContainer}>
         <View style={styles.gaugeTrack}>
-          {Array.from({ length: segments }).map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.gaugeSegment,
-                i < filledSegments ? styles.gaugeSegmentFilled : styles.gaugeSegmentEmpty,
-                i < filledSegments && { backgroundColor: primary },
-              ]}
-            />
-          ))}
+          <Animated.View
+            style={[styles.gaugeFill, { backgroundColor: primary }, gaugeAnimatedStyle] as any}
+          />
+          <View style={styles.gaugeDividerOverlay}>
+            {Array.from({ length: 9 }).map((_, i) => (
+              <View key={i} style={styles.gaugeDivider} />
+            ))}
+          </View>
         </View>
         <View style={styles.gaugeLabels}>
           <Text style={[typography.caption, { color: colors.textMuted, fontSize: 10 }]}>Low</Text>
@@ -292,20 +306,33 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
     );
   };
 
-  // Render breakdown bars - clean progress bars with no artifacts
+  // Render breakdown bars with smooth animated width
   const renderBreakdown = () => {
     if (!breakdown) {
       return null;
     }
 
     const items = [
-      { key: 'mood', label: 'Mood', data: breakdown.mood, color: colors.primary },
-      { key: 'habits', label: 'Habits', data: breakdown.habits, color: colors.secondary },
+      {
+        key: 'mood',
+        label: 'Mood',
+        data: breakdown.mood,
+        color: colors.primary,
+        animStyle: moodAnimatedStyle,
+      },
+      {
+        key: 'habits',
+        label: 'Habits',
+        data: breakdown.habits,
+        color: colors.secondary,
+        animStyle: habitsAnimatedStyle,
+      },
       {
         key: 'environment',
         label: 'Environment',
         data: breakdown.environment,
         color: colors.accent,
+        animStyle: envAnimatedStyle,
       },
     ].filter((item) => item.data !== null);
 
@@ -327,9 +354,7 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
                         flexDirection: 'row',
                         alignItems: 'center',
                         backgroundColor:
-                          data.trend === 'improving'
-                            ? colors.success + '15'
-                            : colors.danger + '15',
+                          data.trend === 'improving' ? colors.success + '15' : colors.danger + '15',
                         paddingHorizontal: 6,
                         paddingVertical: 2,
                         borderRadius: 10,
@@ -352,38 +377,39 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
                       </Text>
                     </View>
                   )}
-                  {item.key === 'habits' &&
-                    data.streak !== undefined &&
-                    data.streak > 0 && (
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          backgroundColor: colors.warning + '15',
-                          paddingHorizontal: 6,
-                          paddingVertical: 2,
-                          borderRadius: 10,
-                          gap: 2,
-                        }}
-                      >
-                        <Text style={{ fontSize: 10 }}>🔥</Text>
-                        <Text style={{ fontSize: 10, fontWeight: '600', color: colors.warning }}>
-                          {data.streak}-day streak
-                        </Text>
-                      </View>
-                    )}
+                  {item.key === 'habits' && data.streak !== undefined && data.streak > 0 && (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: colors.warning + '15',
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 10,
+                        gap: 2,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10 }}>🔥</Text>
+                      <Text style={{ fontSize: 10, fontWeight: '600', color: colors.warning }}>
+                        {data.streak}-day streak
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={[typography.caption, { color: colors.textMuted, fontWeight: '500' }]}>
                   {Math.round(data.weight * 100)}%
                 </Text>
               </View>
-              {/* Clean progress bar - parent with overflow hidden, inner fill with dynamic width */}
+              {/* Progress bar track with Reanimated smooth width fill */}
               <View style={styles.breakdownBarTrack}>
-                <View
-                  style={[
-                    styles.breakdownBarFill,
-                    { width: `${data.score}%`, backgroundColor: item.color },
-                  ]}
+                <Animated.View
+                  style={
+                    [
+                      styles.breakdownBarFill,
+                      { backgroundColor: item.color },
+                      item.animStyle,
+                    ] as any
+                  }
                 />
               </View>
               <Text
@@ -401,30 +427,55 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
     );
   };
 
-  // Render loading skeleton
+  // Render loading skeleton using PulseSkeleton
   if (loading) {
     return (
       <View style={styles.card}>
         <View style={styles.header}>
           <View style={styles.skeletonLabelContainer}>
-            <View style={styles.skeletonLabel} />
-            <View style={styles.skeletonValue} />
+            <PulseSkeleton
+              width="60%"
+              height={16}
+              borderRadius={radii.xs}
+              style={{ marginBottom: spacing.xs }}
+            />
+            <PulseSkeleton width="40%" height={24} borderRadius={radii.xs} />
           </View>
-          <View style={styles.skeletonScore} />
+          <PulseSkeleton width={80} height={56} borderRadius={radii.lg} />
         </View>
         <View style={styles.gaugeContainer}>
-          <View style={styles.skeletonGaugeTrack}>
-            <View style={styles.skeletonGauge} />
+          <PulseSkeleton
+            width="100%"
+            height={10}
+            borderRadius={5}
+            style={{ marginBottom: spacing.xs }}
+          />
+          <View style={styles.skeletonGaugeLabels}>
+            <PulseSkeleton width="100%" height={12} borderRadius={radii.xs} />
           </View>
-          <View style={styles.skeletonGaugeLabels} />
         </View>
         <View style={styles.skeletonBreakdownContainer}>
-          <View style={styles.skeletonBreakdownItem} />
-          <View style={styles.skeletonBreakdownItem} />
-          <View style={styles.skeletonBreakdownItem} />
+          <PulseSkeleton
+            width="100%"
+            height={44}
+            borderRadius={radii.md}
+            style={{ marginBottom: spacing.md }}
+          />
+          <PulseSkeleton
+            width="100%"
+            height={44}
+            borderRadius={radii.md}
+            style={{ marginBottom: spacing.md }}
+          />
+          <PulseSkeleton
+            width="100%"
+            height={44}
+            borderRadius={radii.md}
+            style={{ marginBottom: spacing.md }}
+          />
         </View>
         <View style={[styles.messageContainer, { backgroundColor: colors.surfaceAlt }]}>
-          <View style={styles.skeletonMessage} />
+          <PulseSkeleton width="100%" height={20} borderRadius={radii.sm} />
         </View>
       </View>
     );
@@ -573,8 +624,8 @@ export const CortisolGaugeCard: React.FC<CortisolGaugeCardProps> = ({
             category === 'low'
               ? 'checkmark-circle'
               : category === 'medium'
-              ? 'warning-outline'
-              : 'alert-circle-outline'
+                ? 'warning-outline'
+                : 'alert-circle-outline'
           }
           size={18}
           color={primary}

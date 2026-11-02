@@ -1,40 +1,51 @@
 import React, { useEffect } from 'react';
-import { Animated, ViewStyle } from 'react-native';
+import { StyleProp, ViewStyle } from 'react-native';
 import { usePathname } from 'expo-router';
-import useTransition from '@/hooks/useTransition';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
+import { animationTokens } from '@/src/design/tokens';
 
-type Props = {
+export interface PageTransitionProps {
   children: React.ReactNode;
   duration?: number;
   offsetY?: number;
   delay?: number;
-  style?: ViewStyle;
-};
+  style?: StyleProp<ViewStyle>;
+}
 
-const PageTransition: React.FC<Props> = ({
+export const PageTransition: React.FC<PageTransitionProps> = ({
   children,
-  duration = 250,
+  duration = animationTokens.durations.fast,
   offsetY = 8,
   delay = 0,
   style,
 }) => {
   const pathname = usePathname();
-  const { start, reset, map } = useTransition({ duration, delay });
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    // Reset and start on every route change
-    reset(true);
-    const id = requestAnimationFrame(() => start());
-    return () => cancelAnimationFrame(id as any);
-  }, [pathname]);
+    progress.value = 0;
+    progress.value = withDelay(
+      delay,
+      withTiming(1, {
+        duration,
+        easing: Easing.bezier(0.2, 0.0, 0.0, 1.0),
+      })
+    );
+  }, [pathname, duration, delay, progress]);
 
-  const opacity = map(0.85, 1);
-  const translateY = map(offsetY, 0);
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: 0.85 + progress.value * 0.15,
+    transform: [{ translateY: offsetY * (1 - progress.value) }],
+  }));
 
   return (
-    <Animated.View style={[{ flex: 1, opacity, transform: [{ translateY }] }, style]}>
-      {children}
-    </Animated.View>
+    <Animated.View style={[{ flex: 1 }, animatedStyle, style as any]}>{children}</Animated.View>
   );
 };
 

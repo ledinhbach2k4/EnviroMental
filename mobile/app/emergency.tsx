@@ -2,7 +2,10 @@ import React from 'react';
 import { ScrollView, Text, TouchableOpacity, Linking, View, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { animationTokens } from '@/src/design/tokens';
+import { AnimatedPressable } from '../components/motion/AnimatedPressable';
 import Icon from '../components/Icon';
 
 const hotlines = [
@@ -58,33 +61,42 @@ export default function EmergencyScreen() {
         <Icon name="arrow-back" size={24} color={colors.primary} />
       </TouchableOpacity>
 
-      <Text style={[typography.h1, { color: colors.danger, marginBottom: spacing.sm }]}>
-        Emergency Support
-      </Text>
-      <Text style={[typography.body, { marginBottom: spacing.xl }]}>
-        If you are in immediate danger, please call your local emergency services.
-      </Text>
+      <Animated.View entering={FadeInDown.delay(50).springify().damping(20)}>
+        <Text style={[typography.h1, { color: colors.danger, marginBottom: spacing.sm }]}>
+          Emergency Support
+        </Text>
+        <Text style={[typography.body, { marginBottom: spacing.xl }]}>
+          If you are in immediate danger, please call your local emergency services.
+        </Text>
+      </Animated.View>
 
       {hotlines.map((hotline, index) => (
-        <TouchableOpacity
+        <Animated.View
           key={index}
-          style={styles.card}
-          onPress={() => callNumber(hotline.number)}
+          entering={FadeInDown.delay(Math.min(100 + index * 60, 400))
+            .springify()
+            .damping(20)}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons
-              name="call"
-              size={24}
-              color={colors.danger}
-              style={{ marginRight: spacing.md }}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={typography.body}>{hotline.name}</Text>
-              <Text style={typography.caption}>{hotline.country}</Text>
+          <AnimatedPressable
+            style={styles.card}
+            scaleTo={animationTokens.micro.cardPressScale}
+            onPress={() => callNumber(hotline.number)}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons
+                name="call"
+                size={24}
+                color={colors.danger}
+                style={{ marginRight: spacing.md }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={typography.body}>{hotline.name}</Text>
+                <Text style={typography.caption}>{hotline.country}</Text>
+              </View>
+              <Text style={[typography.body, { color: colors.primary }]}>{hotline.number}</Text>
             </View>
-            <Text style={[typography.body, { color: colors.primary }]}>{hotline.number}</Text>
-          </View>
-        </TouchableOpacity>
+          </AnimatedPressable>
+        </Animated.View>
       ))}
     </ScrollView>
   );

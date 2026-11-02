@@ -6,7 +6,7 @@ interface HabitsContextType {
   habits: Habit[];
   loading: boolean;
   error: string | null;
-  refetch: () => Promise<void>;
+  refetch: (force?: boolean) => Promise<void>;
   addHabit: (newHabit: { name: string; icon: string }) => Promise<void>;
   toggleHabitCompletion: (habitId: number, completed: boolean) => Promise<void>;
   deleteHabit: (habitId: number) => Promise<void>;

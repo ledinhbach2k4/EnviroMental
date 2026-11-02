@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSignUp, useClerk, useAuth } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
@@ -121,7 +122,8 @@ const VerifyEmail = ({ email, username, firstName, lastName, onBack }: VerifyEma
       }
     } catch (err: any) {
       console.error('[AUTH] Verification error:', err);
-      const msg = err.errors?.[0]?.message || err.message || 'Verification failed. Please check the code.';
+      const msg =
+        err.errors?.[0]?.message || err.message || 'Verification failed. Please check the code.';
       Alert.alert('Verification Failed', msg);
     } finally {
       setLoading(false);
@@ -264,18 +266,25 @@ const VerifyEmail = ({ email, username, firstName, lastName, onBack }: VerifyEma
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
-          <View style={styles.headerArea}>
+          <Animated.View
+            entering={FadeInDown.delay(50).springify().damping(20)}
+            style={styles.headerArea}
+          >
             <View style={styles.iconBadge}>
               <Ionicons name="mail" size={36} color={colors.primary} />
             </View>
             <Text style={styles.title}>Verify Email</Text>
             <Text style={styles.subtitle}>
-              We sent a 6-digit verification code to {email}. Enter it below to activate your account.
+              We sent a 6-digit verification code to {email}. Enter it below to activate your
+              account.
             </Text>
-          </View>
+          </Animated.View>
 
           {/* Card */}
-          <View style={styles.card}>
+          <Animated.View
+            entering={FadeInDown.delay(120).springify().damping(20)}
+            style={styles.card}
+          >
             <Text style={styles.inputLabel}>6-Digit Verification Code</Text>
             <TextInput
               style={styles.otpInput}
@@ -321,7 +330,7 @@ const VerifyEmail = ({ email, username, firstName, lastName, onBack }: VerifyEma
                 ← Back to Edit Information
               </Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

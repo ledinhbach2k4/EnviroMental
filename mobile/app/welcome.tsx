@@ -1,29 +1,43 @@
-import React from 'react';
-import { View, Text, Animated } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
+import { useColors, useTypography, useSpacing } from '@/src/design/hooks';
+import { animationTokens } from '@/src/design/tokens';
 import Button from '@/components/Button';
 import { Image } from 'expo-image';
-import useTransition from '@/hooks/useTransition';
-import { StyleSheet } from 'react-native';
 
 const WelcomeScreen = () => {
   const colors = useColors();
   const typography = useTypography();
   const spacing = useSpacing();
-  const radii = useRadii();
-  const shadows = useShadows();
 
-  const { started, start, crossfadeSwap } = useTransition({ duration: 450 });
-
-  const { outStyle: introStyle, inStyle: optionsStyle } = crossfadeSwap({
-    outOffsetY: -10,
-    inOffsetY: 20,
-  });
+  const [started, setStarted] = useState(false);
+  const transition = useSharedValue(0);
 
   const handleGetStarted = () => {
-    start();
+    setStarted(true);
+    transition.value = withTiming(1, {
+      duration: animationTokens.durations.moderate,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    });
   };
+
+  const introAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(transition.value, [0, 1], [1, 0]),
+    transform: [{ translateY: interpolate(transition.value, [0, 1], [0, -15]) }],
+  }));
+
+  const optionsAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(transition.value, [0, 1], [0, 1]),
+    transform: [{ translateY: interpolate(transition.value, [0, 1], [25, 0]) }],
+  }));
 
   const styles = StyleSheet.create({
     container: {
@@ -56,10 +70,7 @@ const WelcomeScreen = () => {
       <View style={styles.centerContent}>
         <View style={styles.contentWrapper}>
           <Animated.View
-            style={{
-              ...styles.absoluteFill,
-              ...introStyle,
-            }}
+            style={[styles.absoluteFill, introAnimatedStyle]}
             pointerEvents={started ? 'none' : 'auto'}
           >
             <Image
@@ -92,10 +103,7 @@ const WelcomeScreen = () => {
           </Animated.View>
 
           <Animated.View
-            style={{
-              ...styles.absoluteFill,
-              ...optionsStyle,
-            }}
+            style={[styles.absoluteFill, optionsAnimatedStyle]}
             pointerEvents={started ? 'auto' : 'none'}
           >
             <Text

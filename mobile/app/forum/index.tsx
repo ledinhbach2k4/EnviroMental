@@ -21,6 +21,9 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/expo';
 import { ENV } from '../../constants/api';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { animationTokens } from '@/src/design/tokens';
+import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
+import { AnimatedPressable } from '../../components/motion/AnimatedPressable';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ForumPost {
@@ -34,61 +37,6 @@ interface ForumPost {
   hasImage: boolean;
   imageUrl?: string;
 }
-
-const MOCK_POSTS: ForumPost[] = [
-  {
-    id: '1',
-    title: 'How to manage anxiety during exams?',
-    message:
-      'I have been feeling extremely anxious lately with my upcoming finals. Does anyone have tips on how to stay calm and focused? I tried meditation but my mind keeps wandering.',
-    author: { name: 'Sarah M.', color: '#8641F4' },
-    replyCount: 12,
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    hasImage: false,
-  },
-  {
-    id: '2',
-    title: 'Weekly check-in: How is everyone doing?',
-    message:
-      'Just wanted to create a space for us to share how our week has been. Feel free to vent, celebrate wins, or just say hi! Remember, you are not alone.',
-    author: { name: 'Community Bot', color: '#10B981' },
-    replyCount: 47,
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
-    hasImage: true,
-    imageUrl: 'https://picsum.photos/seed/community/300/300',
-  },
-  {
-    id: '3',
-    title: 'Best apps for mood tracking?',
-    message:
-      'Looking for recommendations on mood tracking apps that are simple and effective. Preferably free or with a generous free tier. What has worked for you?',
-    author: { name: 'Alex K.', color: '#F59E0B' },
-    replyCount: 8,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    hasImage: false,
-  },
-  {
-    id: '4',
-    title: 'Dealing with seasonal depression',
-    message:
-      'As the days get shorter, I am noticing my mood dropping significantly. Has anyone found effective strategies for seasonal affective disorder? Light therapy? Supplements? Routine changes?',
-    author: { name: 'Jordan P.', color: '#EF4444' },
-    replyCount: 23,
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    hasImage: true,
-    imageUrl: 'https://picsum.photos/seed/sad/300/300',
-  },
-  {
-    id: '5',
-    title: 'Mindfulness exercise that changed my life',
-    message:
-      'I wanted to share a simple 5-minute grounding exercise that has helped me tremendously during panic attacks. It is the 5-4-3-2-1 technique: identify 5 things you see, 4 things you can touch, 3 things you hear, 2 things you can smell, 1 thing you can taste.',
-    author: { name: 'MindfulMike', color: '#8641F4' },
-    replyCount: 31,
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-    hasImage: false,
-  },
-];
 
 const formatTimeAgo = (dateValue: Date | string | number): string => {
   const date = new Date(dateValue);
@@ -171,7 +119,7 @@ export default function ForumScreen() {
       return () => {
         isMountedRef.current = false;
       };
-    }, [])
+    }, [fetchPosts])
   );
 
   const styles = useMemo(
@@ -525,15 +473,11 @@ export default function ForumScreen() {
         }
 
         // Compress image using expo-image-manipulator (0.7 quality JPEG)
-        const manipulated = await manipulateAsync(
-          asset.uri,
-          actions,
-          {
-            compress: 0.7,
-            format: SaveFormat.JPEG,
-            base64: true,
-          }
-        );
+        const manipulated = await manipulateAsync(asset.uri, actions, {
+          compress: 0.7,
+          format: SaveFormat.JPEG,
+          base64: true,
+        });
 
         if (manipulated.base64) {
           setSelectedImage(`data:image/jpeg;base64,${manipulated.base64}`);
@@ -551,10 +495,7 @@ export default function ForumScreen() {
     if (!titleInput.trim() || !messageInput.trim()) return;
 
     const authorDisplayName =
-      user?.fullName?.trim() ||
-      user?.firstName?.trim() ||
-      user?.username?.trim() ||
-      'You';
+      user?.fullName?.trim() || user?.firstName?.trim() || user?.username?.trim() || 'You';
 
     const newPost: ForumPost = {
       id: Date.now().toString(),
@@ -595,7 +536,7 @@ export default function ForumScreen() {
           Alert.alert('Post Failed', serverMsg);
         }
       }
-    } catch (error) {
+    } catch {
       // Network failed completely
       if (isMountedRef.current) {
         setPosts((prev) => prev.filter((p) => p.id !== newPost.id));
@@ -623,7 +564,7 @@ export default function ForumScreen() {
           Alert.alert('Error', 'Failed to delete post.');
         }
       }
-    } catch (error) {
+    } catch {
       if (isMountedRef.current) {
         Alert.alert('Network Error', 'Failed to reach the server.');
       }
@@ -631,21 +572,17 @@ export default function ForumScreen() {
   };
 
   const confirmDeletePost = (postId: string) => {
-    Alert.alert(
-      'Delete Post',
-      'Are you sure you want to delete this post?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => handleDeletePost(postId),
-        },
-      ]
-    );
+    Alert.alert('Delete Post', 'Are you sure you want to delete this post?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => handleDeletePost(postId),
+      },
+    ]);
   };
 
-  const renderPostCard = ({ item }: { item: ForumPost }) => {
+  const renderPostCard = ({ item, index }: { item: ForumPost; index: number }) => {
     const isOwner =
       !!user?.id &&
       (item.userId === user.id ||
@@ -655,52 +592,59 @@ export default function ForumScreen() {
             item.author.name === user.firstName)));
 
     return (
-      <TouchableOpacity
-        style={styles.postCard}
-        activeOpacity={0.8}
-        onPress={() => setSelectedPost(item)}
+      <Animated.View
+        entering={FadeInDown.delay(Math.min(index * 40, 350))
+          .springify()
+          .damping(20)}
+        layout={LinearTransition.springify().damping(20).stiffness(150)}
       >
-        <View style={styles.postLeft}>
-          <Text style={styles.postTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
-          <View style={styles.postAuthorRow}>
-            <Text style={[styles.postAuthorName, { color: item.author.color }]}>
-              {item.author.name}
+        <AnimatedPressable
+          style={styles.postCard}
+          scaleTo={animationTokens.micro.cardPressScale}
+          onPress={() => setSelectedPost(item)}
+        >
+          <View style={styles.postLeft}>
+            <Text style={styles.postTitle} numberOfLines={2}>
+              {item.title}
             </Text>
-            <Text style={styles.postAuthorName}>·</Text>
-            <Text style={styles.metaText}>{formatTimeAgo(item.createdAt)}</Text>
-          </View>
-          <Text style={styles.postPreview} numberOfLines={2}>
-            {item.message}
-          </Text>
-          <View style={styles.postMeta}>
-            <View style={styles.metaItem}>
-              <Ionicons name="chatbubble" size={16} color={colors.textMuted} />
-              <Text style={styles.metaText}>{item.replyCount}</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <Ionicons name="time" size={16} color={colors.textMuted} />
+            <View style={styles.postAuthorRow}>
+              <Text style={[styles.postAuthorName, { color: item.author.color }]}>
+                {item.author.name}
+              </Text>
+              <Text style={styles.postAuthorName}>·</Text>
               <Text style={styles.metaText}>{formatTimeAgo(item.createdAt)}</Text>
             </View>
-            {isOwner && (
-              <TouchableOpacity
-                style={styles.cardDeleteButton}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                onPress={(e) => {
-                  e.stopPropagation?.();
-                  confirmDeletePost(item.id);
-                }}
-              >
-                <Ionicons name="trash-outline" size={16} color={colors.danger} />
-              </TouchableOpacity>
-            )}
+            <Text style={styles.postPreview} numberOfLines={2}>
+              {item.message}
+            </Text>
+            <View style={styles.postMeta}>
+              <View style={styles.metaItem}>
+                <Ionicons name="chatbubble" size={16} color={colors.textMuted} />
+                <Text style={styles.metaText}>{item.replyCount}</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Ionicons name="time" size={16} color={colors.textMuted} />
+                <Text style={styles.metaText}>{formatTimeAgo(item.createdAt)}</Text>
+              </View>
+              {isOwner && (
+                <TouchableOpacity
+                  style={styles.cardDeleteButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    confirmDeletePost(item.id);
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        </View>
-        {item.hasImage && item.imageUrl && (
-          <Image source={{ uri: item.imageUrl }} style={styles.postThumbnail} />
-        )}
-      </TouchableOpacity>
+          {item.hasImage && item.imageUrl && (
+            <Image source={{ uri: item.imageUrl }} style={styles.postThumbnail} />
+          )}
+        </AnimatedPressable>
+      </Animated.View>
     );
   };
 

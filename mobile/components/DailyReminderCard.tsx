@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Switch } from 'react-native';
-import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { useColors, useTypography, useSpacing, useShadows } from '@/src/design/hooks';
 import { useNotifications } from '@/context/NotificationContext';
 
 interface DailyReminderCardProps {
@@ -11,7 +11,6 @@ export const DailyReminderCard = ({ style }: DailyReminderCardProps) => {
   const colors = useColors();
   const typography = useTypography();
   const spacing = useSpacing();
-  const radii = useRadii();
   const shadows = useShadows();
 
   const { isReminderEnabled, setIsReminderEnabled, isLoading, hasPermission } = useNotifications();
@@ -27,11 +26,11 @@ export const DailyReminderCard = ({ style }: DailyReminderCardProps) => {
   return (
     <View style={[styles.card, style, shadows.sm]}>
       <View style={styles.header}>
-        <Text style={[typography.h3, { color: colors.primary }]}>Daily Reminder</Text>
+        <Text style={[typography.h3, { color: colors.primary }]}>Mood Reminders</Text>
       </View>
 
       <Text style={[typography.body, { marginBottom: spacing.md, color: colors.text }]}>
-        Get a daily prompt to log your mood and track patterns over time.
+        Get notified when you become eligible to log your mood throughout the day.
       </Text>
 
       <View style={styles.toggleRow}>

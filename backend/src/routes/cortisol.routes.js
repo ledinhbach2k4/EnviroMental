@@ -56,8 +56,12 @@ router.get("/", async (req, res) => {
       )
       .orderBy(desc(schema.moodEntries.createdAt));
 
-    // Fetch habits with today's completion status
-    const today = new Date().toISOString().split("T")[0];
+    // Fetch habits with today's completion status (supports user's local date if provided)
+    const today =
+      typeof req.query?.date === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)
+        ? req.query.date
+        : new Date().toISOString().split("T")[0];
 
     const habitsData = await db
       .select()

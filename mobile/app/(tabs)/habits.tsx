@@ -3,20 +3,186 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Platform,
   ActivityIndicator,
   Alert,
   StyleSheet,
 } from 'react-native';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import AddHabitModal from '../../components/AddHabitModal';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  withSequence,
+  interpolateColor,
+} from 'react-native-reanimated';
 import { useSharedHabits } from '../../context/HabitsContext';
 import type { Habit } from '../../hooks/useHabits';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { animationTokens } from '@/src/design/tokens';
+import { AnimatedPressable } from '../../components/motion/AnimatedPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../components/Icon';
+
+interface HabitCardRowProps {
+  habit: Habit;
+  index: number;
+  isSelected: boolean;
+  isDeleteMode: boolean;
+  isToggleLoading: boolean;
+  onToggle: () => void;
+  colors: any;
+  typography: any;
+  spacing: any;
+  radii: any;
+  styles: any;
+}
+
+function HabitCardRow({
+  habit,
+  index,
+  isSelected,
+  isDeleteMode,
+  isToggleLoading,
+  onToggle,
+  colors,
+  typography,
+  spacing,
+  styles,
+}: HabitCardRowProps) {
+  const isCompleted = habit.completedToday;
+  const prevCompletedRef = useRef(isCompleted);
+  const checkScale = useSharedValue(1);
+  const bgAnim = useSharedValue(isCompleted ? 1 : 0);
+
+  useEffect(() => {
+    bgAnim.value = withTiming(isCompleted ? 1 : 0, {
+      duration: animationTokens.durations.normal,
+    });
+    if (prevCompletedRef.current !== isCompleted) {
+      checkScale.value = withSequence(
+        withSpring(1.18, { damping: 14, stiffness: 220 }),
+        withSpring(1, { damping: 12, stiffness: 200 })
+      );
+      prevCompletedRef.current = isCompleted;
+    }
+  }, [isCompleted, bgAnim, checkScale]);
+
+  const animatedCheckStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkScale.value }],
+  }));
+
+  const animatedBgStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(bgAnim.value, [0, 1], [colors.surface, habit.color + '14']),
+    borderColor: interpolateColor(bgAnim.value, [0, 1], [colors.border, habit.color + '45']),
+  }));
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(Math.min(300 + index * 40, 600))
+        .springify()
+        .damping(20)}
+      layout={LinearTransition.duration(200)}
+    >
+      <AnimatedPressable
+        scaleTo={animationTokens.micro.cardPressScale}
+        style={[
+          styles.cardSmall,
+          {
+            marginBottom: spacing.sm,
+            opacity: isToggleLoading ? 0.7 : 1,
+          },
+          animatedBgStyle,
+        ]}
+        onPress={onToggle}
+        disabled={isToggleLoading}
+      >
+        <View style={styles.cardRowContent}>
+          <View style={styles.cardLeftSection}>
+            <Animated.View
+              style={[
+                styles.iconContainer,
+                {
+                  backgroundColor: habit.completedToday ? habit.color : habit.color + '20',
+                },
+                animatedCheckStyle,
+              ]}
+            >
+              <Icon
+                name={habit.completedToday ? 'checkmark' : habit.icon}
+                size={20}
+                color={habit.completedToday ? colors.textInverse : habit.color}
+              />
+            </Animated.View>
+            <View style={styles.textContainer}>
+              <Text
+                style={[
+                  typography.body,
+                  styles.habitTitle,
+                  {
+                    textDecorationLine: habit.completedToday ? 'line-through' : 'none',
+                    color: habit.completedToday ? colors.textMuted : colors.text,
+                  },
+                ]}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
+                {habit.name}
+              </Text>
+              <View style={styles.streakRow}>
+                {habit.streak > 0 ? (
+                  <>
+                    <Text style={styles.streakEmoji}>🔥</Text>
+                    <Text style={[typography.caption, { color: colors.accent, fontWeight: '600' }]}>
+                      {habit.streak} {habit.streak === 1 ? 'day' : 'days'}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>
+                    Start streak today
+                  </Text>
+                )}
+              </View>
+            </View>
+          </View>
+          <View style={styles.actionContainer}>
+            {isToggleLoading ? (
+              <ActivityIndicator size="small" color={habit.color || colors.primary} />
+            ) : (
+              <Animated.View style={animatedCheckStyle}>
+                <Icon
+                  name={
+                    isDeleteMode
+                      ? isSelected
+                        ? 'checkbox'
+                        : 'square-outline'
+                      : habit.completedToday
+                        ? 'checkmark-circle'
+                        : 'ellipse-outline'
+                  }
+                  size={26}
+                  color={
+                    isDeleteMode
+                      ? isSelected
+                        ? colors.danger
+                        : colors.border
+                      : habit.completedToday
+                        ? habit.color
+                        : colors.border
+                  }
+                />
+              </Animated.View>
+            )}
+          </View>
+        </View>
+      </AnimatedPressable>
+    </Animated.View>
+  );
+}
 
 export default function HabitsTracker() {
   const colors = useColors();
@@ -42,11 +208,13 @@ export default function HabitsTracker() {
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [selectedHabits, setSelectedHabits] = useState<number[]>([]);
 
-  useEffect(() => {
+  const [prevDeleteMode, setPrevDeleteMode] = useState(isDeleteMode);
+  if (isDeleteMode !== prevDeleteMode) {
+    setPrevDeleteMode(isDeleteMode);
     if (!isDeleteMode) {
       setSelectedHabits([]);
     }
-  }, [isDeleteMode]);
+  }
 
   const handleOpenAddModal = () => {
     if (habits.length >= 10) {
@@ -139,6 +307,23 @@ export default function HabitsTracker() {
     return Math.round((completed / habits.length) * 100);
   };
 
+  const completionRate =
+    habits.length === 0
+      ? 0
+      : Math.round((habits.filter((h: Habit) => h.completedToday).length / habits.length) * 100);
+
+  const animatedProgress = useSharedValue(completionRate);
+
+  useEffect(() => {
+    animatedProgress.value = withTiming(completionRate, {
+      duration: animationTokens.durations.moderate,
+    });
+  }, [completionRate, animatedProgress]);
+
+  const progressBarStyle = useAnimatedStyle(() => ({
+    width: `${animatedProgress.value}%`,
+  }));
+
   const getTotalStreak = () => {
     return habits.reduce((sum: number, habit: Habit) => sum + (habit.streak || 0), 0);
   };
@@ -204,17 +389,68 @@ export default function HabitsTracker() {
     },
     card: {
       backgroundColor: colors.surface,
-      borderRadius: radii.lg,
+      borderRadius: radii.xl,
       padding: spacing.lg,
       marginVertical: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
       ...shadows.sm,
     },
     cardSmall: {
       backgroundColor: colors.surface,
-      borderRadius: radii.md, // <-- Add this line
-      padding: spacing.md,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
       marginVertical: spacing.xs,
+      overflow: 'hidden',
       ...shadows.xs,
+    },
+    cardRowContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: spacing.sm + 2,
+      paddingHorizontal: spacing.md,
+      minHeight: 64,
+    },
+    cardLeftSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      flexShrink: 1,
+      marginRight: spacing.xs,
+    },
+    iconContainer: {
+      width: 40,
+      height: 40,
+      borderRadius: radii.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: spacing.md,
+    },
+    textContainer: {
+      flex: 1,
+      flexShrink: 1,
+      justifyContent: 'center',
+    },
+    habitTitle: {
+      fontWeight: '500',
+    },
+    streakRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 2,
+    },
+    streakEmoji: {
+      fontSize: 12,
+      marginRight: 4,
+    },
+    actionContainer: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: spacing.xs,
     },
     row: {
       flexDirection: 'row',
@@ -227,6 +463,23 @@ export default function HabitsTracker() {
     },
     disabled: {
       opacity: 0.5,
+    },
+    deleteActionButton: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.lg,
+      borderWidth: 2,
+      borderColor: colors.danger,
+    },
+    deleteSolidButton: {
+      backgroundColor: colors.danger,
+      ...shadows.sm,
+    },
+    deleteOutlineButton: {
+      backgroundColor: 'transparent',
     },
   });
 
@@ -271,17 +524,19 @@ export default function HabitsTracker() {
             style={{
               height: 8,
               backgroundColor: colors.border,
-              borderRadius: 4,
+              borderRadius: radii.full,
               overflow: 'hidden',
             }}
           >
-            <View
-              style={{
-                height: '100%',
-                width: `${getCompletionRate()}%`,
-                backgroundColor: colors.success,
-                borderRadius: 4,
-              }}
+            <Animated.View
+              style={[
+                {
+                  height: '100%',
+                  backgroundColor: colors.success,
+                  borderRadius: radii.full,
+                },
+                progressBarStyle,
+              ]}
             />
           </View>
         </Animated.View>
@@ -297,7 +552,12 @@ export default function HabitsTracker() {
                 onPress={() => setIsDeleteMode(!isDeleteMode)}
                 style={{ padding: spacing.xs }}
               >
-                <Text style={{ color: isDeleteMode ? colors.danger : colors.primary }}>
+                <Text
+                  style={{
+                    color: isDeleteMode ? colors.danger : colors.primary,
+                    fontWeight: '600',
+                  }}
+                >
                   {isDeleteMode ? 'Cancel' : 'Manage'}
                 </Text>
               </TouchableOpacity>
@@ -313,92 +573,27 @@ export default function HabitsTracker() {
                 style={{ marginBottom: spacing.md }}
               />
               <Text style={[typography.body, { textAlign: 'center', color: colors.textMuted }]}>
-                No habits added yet. Tap "Add New Habit" to get started!
+                No habits added yet. Tap &quot;Add New Habit&quot; to get started!
               </Text>
             </View>
           ) : (
             habits.map((habit: Habit, index: number) => {
               const isSelected = selectedHabits.includes(habit.id);
               return (
-                <Animated.View key={habit.id} entering={FadeInDown.delay(300 + index * 50)}>
-                  <TouchableOpacity
-                    style={[
-                      styles.cardSmall,
-                      {
-                        marginBottom: spacing.md,
-                        backgroundColor: habit.completedToday
-                          ? habit.color + '15'
-                          : colors.background,
-                        opacity: toggleLoading === habit.id ? 0.5 : 1,
-                      },
-                    ]}
-                    onPress={() => handleToggleHabit(habit.id, habit.completedToday)}
-                    disabled={toggleLoading === habit.id}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.spaceBetween, { padding: spacing.md }]}>
-                      <View style={[styles.row, { flex: 1, alignItems: 'center' }]}>
-                        <View
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 20,
-                            backgroundColor: habit.completedToday
-                              ? habit.color
-                              : habit.color + '20',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginRight: spacing.md,
-                          }}
-                        >
-                          <Icon
-                            name={habit.completedToday ? 'checkmark' : habit.icon}
-                            size={20}
-                            color={habit.completedToday ? colors.textInverse : habit.color}
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[
-                              typography.body,
-                              {
-                                textDecorationLine: habit.completedToday ? 'line-through' : 'none',
-                                color: habit.completedToday ? colors.textMuted : colors.text,
-                              },
-                            ]}
-                          >
-                            {habit.name}
-                          </Text>
-                          <Text style={typography.caption}>{habit.streak} day streak</Text>
-                        </View>
-                      </View>
-                      {toggleLoading === habit.id && (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      )}
-                      <Icon
-                        name={
-                          isDeleteMode
-                            ? isSelected
-                              ? 'checkbox'
-                              : 'square-outline'
-                            : habit.completedToday
-                            ? 'checkmark-circle'
-                            : 'ellipse-outline'
-                        }
-                        size={24}
-                        color={
-                          isDeleteMode
-                            ? isSelected
-                              ? colors.danger
-                              : colors.border
-                            : habit.completedToday
-                            ? habit.color
-                            : colors.border
-                        }
-                      />
-                    </View>
-                  </TouchableOpacity>
-                </Animated.View>
+                <HabitCardRow
+                  key={habit.id}
+                  habit={habit}
+                  index={index}
+                  isSelected={isSelected}
+                  isDeleteMode={isDeleteMode}
+                  isToggleLoading={toggleLoading === habit.id}
+                  onToggle={() => handleToggleHabit(habit.id, habit.completedToday)}
+                  colors={colors}
+                  typography={typography}
+                  spacing={spacing}
+                  radii={radii}
+                  styles={styles}
+                />
               );
             })
           )}
@@ -412,15 +607,8 @@ export default function HabitsTracker() {
             >
               <TouchableOpacity
                 style={[
-                  {
-                    backgroundColor: colors.danger,
-                    borderRadius: radii.lg,
-                    paddingVertical: spacing.md,
-                    paddingHorizontal: spacing.xl,
-                    alignItems: 'center',
-                    flex: 1,
-                    ...shadows.sm,
-                  },
+                  styles.deleteActionButton,
+                  styles.deleteSolidButton,
                   selectedHabits.length === 0 && styles.disabled,
                 ]}
                 onPress={handleDeleteSelected}
@@ -429,16 +617,7 @@ export default function HabitsTracker() {
                 <Text style={typography.button}>Delete</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[
-                  styles.cardSmall,
-                  {
-                    flex: 1,
-                    alignItems: 'center',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderColor: colors.danger,
-                  },
-                ]}
+                style={[styles.deleteActionButton, styles.deleteOutlineButton]}
                 onPress={handleDeleteAll}
               >
                 <Text style={[typography.button, { color: colors.danger }]}>Delete All</Text>

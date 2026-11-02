@@ -9,5 +9,5 @@ module.exports = {
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
     'react-hooks/exhaustive-deps': 'warn',
   },
-  ignorePatterns: ['dist/*', 'node_modules/*', '.expo/*'],
+  ignorePatterns: ['dist/*', 'node_modules/*', '.expo/*', '__tests__/*'],
 };

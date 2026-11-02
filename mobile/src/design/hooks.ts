@@ -25,5 +25,17 @@ export const useShadows = () => {
   return tokens.shadows;
 };
 
-export { useDesignSystem, DesignSystemProvider, createStyles, useStyles } from './index';
-export type { DesignTokens, ThemeConfig, ThemeName } from './tokens';
+export const useAnimation = () => {
+  const { tokens } = useDesignSystem();
+  return tokens.animation;
+};
+
+export {
+  useDesignSystem,
+  DesignSystemProvider,
+  createStyles,
+  useStyles,
+  baseAnimationTokens,
+  animationTokens,
+} from './index';
+export type { DesignTokens, ThemeConfig, ThemeName, AnimationTokens } from './tokens';

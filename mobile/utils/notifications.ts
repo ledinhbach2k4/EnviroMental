@@ -3,6 +3,7 @@
 
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 // Check if running in a development build (not Expo Go)
@@ -271,4 +272,169 @@ export const setNotificationChannelAsync = async (
     console.warn('[Notifications] setNotificationChannelAsync error:', err);
     return null;
   }
+};
+
+const SETTINGS_STORAGE_KEY = 'notification_reminder_settings';
+
+/**
+ * Check if the user has enabled mood reminders in app settings.
+ */
+export const areNotificationsEnabled = async (): Promise<boolean> => {
+  try {
+    const stored = await SecureStore.getItemAsync(SETTINGS_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed.enabled !== false;
+    }
+  } catch (e) {
+    console.warn('[Notifications] Failed to read reminder setting:', e);
+  }
+  return true; // Default to enabled
+};
+
+/**
+ * Dynamically schedule a notification for when the user is next eligible to log a mood.
+ * - If todaysLogCount >= 6: Schedules for tomorrow morning at 9:00 AM.
+ * - If todaysLogCount < 6: Schedules for exactly 2 hours after lastLogTime.
+ *
+ * Deep link target: `/(tabs)/mood`
+ */
+export const scheduleNextMoodNotification = async (
+  lastLogTime?: number | Date | null,
+  todaysLogCount: number = 1
+): Promise<string> => {
+  if (!isSupported) {
+    console.log('[Notifications] Push notifications not supported on this device/runtime');
+    return '';
+  }
+
+  // Check if reminder is enabled by user
+  const enabled = await areNotificationsEnabled();
+  if (!enabled) {
+    console.log('[Notifications] Dynamic mood reminders are disabled by user');
+    return '';
+  }
+
+  // Check permissions
+  const permission = await getPermissionsAsync();
+  if (permission.status !== 'granted') {
+    console.log('[Notifications] Notification permission not granted');
+    return '';
+  }
+
+  try {
+    // Cancel previous mood reminders to avoid stale duplicates
+    await cancelAllScheduledNotificationsAsync();
+
+    let targetDate: Date;
+    let title: string;
+    let body: string;
+
+    if (todaysLogCount >= 6) {
+      // Daily limit of 6 reached: Schedule for tomorrow morning at 9:00 AM
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(9, 0, 0, 0);
+      targetDate = tomorrow;
+      title = 'Good morning!';
+      body = "A new day has started. Time to log today's mood!";
+    } else {
+      // Under daily limit: Schedule for exactly 2 hours after lastLogTime
+      const logTimestamp =
+        typeof lastLogTime === 'number'
+          ? lastLogTime
+          : lastLogTime instanceof Date
+            ? lastLogTime.getTime()
+            : Date.now();
+
+      const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+      const scheduledTime = logTimestamp + TWO_HOURS_MS;
+
+      // If 2 hours have already elapsed, schedule for 5 seconds from now
+      const finalTimestamp = scheduledTime > Date.now() ? scheduledTime : Date.now() + 5000;
+      targetDate = new Date(finalTimestamp);
+      title = 'How are you feeling?';
+      body = 'Your 2-hour cooldown has passed. Time to log your mood!';
+    }
+
+    const identifier = await scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: {
+          url: '/(tabs)/mood',
+          screen: 'mood',
+        },
+        categoryIdentifier: 'MOOD_REMINDER',
+        sound: 'default',
+        dismissible: true,
+      },
+      trigger: {
+        type: 'date',
+        date: targetDate,
+        channelId: 'default',
+      },
+    });
+
+    console.log(
+      `[Notifications] Dynamic mood notification scheduled for ${targetDate.toLocaleString()} (ID: ${identifier})`
+    );
+    return identifier;
+  } catch (error) {
+    console.error('[Notifications] Failed to schedule dynamic mood notification:', error);
+    return '';
+  }
+};
+
+/**
+ * Global notification response listener (tapped notifications) with safe fallback.
+ */
+export const addNotificationResponseReceivedListener = (
+  listener: (response: any) => void
+): { remove: () => void } => {
+  if (!isSupported) {
+    return { remove: () => {} };
+  }
+
+  let isSubscribed = true;
+  let subscription: any = null;
+
+  getNotificationsModule().then((Notifications) => {
+    if (
+      isSubscribed &&
+      Notifications &&
+      typeof Notifications.addNotificationResponseReceivedListener === 'function'
+    ) {
+      try {
+        subscription = Notifications.addNotificationResponseReceivedListener(listener);
+      } catch (err) {
+        console.warn('[Notifications] addNotificationResponseReceivedListener error:', err);
+      }
+    }
+  });
+
+  return {
+    remove: () => {
+      isSubscribed = false;
+      if (subscription && typeof subscription.remove === 'function') {
+        subscription.remove();
+      }
+    },
+  };
+};
+
+/**
+ * Retrieve the notification response that launched the app from a closed/quit state.
+ */
+export const getLastNotificationResponseAsync = async (): Promise<any | null> => {
+  if (!isSupported) return null;
+  const Notifications = await getNotificationsModule();
+  if (Notifications && typeof Notifications.getLastNotificationResponseAsync === 'function') {
+    try {
+      return await Notifications.getLastNotificationResponseAsync();
+    } catch (err) {
+      console.warn('[Notifications] getLastNotificationResponseAsync error:', err);
+    }
+  }
+  return null;
 };

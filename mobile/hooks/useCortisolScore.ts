@@ -27,7 +27,7 @@ interface UseCortisolScoreReturn {
   data: CortisolScoreData | null;
   loading: boolean;
   error: string | null;
-  refetch: () => Promise<void>;
+  refetch: (force?: boolean) => Promise<void>;
 }
 
 // MODULE-LEVEL CACHE - persists across all component lifecycles
@@ -69,7 +69,7 @@ export const useCortisolScore = (): UseCortisolScoreReturn => {
     const now = Date.now();
 
     // 1. SERVE FROM CACHE if valid (60s TTL)
-    if (!force && cachedCortisolData && now - lastCortisolFetch < 60000) {
+    if (!force && cachedCortisolData && now - lastCortisolFetch < CORTISOL_CACHE_TTL) {
       setData(cachedCortisolData);
       setLoading(false);
       return;
@@ -82,7 +82,9 @@ export const useCortisolScore = (): UseCortisolScoreReturn => {
 
     // 3. MARK AS FETCHING
     isFetchingCortisol = true;
-    setLoading(true);
+    if (!cachedCortisolData) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -122,13 +124,22 @@ export const useCortisolScore = (): UseCortisolScoreReturn => {
 
   // SINGLE MOUNT EFFECT - RUNS ONCE
   useEffect(() => {
-    fetchScore();
+    let isMounted = true;
+    void Promise.resolve().then(() => {
+      if (isMounted) fetchScore();
+    });
+    return () => {
+      isMounted = false;
+    };
   }, []); // STRICTLY EMPTY ARRAY
 
   // STABLE REFETCH - MEMOIZED with useCallback
-  const refetch = useCallback(async () => {
-    await fetchScore(true);
-  }, [fetchScore]);
+  const refetch = useCallback(
+    async (force = false) => {
+      await fetchScore(force);
+    },
+    [fetchScore]
+  );
 
   return {
     data,

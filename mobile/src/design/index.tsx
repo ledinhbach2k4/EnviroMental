@@ -1,6 +1,6 @@
-import { createContext, useContext, useMemo, ReactNode, useState, useEffect } from 'react';
+import { createContext, useContext, useMemo, ReactNode, useState } from 'react';
 import { StyleSheet, ViewStyle, TextStyle, ImageStyle } from 'react-native';
-import { DesignTokens, ThemeConfig, ThemeName } from './tokens';
+import { DesignTokens, ThemeConfig, ThemeName, baseAnimationTokens } from './tokens';
 import { THEMES, DEFAULT_THEME, getTheme } from './themes';
 
 const baseTypography = {
@@ -117,6 +117,7 @@ const createDesignTokens = (theme: ThemeConfig): DesignTokens => ({
     lg: { ...baseShadows.lg, shadowColor: theme.colors.shadowStrong },
     xl: { ...baseShadows.xl, shadowColor: theme.colors.shadowStrong },
   },
+  animation: baseAnimationTokens,
   breakpoints: { sm: 320, md: 480, lg: 768, xl: 1024 },
   zIndex: { base: 0, dropdown: 100, sticky: 200, modal: 300, toast: 400, tooltip: 500 },
 });
@@ -128,7 +129,7 @@ export interface DesignSystemContextValue {
   availableThemes: ThemeConfig[];
 }
 
-const DesignSystemContext = createContext<DesignSystemContextValue | null>(null);
+export const DesignSystemContext = createContext<DesignSystemContextValue | null>(null);
 
 export const useDesignSystem = (): DesignSystemContextValue => {
   const context = useContext(DesignSystemContext);
@@ -185,8 +186,9 @@ export const useStyles = <T extends Record<string, ViewStyle | TextStyle | Image
   styleFn: (tokens: DesignTokens) => T
 ): T => {
   const { tokens } = useDesignSystem();
-  return useMemo(() => StyleSheet.create(styleFn(tokens)), [tokens]);
+  return useMemo(() => StyleSheet.create(styleFn(tokens)), [tokens, styleFn]);
 };
 
 export { THEMES, DEFAULT_THEME, getTheme } from './themes';
-export type { DesignTokens, ThemeConfig, ThemeName } from './tokens';
+export { baseAnimationTokens, animationTokens } from './tokens';
+export type { DesignTokens, ThemeConfig, ThemeName, AnimationTokens } from './tokens';

@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import * as Location from 'expo-location';
-import { router, Link } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
@@ -17,10 +17,21 @@ import {
   View,
   ViewStyle,
   StyleSheet,
-  Alert,
-  Animated,
   Modal,
+  RefreshControl,
 } from 'react-native';
+import Animated, {
+  FadeInDown,
+  FadeIn,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withSequence,
+  runOnJS,
+} from 'react-native-reanimated';
+import { animationTokens } from '@/src/design/tokens';
+import { AnimatedPressable } from '../../components/motion/AnimatedPressable';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-chart-kit';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
@@ -40,7 +51,7 @@ interface QuickStat {
   value: string;
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
-  onRetry?: () => void;
+  hasRetry?: boolean;
 }
 
 interface WeatherData {
@@ -68,6 +79,13 @@ const moodEmojis = ['😢', '😕', '😐', '😊', '😄'];
 const TIME_RANGES = ['Day', 'Week', 'Month', 'Year'] as const;
 type TimeRange = (typeof TIME_RANGES)[number];
 
+const LOCATION_ERROR_COOLDOWN = 5 * 60 * 1000;
+const WEATHER_STALE_TIME = 5 * 60 * 1000; // 5 minutes
+const AIR_QUALITY_STALE_TIME = 5 * 60 * 1000; // 5 minutes
+const MOOD_STALE_TIME = 60 * 1000; // 1 minute
+const HABITS_STALE_TIME = 60 * 1000; // 1 minute
+const CORTISOL_STALE_TIME = 60 * 1000; // 1 minute
+
 // Helper Functions
 const getAqiLabel = (aqi: number) => {
   switch (aqi) {
@@ -86,6 +104,10 @@ const getAqiLabel = (aqi: number) => {
   }
 };
 
+const setSharedValue = <T,>(sv: { value: T }, val: T) => {
+  sv.value = val;
+};
+
 const CardContent = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 const AndroidCardContent = ({
   style,
@@ -95,6 +117,60 @@ const AndroidCardContent = ({
   children: React.ReactNode;
 }) => <View style={style}>{children}</View>;
 const CardWrapper = Platform.OS === 'android' ? AndroidCardContent : CardContent;
+
+function AnimatedTimeRangePill({
+  range,
+  isSelected,
+  onPress,
+  colors,
+  radii,
+  spacing,
+}: {
+  range: string;
+  isSelected: boolean;
+  onPress: () => void;
+  colors: any;
+  radii: any;
+  spacing: any;
+}) {
+  const scale = useSharedValue(1);
+
+  const handlePress = () => {
+    scale.value = withSequence(
+      withSpring(0.9, animationTokens.springs.bouncy),
+      withSpring(1, animationTokens.springs.gentle)
+    );
+    onPress();
+  };
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animStyle}>
+      <TouchableOpacity
+        onPress={handlePress}
+        activeOpacity={0.8}
+        style={{
+          paddingVertical: spacing.xs,
+          paddingHorizontal: spacing.md,
+          borderRadius: radii.full,
+          backgroundColor: isSelected ? colors.primary : 'transparent',
+        }}
+      >
+        <Text
+          style={{
+            color: isSelected ? colors.textInverse : colors.primary,
+            fontWeight: '600',
+          }}
+        >
+          {range}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 // Main Component
 export default function Home() {
@@ -144,44 +220,61 @@ export default function Home() {
   );
   const [currentLocation, setCurrentLocation] = useState<string>('Updating your location...');
   const [locationFetched, setLocationFetched] = useState(false);
-  const swipeAnim = useRef(new Animated.Value(0)).current;
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        // Use setOffset with 0, the animation will handle the current position
-        swipeAnim.setOffset(0);
-        swipeAnim.setValue(0);
-      },
-      onPanResponderMove: (_, gesture) => {
-        const translateX = Math.max(0, Math.min(gesture.dx, Dimensions.get('window').width - 100));
-        swipeAnim.setValue(translateX);
-      },
-      onPanResponderRelease: (_, gesture) => {
-        const threshold = Dimensions.get('window').width * 0.75;
-        if (gesture.dx >= threshold) {
-          // Swipe complete - trigger call
-          Animated.spring(swipeAnim, {
-            toValue: Dimensions.get('window').width - 100,
-            useNativeDriver: true,
-          }).start(() => {
-            if (selectedTarget) {
-              Linking.openURL(`tel:${selectedTarget.phone}`);
-            }
-            closeEmergencyModal();
-          });
-        } else {
-          // Snap back
-          Animated.spring(swipeAnim, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-        }
-        swipeAnim.flattenOffset();
-      },
-    })
-  ).current;
+  const swipeAnim = useSharedValue(0);
+  const maxSlide = useMemo(() => Dimensions.get('window').width - 100, []);
+  const swipeThreshold = useMemo(() => Dimensions.get('window').width * 0.75, []);
+
+  const closeEmergencyModal = useCallback(() => {
+    setEmergencyStep(1);
+    setSelectedTarget(null);
+    setCurrentLocation('Updating your location...');
+    setLocationFetched(false);
+    setIsEmergencyModalVisible(false);
+    setSharedValue(swipeAnim, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const triggerEmergencyCall = useCallback(() => {
+    if (selectedTarget) {
+      Linking.openURL(`tel:${selectedTarget.phone}`);
+    }
+    closeEmergencyModal();
+  }, [selectedTarget, closeEmergencyModal]);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+          setSharedValue(swipeAnim, 0);
+        },
+        onPanResponderMove: (_, gesture) => {
+          const translateX = Math.max(0, Math.min(gesture.dx, maxSlide));
+          setSharedValue(swipeAnim, translateX);
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dx >= swipeThreshold) {
+            setSharedValue(
+              swipeAnim,
+              withSpring(maxSlide, animationTokens.springs.gentle, (finished) => {
+                if (finished) {
+                  runOnJS(triggerEmergencyCall)();
+                }
+              })
+            );
+          } else {
+            setSharedValue(swipeAnim, withSpring(0, animationTokens.springs.gentle));
+          }
+        },
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [maxSlide, swipeThreshold, triggerEmergencyCall]
+  );
+
+  const swipeAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: swipeAnim.value }],
+  }));
 
   // Hooks
   const { getToken } = useAuth();
@@ -199,24 +292,39 @@ export default function Home() {
     tokenRef.current = getToken;
   }, [getToken]);
 
-  // Keep moodColors in a ref so fetchMood has an empty dependency array []
-  const moodColorsRef = useRef(moodColors);
-  useEffect(() => {
-    moodColorsRef.current = moodColors;
-  }, [moodColors]);
-
-  // Cooldown Refs (for mood/weather/airQuality - habits/cortisol use module-level)
+  // Cooldown & Stale-Tracking Refs
+  const isInitialMountRef = useRef(true);
   const isFetchingMoodRef = useRef(false);
   const lastFetchMoodTimeRef = useRef(0);
   const isFetchingWeatherRef = useRef(false);
   const lastFetchWeatherTimeRef = useRef(0);
   const isFetchingAirQualityRef = useRef(false);
   const lastFetchAirQualityTimeRef = useRef(0);
+  const lastFetchHabitsTimeRef = useRef(0);
+  const lastFetchCortisolTimeRef = useRef(0);
+
+  // Sync refs with state to prevent stale closures and avoid flashing spinners when data already exists
+  const weatherRef = useRef<WeatherData | null>(null);
+  const moodEntriesRef = useRef<MoodEntry[]>([]);
+  const airQualityRef = useRef<AirQualityData | null>(null);
+
+  useEffect(() => {
+    weatherRef.current = weather;
+  }, [weather]);
+
+  useEffect(() => {
+    moodEntriesRef.current = moodEntries;
+  }, [moodEntries]);
+
+  useEffect(() => {
+    airQualityRef.current = airQuality;
+  }, [airQuality]);
+
+  const [refreshing, setRefreshing] = useState(false);
 
   // Location permission refs
   const locationPermissionDeniedRef = useRef(false);
   const lastLocationErrorTimeRef = useRef(0);
-  const LOCATION_ERROR_COOLDOWN = 5 * 60 * 1000;
 
   // Reset permission denied state - call when user might have granted permission
   const resetPermissionState = useCallback(() => {
@@ -246,15 +354,6 @@ export default function Home() {
       console.error('Failed to get location:', error);
       setCurrentLocation('Unable to fetch location');
     }
-  }, []);
-
-  const closeEmergencyModal = useCallback(() => {
-    setEmergencyStep(1);
-    setSelectedTarget(null);
-    setCurrentLocation('Updating your location...');
-    setLocationFetched(false);
-    setIsEmergencyModalVisible(false);
-    swipeAnim.setValue(0);
   }, []);
 
   const handleEmergencyOptionPress = useCallback(
@@ -314,79 +413,91 @@ export default function Home() {
   }, []);
 
   // Data Fetching
-  const fetchMood = useCallback(async () => {
-    const now = Date.now();
-    if (now - lastFetchMoodTimeRef.current < 30000) return;
-    if (isFetchingMoodRef.current) return;
+  const fetchMood = useCallback(
+    async (force = false) => {
+      const now = Date.now();
+      if (!force && now - lastFetchMoodTimeRef.current < MOOD_STALE_TIME) return;
+      if (isFetchingMoodRef.current) return;
 
-    isFetchingMoodRef.current = true;
-    lastFetchMoodTimeRef.current = now;
-    setLoadingMood(true);
+      isFetchingMoodRef.current = true;
+      lastFetchMoodTimeRef.current = now;
 
-    // 1. STALE: Show cached data immediately
-    try {
-      const cached = await AsyncStorage.getItem('cached_moods');
-      if (cached) {
-        const parsed: MoodEntry[] = JSON.parse(cached);
-        const sorted = parsed.sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-        setMoodEntries(sorted);
-        if (sorted.length > 0) {
-          const latest = sorted[sorted.length - 1];
-          setMood({ value: moodEmojis[latest.moodLevel], color: moodColorsRef.current[latest.moodLevel] });
+      // Only show full loading spinner if we don't already have mood entries displayed
+      if (moodEntriesRef.current.length === 0) {
+        setLoadingMood(true);
+      }
+
+      // 1. STALE: Show cached data immediately if memory state is empty
+      if (moodEntriesRef.current.length === 0) {
+        try {
+          const cached = await AsyncStorage.getItem('cached_moods');
+          if (cached) {
+            const parsed: MoodEntry[] = JSON.parse(cached);
+            const sorted = parsed.sort(
+              (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+            );
+            setMoodEntries(sorted);
+            if (sorted.length > 0) {
+              const latest = sorted[sorted.length - 1];
+              setMood({
+                value: moodEmojis[latest.moodLevel],
+                color: moodColors[latest.moodLevel],
+              });
+            }
+          }
+        } catch {
+          /* ignore cache read errors */
         }
       }
-    } catch (_) {
-      /* ignore cache read errors */
-    }
 
-    // 2. REVALIDATE: Fetch fresh data from API
-    try {
-      const token = await tokenRef.current();
-      if (!token) return;
+      // 2. REVALIDATE: Fetch fresh data from API
+      try {
+        const token = await tokenRef.current();
+        if (!token) return;
 
-      const url = `${ENV.API_URL}/moods`;
-      console.log('[Home] Fetching moods from:', url);
-      const res = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) {
-        if (res.status === 404) {
-          setMoodEntries([]);
+        const url = `${ENV.API_URL}/moods`;
+        console.log('[Home] Fetching moods from:', url);
+        const res = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) {
+          if (res.status === 404) {
+            setMoodEntries([]);
+            setMood(null);
+          }
+          return;
+        }
+
+        const entries: MoodEntry[] = await res.json();
+        const sortedEntries = entries.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setMoodEntries(sortedEntries);
+
+        if (sortedEntries.length > 0) {
+          const latestMood = sortedEntries[sortedEntries.length - 1];
+          setMood({
+            value: moodEmojis[latestMood.moodLevel],
+            color: moodColors[latestMood.moodLevel],
+          });
+        } else {
           setMood(null);
         }
-        return;
+
+        // Save to cache
+        await AsyncStorage.setItem('cached_moods', JSON.stringify(entries));
+      } catch (error) {
+        console.error(`Error fetching mood:`, error);
+        // Keep stale data on screen — no setState to clear entries
+      } finally {
+        isFetchingMoodRef.current = false;
+        setLoadingMood(false);
       }
-
-      const entries: MoodEntry[] = await res.json();
-      const sortedEntries = entries.sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setMoodEntries(sortedEntries);
-
-      if (sortedEntries.length > 0) {
-        const latestMood = sortedEntries[sortedEntries.length - 1];
-        setMood({
-          value: moodEmojis[latestMood.moodLevel],
-          color: moodColorsRef.current[latestMood.moodLevel],
-        });
-      } else {
-        setMood(null);
-      }
-
-      // Save to cache
-      await AsyncStorage.setItem('cached_moods', JSON.stringify(entries));
-    } catch (error) {
-      console.error(`Error fetching mood:`, error);
-      // Keep stale data on screen — no setState to clear entries
-    } finally {
-      isFetchingMoodRef.current = false;
-      setLoadingMood(false);
-    }
-  }, []);
+    },
+    [moodColors]
+  );
 
   const fetchWeather = useCallback(async (force = false) => {
     const now = Date.now();
-    if (now - lastFetchWeatherTimeRef.current < 30000) return;
+    if (!force && now - lastFetchWeatherTimeRef.current < WEATHER_STALE_TIME) return;
     if (now - lastLocationErrorTimeRef.current < LOCATION_ERROR_COOLDOWN) return;
     if (isFetchingWeatherRef.current) return;
     if (locationPermissionDeniedRef.current) {
@@ -397,16 +508,22 @@ export default function Home() {
 
     isFetchingWeatherRef.current = true;
     lastFetchWeatherTimeRef.current = now;
-    setLoadingWeather(true);
 
-    // 1. STALE: Show cached weather immediately
-    try {
-      const cached = await AsyncStorage.getItem('cached_weather');
-      if (cached) {
-        setWeather(JSON.parse(cached));
+    // Only show loading indicator if we don't already have weather data
+    if (!weatherRef.current) {
+      setLoadingWeather(true);
+    }
+
+    // 1. STALE: Show cached weather immediately if not in state
+    if (!weatherRef.current) {
+      try {
+        const cached = await AsyncStorage.getItem('cached_weather');
+        if (cached) {
+          setWeather(JSON.parse(cached));
+        }
+      } catch {
+        /* ignore cache read errors */
       }
-    } catch (_) {
-      /* ignore cache read errors */
     }
 
     try {
@@ -486,7 +603,7 @@ export default function Home() {
 
   const fetchAirQuality = useCallback(async (force = false) => {
     const now = Date.now();
-    if (now - lastFetchAirQualityTimeRef.current < 30000) return;
+    if (!force && now - lastFetchAirQualityTimeRef.current < AIR_QUALITY_STALE_TIME) return;
     if (now - lastLocationErrorTimeRef.current < LOCATION_ERROR_COOLDOWN) return;
     if (isFetchingAirQualityRef.current) return;
     if (locationPermissionDeniedRef.current) {
@@ -497,16 +614,22 @@ export default function Home() {
 
     isFetchingAirQualityRef.current = true;
     lastFetchAirQualityTimeRef.current = now;
-    setLoadingAirQuality(true);
 
-    // 1. STALE: Show cached air quality immediately
-    try {
-      const cached = await AsyncStorage.getItem('cached_air_quality');
-      if (cached) {
-        setAirQuality(JSON.parse(cached));
+    // Only show loading indicator if we don't already have air quality data
+    if (!airQualityRef.current) {
+      setLoadingAirQuality(true);
+    }
+
+    // 1. STALE: Show cached air quality immediately if not in state
+    if (!airQualityRef.current) {
+      try {
+        const cached = await AsyncStorage.getItem('cached_air_quality');
+        if (cached) {
+          setAirQuality(JSON.parse(cached));
+        }
+      } catch {
+        /* ignore cache read errors */
       }
-    } catch (_) {
-      /* ignore cache read errors */
     }
 
     try {
@@ -586,21 +709,76 @@ export default function Home() {
     }
   }, []);
 
+  // Optimized Tab Focus Effect with Stale Thresholds
   useFocusEffect(
     useCallback(() => {
-      // Reset permission state when screen comes into focus
       resetPermissionState();
 
-      const fetchData = async () => {
-        await fetchMood();
+      const now = Date.now();
+      const isInitial = isInitialMountRef.current;
+      if (isInitial) {
+        isInitialMountRef.current = false;
+      }
+
+      // 1. Mood: 1 minute threshold
+      if (isInitial || now - lastFetchMoodTimeRef.current >= MOOD_STALE_TIME) {
+        fetchMood();
+      }
+
+      // 2. Habits: 1 minute threshold
+      if (isInitial || now - lastFetchHabitsTimeRef.current >= HABITS_STALE_TIME) {
+        lastFetchHabitsTimeRef.current = now;
         refetchHabits();
+      }
+
+      // 3. Cortisol: 1 minute threshold
+      if (isInitial || now - lastFetchCortisolTimeRef.current >= CORTISOL_STALE_TIME) {
+        lastFetchCortisolTimeRef.current = now;
         refetchCortisol();
-        setTimeout(() => fetchWeather(), 1000);
-        setTimeout(() => fetchAirQuality(), 1500);
-      };
-      fetchData();
-    }, []) // Critical: Empty array prevents infinite loops
+      }
+
+      // 4. Weather: 5 minutes threshold
+      if (isInitial || now - lastFetchWeatherTimeRef.current >= WEATHER_STALE_TIME) {
+        if (isInitial) {
+          setTimeout(() => fetchWeather(), 600);
+        } else {
+          fetchWeather();
+        }
+      }
+
+      // 5. Air Quality: 5 minutes threshold
+      if (isInitial || now - lastFetchAirQualityTimeRef.current >= AIR_QUALITY_STALE_TIME) {
+        if (isInitial) {
+          setTimeout(() => fetchAirQuality(), 1200);
+        } else {
+          fetchAirQuality();
+        }
+      }
+    }, [
+      fetchMood,
+      fetchWeather,
+      fetchAirQuality,
+      refetchHabits,
+      refetchCortisol,
+      resetPermissionState,
+    ])
   );
+
+  // Pull-to-refresh handler for manual user refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.allSettled([
+        fetchMood(true),
+        refetchHabits(true),
+        refetchCortisol(true),
+        fetchWeather(true),
+        fetchAirQuality(true),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchMood, refetchHabits, refetchCortisol, fetchWeather, fetchAirQuality]);
 
   // Chart Data Processing
   const processedChartData = useMemo(() => {
@@ -796,7 +974,7 @@ export default function Home() {
         },
         modalContent: {
           width: '100%',
-        },
+        } as ViewStyle,
         optionButton: {
           flexDirection: 'row',
           alignItems: 'center',
@@ -871,6 +1049,14 @@ export default function Home() {
   const completedHabits = habits.filter((h: Habit) => h.completedToday).length;
   const totalHabits = habits.length;
 
+  const handleStatRetry = (title: string) => {
+    if (title === 'Current Weather') {
+      fetchWeather(true);
+    } else if (title === 'Air Quality') {
+      fetchAirQuality(true);
+    }
+  };
+
   const quickStats: QuickStat[] = [
     {
       title: 'Mood',
@@ -892,7 +1078,7 @@ export default function Home() {
           (weather ? `${weather.temperature}°C, ${weather.description}` : 'No location'),
       icon: 'cloud-outline',
       color: colors.primary,
-      onRetry: errorMsg ? () => fetchWeather(true) : undefined,
+      hasRetry: !!errorMsg,
     },
     {
       title: 'Air Quality',
@@ -905,10 +1091,10 @@ export default function Home() {
         ? airQuality.aqi <= 2
           ? colors.success
           : airQuality.aqi === 3
-          ? colors.warning
-          : colors.danger
+            ? colors.warning
+            : colors.danger
         : colors.textMuted,
-      onRetry: errorAirPollution ? () => fetchAirQuality(true) : undefined,
+      hasRetry: !!errorAirPollution,
     },
   ];
 
@@ -919,8 +1105,19 @@ export default function Home() {
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
-        <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
+        <Animated.View
+          entering={FadeInDown.delay(50).springify().damping(20)}
+          style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}
+        >
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
             <Text style={typography.h1}>{greeting}!</Text>
             <Icon
@@ -931,10 +1128,13 @@ export default function Home() {
             />
           </View>
           <Text style={typography.bodySmall}>Take a moment for your mental health</Text>
-        </View>
+        </Animated.View>
 
         {/* Cortisol Risk Score Card */}
-        <View style={{ marginBottom: spacing.lg }}>
+        <Animated.View
+          entering={FadeInDown.delay(120).springify().damping(20)}
+          style={{ marginBottom: spacing.lg }}
+        >
           <CardWrapper>
             <CortisolGaugeCard
               score={cortisolData?.score ?? null}
@@ -950,9 +1150,12 @@ export default function Home() {
               timestamp={cortisolData?.timestamp}
             />
           </CardWrapper>
-        </View>
+        </Animated.View>
 
-        <View style={[styles.card, { marginBottom: spacing.xl }]}>
+        <Animated.View
+          entering={FadeInDown.delay(190).springify().damping(20)}
+          style={[styles.card, { marginBottom: spacing.xl }]}
+        >
           <CardWrapper>
             <Text style={typography.h3}>Quick Stats</Text>
             {quickStats.map((stat, index) => (
@@ -977,9 +1180,9 @@ export default function Home() {
                   <Text style={typography.caption}>{stat.title}</Text>
                   <Text style={typography.body}>{stat.value}</Text>
                 </View>
-                {stat.onRetry && (
+                {stat.hasRetry && (
                   <TouchableOpacity
-                    onPress={stat.onRetry}
+                    onPress={() => handleStatRetry(stat.title)}
                     style={{ padding: spacing.xs, marginLeft: spacing.md }}
                     activeOpacity={0.7}
                   >
@@ -989,7 +1192,7 @@ export default function Home() {
               </View>
             ))}
           </CardWrapper>
-        </View>
+        </Animated.View>
 
         {loadingMood ? (
           <View
@@ -1001,7 +1204,10 @@ export default function Home() {
             <Text>Loading mood chart...</Text>
           </View>
         ) : processedChartData ? (
-          <View style={[styles.card, { marginBottom: spacing.xl }]}>
+          <Animated.View
+            entering={FadeInDown.delay(260).springify().damping(20)}
+            style={[styles.card, { marginBottom: spacing.xl }]}
+          >
             <View style={styles.spaceBetween}>
               <Text style={typography.h3}>
                 {timeRange === 'Day' ? 'Daily' : `${timeRange}ly`} Mood Chart
@@ -1015,25 +1221,15 @@ export default function Home() {
               }}
             >
               {TIME_RANGES.map((range) => (
-                <TouchableOpacity
+                <AnimatedTimeRangePill
                   key={range}
+                  range={range}
+                  isSelected={timeRange === range}
                   onPress={() => setTimeRange(range)}
-                  style={{
-                    paddingVertical: spacing.xs,
-                    paddingHorizontal: spacing.md,
-                    borderRadius: radii.full,
-                    backgroundColor: timeRange === range ? colors.primary : 'transparent',
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: timeRange === range ? colors.textInverse : colors.primary,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {range}
-                  </Text>
-                </TouchableOpacity>
+                  colors={colors}
+                  radii={radii}
+                  spacing={spacing}
+                />
               ))}
             </View>
             <LineChart
@@ -1063,7 +1259,7 @@ export default function Home() {
               fromZero
               formatYLabel={(y) => Math.round(parseFloat(y)).toString()}
             />
-          </View>
+          </Animated.View>
         ) : (
           <View
             style={[
@@ -1076,100 +1272,115 @@ export default function Home() {
         )}
 
         <View style={{ marginBottom: spacing.xl }}>
-          <TouchableOpacity
-            style={[styles.card, { marginBottom: spacing.md }]}
-            onPress={() => router.push('/(tabs)/mood')}
-          >
-            <CardWrapper>
-              <View style={styles.spaceBetween}>
-                <View style={styles.row}>
-                  <Icon
-                    name="heart"
-                    size={24}
-                    color={colors.primary}
-                    style={{ marginRight: spacing.md }}
-                  />
-                  <View>
-                    <Text style={typography.body}>Log Mood</Text>
-                    <Text style={typography.caption}>Track your emotional state</Text>
+          <Animated.View entering={FadeInDown.delay(320).springify().damping(20)}>
+            <AnimatedPressable
+              scaleTo={animationTokens.micro.cardPressScale}
+              style={[styles.card, { marginBottom: spacing.md }]}
+              onPress={() => router.push('/(tabs)/mood')}
+            >
+              <CardWrapper>
+                <View style={styles.spaceBetween}>
+                  <View style={styles.row}>
+                    <Icon
+                      name="heart"
+                      size={24}
+                      color={colors.primary}
+                      style={{ marginRight: spacing.md }}
+                    />
+                    <View>
+                      <Text style={typography.body}>Log Mood</Text>
+                      <Text style={typography.caption}>Track your emotional state</Text>
+                    </View>
                   </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textMuted} />
                 </View>
-                <Icon name="chevron-forward" size={20} color={colors.textMuted} />
-              </View>
-            </CardWrapper>
-          </TouchableOpacity>
+              </CardWrapper>
+            </AnimatedPressable>
+          </Animated.View>
 
-          <TouchableOpacity
-            style={[styles.card, { marginBottom: spacing.md }]}
-            onPress={() => router.push('/forum')}
-          >
-            <CardWrapper>
-              <View style={styles.spaceBetween}>
-                <View style={styles.row}>
-                  <Icon
-                    name="chatbubbles"
-                    size={24}
-                    color={colors.warning}
-                    style={{ marginRight: spacing.md }}
-                  />
-                  <View>
-                    <Text style={typography.body}>Community Forum</Text>
-                    <Text style={typography.caption}>Connect with others</Text>
+          <Animated.View entering={FadeInDown.delay(360).springify().damping(20)}>
+            <AnimatedPressable
+              scaleTo={animationTokens.micro.cardPressScale}
+              style={[styles.card, { marginBottom: spacing.md }]}
+              onPress={() => router.push('/forum')}
+            >
+              <CardWrapper>
+                <View style={styles.spaceBetween}>
+                  <View style={styles.row}>
+                    <Icon
+                      name="chatbubbles"
+                      size={24}
+                      color={colors.warning}
+                      style={{ marginRight: spacing.md }}
+                    />
+                    <View>
+                      <Text style={typography.body}>Community Forum</Text>
+                      <Text style={typography.caption}>Connect with others</Text>
+                    </View>
                   </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textMuted} />
                 </View>
-                <Icon name="chevron-forward" size={20} color={colors.textMuted} />
-              </View>
-            </CardWrapper>
-          </TouchableOpacity>
+              </CardWrapper>
+            </AnimatedPressable>
+          </Animated.View>
 
-          <TouchableOpacity
-            style={[styles.card, { marginBottom: spacing.md }]}
-            onPress={() => router.push('/(tabs)/mindfulness')}
-          >
-            <CardWrapper>
-              <View style={styles.spaceBetween}>
-                <View style={styles.row}>
-                  <Icon
-                    name="leaf"
-                    size={24}
-                    color={colors.success}
-                    style={{ marginRight: spacing.md }}
-                  />
-                  <View>
-                    <Text style={typography.body}>Mindfulness</Text>
-                    <Text style={typography.caption}>Find your inner peace</Text>
+          <Animated.View entering={FadeInDown.delay(400).springify().damping(20)}>
+            <AnimatedPressable
+              scaleTo={animationTokens.micro.cardPressScale}
+              style={[styles.card, { marginBottom: spacing.md }]}
+              onPress={() => router.push('/(tabs)/mindfulness')}
+            >
+              <CardWrapper>
+                <View style={styles.spaceBetween}>
+                  <View style={styles.row}>
+                    <Icon
+                      name="leaf"
+                      size={24}
+                      color={colors.success}
+                      style={{ marginRight: spacing.md }}
+                    />
+                    <View>
+                      <Text style={typography.body}>Mindfulness</Text>
+                      <Text style={typography.caption}>Find your inner peace</Text>
+                    </View>
                   </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textMuted} />
                 </View>
-                <Icon name="chevron-forward" size={20} color={colors.textMuted} />
-              </View>
-            </CardWrapper>
-          </TouchableOpacity>
+              </CardWrapper>
+            </AnimatedPressable>
+          </Animated.View>
 
-          <TouchableOpacity
-            style={[styles.card, { marginBottom: spacing.md }]}
-            onPress={() => router.push('/(tabs)/habits')}
-          >
-            <CardWrapper>
-              <View style={styles.spaceBetween}>
-                <View style={styles.row}>
-                  <Icon
-                    name="checkmark-circle"
-                    size={24}
-                    color={colors.success}
-                    style={{ marginRight: spacing.md }}
-                  />
-                  <View>
-                    <Text style={typography.body}>Check Habits</Text>
-                    <Text style={typography.caption}>Mark today&apos;s progress</Text>
+          <Animated.View entering={FadeInDown.delay(440).springify().damping(20)}>
+            <AnimatedPressable
+              scaleTo={animationTokens.micro.cardPressScale}
+              style={[styles.card, { marginBottom: spacing.md }]}
+              onPress={() => router.push('/(tabs)/habits')}
+            >
+              <CardWrapper>
+                <View style={styles.spaceBetween}>
+                  <View style={styles.row}>
+                    <Icon
+                      name="checkmark-circle"
+                      size={24}
+                      color={colors.success}
+                      style={{ marginRight: spacing.md }}
+                    />
+                    <View>
+                      <Text style={typography.body}>Check Habits</Text>
+                      <Text style={typography.caption}>Mark today&apos;s progress</Text>
+                    </View>
                   </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textMuted} />
                 </View>
-                <Icon name="chevron-forward" size={20} color={colors.textMuted} />
-              </View>
-            </CardWrapper>
-          </TouchableOpacity>
+              </CardWrapper>
+            </AnimatedPressable>
+          </Animated.View>
         </View>
 
-        <View style={[styles.card, { marginBottom: spacing.xxl }]}>
+        <Animated.View
+          entering={FadeInDown.delay(480).springify().damping(20)}
+          style={[styles.card, { marginBottom: spacing.xxl }]}
+        >
           <CardWrapper>
             <View style={{ alignItems: 'center' }}>
               <Icon
@@ -1191,7 +1402,7 @@ export default function Home() {
               />
             </View>
           </CardWrapper>
-        </View>
+        </Animated.View>
       </ScrollView>
 
       {/* Emergency SOS Modal */}
@@ -1213,7 +1424,11 @@ export default function Home() {
             </TouchableOpacity>
 
             {emergencyStep === 1 && (
-              <View style={styles.modalContent}>
+              <Animated.View
+                entering={FadeIn.duration(animationTokens.durations.normal)}
+                exiting={FadeOut.duration(animationTokens.durations.fast)}
+                style={styles.modalContent as any}
+              >
                 {/* Step 1: Selection View */}
                 <Text style={[typography.h3, { marginBottom: spacing.sm, color: colors.text }]}>
                   Emergency Assistance
@@ -1268,11 +1483,15 @@ export default function Home() {
                   </View>
                   <Ionicons name="chevron-forward" size={24} color={colors.textMuted} />
                 </TouchableOpacity>
-              </View>
+              </Animated.View>
             )}
 
             {emergencyStep === 2 && selectedTarget && (
-              <View style={styles.modalContent}>
+              <Animated.View
+                entering={FadeIn.duration(animationTokens.durations.normal)}
+                exiting={FadeOut.duration(animationTokens.durations.fast)}
+                style={styles.modalContent as any}
+              >
                 {/* Step 2: Swipe-to-Call & Location View */}
                 <Text style={[typography.h3, { marginBottom: spacing.sm, color: colors.text }]}>
                   Confirm Call
@@ -1314,13 +1533,8 @@ export default function Home() {
                     Swipe to Call
                   </Text>
                   <Animated.View
-                    style={[
-                      styles.swipeTrack,
-                      {
-                        transform: [{ translateX: swipeAnim }],
-                      },
-                    ]}
-                    {...panResponder.panHandlers}
+                    style={[styles.swipeTrack, swipeAnimatedStyle]}
+                    {...(panResponder.panHandlers as any)}
                   >
                     <View style={styles.swipeThumb}>
                       <Ionicons name="call" size={28} color={colors.textInverse} />
@@ -1337,7 +1551,7 @@ export default function Home() {
                     </View>
                   </Animated.View>
                 </View>
-              </View>
+              </Animated.View>
             )}
           </View>
         </View>

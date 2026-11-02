@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Animated, Easing } from 'react-native';
 
 export type EasingFn = (value: number) => number;
@@ -33,8 +33,7 @@ export function useTransition(config: TransitionConfig = {}) {
   } = config;
 
   const [started, setStarted] = useState<boolean>(initialStarted);
-  const progressRef = useRef(new Animated.Value(initialStarted ? to : from));
-  const progress = progressRef.current;
+  const [progress] = useState(() => new Animated.Value(initialStarted ? to : from));
 
   const start = (opts: StartOptions = {}) => {
     if (started) return;

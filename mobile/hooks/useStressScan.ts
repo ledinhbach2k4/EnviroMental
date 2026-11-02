@@ -68,7 +68,13 @@ export const useStressScan = () => {
   );
 
   useEffect(() => {
-    fetchScans();
+    let isMounted = true;
+    void Promise.resolve().then(() => {
+      if (isMounted) fetchScans();
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [fetchScans]);
 
   return {

@@ -1,21 +1,17 @@
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  Platform,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, ScrollView, Alert, StyleSheet } from 'react-native';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { animationTokens } from '@/src/design/tokens';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { AnimatedPressable } from '../../components/motion/AnimatedPressable';
 import Icon from '../../components/Icon';
 import Button from '../../components/Button';
 import { useAuth } from '@clerk/expo';
 import { ENV } from '../../constants/api';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { scheduleNextMoodNotification } from '@/utils/notifications';
 
 interface MoodEntry {
   id: string;
@@ -32,6 +28,41 @@ const moodFactors = ['Weather', 'Sleep', 'Work', 'Exercise', 'Social', 'Food', '
 
 const MAX_LOGS_PER_DAY = 6;
 const LOG_INTERVAL_HOURS = 2;
+
+function AnimatedBar({
+  targetHeight,
+  color,
+  borderRadius,
+}: {
+  targetHeight: number;
+  color: string;
+  borderRadius: number;
+}) {
+  const heightAnim = useSharedValue(0);
+
+  useEffect(() => {
+    heightAnim.value = withTiming(targetHeight, {
+      duration: animationTokens.durations.moderate,
+    });
+  }, [targetHeight, heightAnim]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    height: `${heightAnim.value}%`,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: 32,
+          backgroundColor: color,
+          borderRadius,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+}
 
 export default function MoodTracker() {
   const colors = useColors();
@@ -56,7 +87,7 @@ export default function MoodTracker() {
   const [todaysLogCount, setTodaysLogCount] = useState(0);
   const [lastLogTime, setLastLogTime] = useState<number | null>(null);
   const [timeToNextLog, setTimeToNextLog] = useState('');
-  const [lastFetched, setLastFetched] = useState(0);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { getToken } = useAuth();
   const router = useRouter();
@@ -64,23 +95,24 @@ export default function MoodTracker() {
   // Read presetMood from notification action deep link
   const { presetMood } = useLocalSearchParams<{ presetMood?: string }>();
 
-  // Handle presetMood from notification action deep link
-  useEffect(() => {
+  // Handle presetMood from notification action deep link via render-phase state adjustment
+  const [prevPresetMood, setPrevPresetMood] = useState(presetMood);
+  if (presetMood !== prevPresetMood) {
+    setPrevPresetMood(presetMood);
     if (presetMood !== undefined) {
       const parsed = parseInt(presetMood, 10);
       if (!isNaN(parsed) && parsed >= 0 && parsed <= 4) {
-        // Only set if not already selected (avoid overwriting user selection)
         setSelectedMood((prev) => (prev === null ? parsed : prev));
       }
     }
-  }, [presetMood]);
+  }
 
   const canLogNow = () => {
     if (todaysLogCount >= MAX_LOGS_PER_DAY) {
       return { canLog: false, reason: 'limit' };
     }
     if (lastLogTime) {
-      const hoursSinceLastLog = (Date.now() - lastLogTime) / (1000 * 60 * 60);
+      const hoursSinceLastLog = (currentTime - lastLogTime) / (1000 * 60 * 60);
       if (hoursSinceLastLog < LOG_INTERVAL_HOURS) {
         return { canLog: false, reason: 'time' };
       }
@@ -90,9 +122,10 @@ export default function MoodTracker() {
 
   useEffect(() => {
     const update = () => {
+      const now = Date.now();
+      setCurrentTime(now);
       if (lastLogTime) {
         const nextLogTime = lastLogTime + LOG_INTERVAL_HOURS * 60 * 60 * 1000;
-        const now = Date.now();
         if (now < nextLogTime) {
           const diffMinutes = Math.ceil((nextLogTime - now) / (1000 * 60));
           setTimeToNextLog(`You can log again in ${diffMinutes} minutes.`);
@@ -217,6 +250,11 @@ export default function MoodTracker() {
       setMoodNote('');
       await loadMoodData(true);
 
+      // Dynamically schedule notification for the next eligible mood entry
+      const newLogTime = Date.now();
+      const newLogCount = todaysLogCount + 1;
+      await scheduleNextMoodNotification(newLogTime, newLogCount);
+
       // Clear presetMood from URL after successful save to allow manual mood selection
       if (presetMood !== undefined) {
         router.replace('/(tabs)/mood');
@@ -233,13 +271,6 @@ export default function MoodTracker() {
     setSelectedFactors((prev) =>
       prev.includes(factor) ? prev.filter((f) => f !== factor) : [...prev, factor]
     );
-  };
-
-  const getAverageMood = () => {
-    if (recentEntries.length === 0) return 0;
-    const sum = recentEntries.reduce((acc, entry) => acc + entry.moodLevel, 0);
-    const avg = sum / recentEntries.length; // 1-5 scale from API
-    return Math.max(0, Math.min(4, Math.round(avg - 1))); // Map to 0-4 UI index
   };
 
   const getMoodFrequencies = () => {
@@ -320,26 +351,30 @@ export default function MoodTracker() {
                     marginBottom: spacing.sm,
                   }}
                 >
-                  {moodEmojis.map((emoji, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={{
-                        width: 60,
-                        height: 60,
-                        borderRadius: 30,
-                        backgroundColor:
-                          selectedMood === index ? moodColors[index] + '30' : colors.border,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderWidth: selectedMood === index ? 2 : 1,
-                        borderColor: selectedMood === index ? moodColors[index] : colors.border,
-                      }}
-                      onPress={() => setSelectedMood(index)}
-                      disabled={isSubmitting}
-                    >
-                      <Text style={{ fontSize: 24 }}>{emoji}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {moodEmojis.map((emoji, index) => {
+                    const isSelected = selectedMood === index;
+                    return (
+                      <AnimatedPressable
+                        key={index}
+                        scaleTo={0.88}
+                        springConfig={animationTokens.springs.bouncy}
+                        style={{
+                          width: 60,
+                          height: 60,
+                          borderRadius: 30,
+                          backgroundColor: isSelected ? moodColors[index] + '30' : colors.border,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderWidth: isSelected ? 2 : 1,
+                          borderColor: isSelected ? moodColors[index] : colors.border,
+                        }}
+                        onPress={() => setSelectedMood(index)}
+                        disabled={isSubmitting}
+                      >
+                        <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                      </AnimatedPressable>
+                    );
+                  })}
                 </View>
                 {selectedMood !== null && (
                   <Text
@@ -358,38 +393,37 @@ export default function MoodTracker() {
                   What&apos;s affecting your mood?
                 </Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                  {moodFactors.map((factor) => (
-                    <TouchableOpacity
-                      key={factor}
-                      style={{
-                        paddingHorizontal: spacing.md,
-                        paddingVertical: spacing.xs,
-                        borderRadius: radii.full,
-                        backgroundColor: selectedFactors.includes(factor)
-                          ? colors.primary + '20'
-                          : colors.border,
-                        borderWidth: 1,
-                        borderColor: selectedFactors.includes(factor)
-                          ? colors.primary
-                          : colors.border,
-                        marginRight: spacing.sm,
-                        marginBottom: spacing.sm,
-                      }}
-                      onPress={() => toggleFactor(factor)}
-                      disabled={isSubmitting}
-                    >
-                      <Text
+                  {moodFactors.map((factor) => {
+                    const isSelected = selectedFactors.includes(factor);
+                    return (
+                      <AnimatedPressable
+                        key={factor}
+                        scaleTo={0.92}
+                        springConfig={animationTokens.springs.bouncy}
                         style={{
-                          color: selectedFactors.includes(factor)
-                            ? colors.primary
-                            : colors.textMuted,
-                          fontSize: 14,
+                          paddingHorizontal: spacing.md,
+                          paddingVertical: spacing.xs,
+                          borderRadius: radii.full,
+                          backgroundColor: isSelected ? colors.primary + '20' : colors.border,
+                          borderWidth: 1,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                          marginRight: spacing.sm,
+                          marginBottom: spacing.sm,
                         }}
+                        onPress={() => toggleFactor(factor)}
+                        disabled={isSubmitting}
                       >
-                        {factor}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Text
+                          style={{
+                            color: isSelected ? colors.primary : colors.textMuted,
+                            fontSize: 14,
+                          }}
+                        >
+                          {factor}
+                        </Text>
+                      </AnimatedPressable>
+                    );
+                  })}
                 </View>
               </View>
 
@@ -462,15 +496,10 @@ export default function MoodTracker() {
                           {count}
                         </Text>
                       )}
-                      <View
-                        style={{
-                          width: 32,
-                          height: `${barHeight}%`,
-                          backgroundColor: isMostFrequent
-                            ? moodColors[index]
-                            : moodColors[index] + '50',
-                          borderRadius: radii.sm,
-                        }}
+                      <AnimatedBar
+                        targetHeight={barHeight}
+                        color={isMostFrequent ? moodColors[index] : moodColors[index] + '50'}
+                        borderRadius={radii.sm}
                       />
                     </View>
 

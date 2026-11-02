@@ -16,6 +16,7 @@ import { useSignIn, useClerk, useAuth } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { clearAuthCache } from '../../app/_layout';
 import { ENV } from '../../constants/api';
 
@@ -93,7 +94,10 @@ const SignInScreen = () => {
   };
 
   // Explicit Email Code Dispatch
-  const dispatchEmailCode = async (targetSignIn: any, preferredFactor?: 'first' | 'second'): Promise<boolean> => {
+  const dispatchEmailCode = async (
+    targetSignIn: any,
+    preferredFactor?: 'first' | 'second'
+  ): Promise<boolean> => {
     try {
       console.log('[AUTH MFA] Dispatching email verification code...');
       if (preferredFactor === 'first' || targetSignIn.status === 'needs_first_factor') {
@@ -186,7 +190,8 @@ const SignInScreen = () => {
       }
     } catch (err: any) {
       console.error('[AUTH] Sign-in failed:', err);
-      const msg = err.errors?.[0]?.message || err.message || 'Invalid credentials or sign-in failed.';
+      const msg =
+        err.errors?.[0]?.message || err.message || 'Invalid credentials or sign-in failed.';
       Alert.alert('Sign In Error', msg);
     } finally {
       setLoading(false);
@@ -205,7 +210,11 @@ const SignInScreen = () => {
       console.log('[AUTH MFA] Submitting code for factor:', factorType);
       let result;
 
-      if (factorType === 'second' || signIn.status === 'needs_second_factor' || signIn.status === 'needs_client_trust') {
+      if (
+        factorType === 'second' ||
+        signIn.status === 'needs_second_factor' ||
+        signIn.status === 'needs_client_trust'
+      ) {
         if (typeof signIn.attemptSecondFactor === 'function') {
           result = await signIn.attemptSecondFactor({ strategy: 'email_code', code: trimmedCode });
         } else if (signIn.mfa?.verifyEmailCode) {
@@ -238,7 +247,8 @@ const SignInScreen = () => {
       }
     } catch (err: any) {
       console.error('[AUTH MFA] Verification error:', err);
-      const msg = err.errors?.[0]?.message || err.message || 'Invalid or expired verification code.';
+      const msg =
+        err.errors?.[0]?.message || err.message || 'Invalid or expired verification code.';
       Alert.alert('Verification Failed', msg);
     } finally {
       setLoading(false);
@@ -411,7 +421,10 @@ const SignInScreen = () => {
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
-          <View style={styles.headerArea}>
+          <Animated.View
+            entering={FadeInDown.delay(50).springify().damping(20)}
+            style={styles.headerArea}
+          >
             {isVerifying ? (
               <View style={styles.iconBadge}>
                 <Ionicons name="shield-checkmark" size={36} color={colors.primary} />
@@ -431,10 +444,13 @@ const SignInScreen = () => {
                 ? 'We sent a 6-digit verification code to your email. Enter it below to verify this device.'
                 : 'Sign in to continue your mental and environmental wellness journey.'}
             </Text>
-          </View>
+          </Animated.View>
 
           {/* Form Card */}
-          <View style={styles.card}>
+          <Animated.View
+            entering={FadeInDown.delay(120).springify().damping(20)}
+            style={styles.card}
+          >
             {isVerifying ? (
               /* 6-Digit Code View */
               <View>
@@ -451,7 +467,10 @@ const SignInScreen = () => {
                 />
 
                 <TouchableOpacity
-                  style={[styles.primaryButton, (loading || verificationCode.length < 6) && styles.buttonDisabled]}
+                  style={[
+                    styles.primaryButton,
+                    (loading || verificationCode.length < 6) && styles.buttonDisabled,
+                  ]}
                   onPress={handleVerifyCode}
                   disabled={loading || verificationCode.length < 6}
                   activeOpacity={0.8}
@@ -557,20 +576,22 @@ const SignInScreen = () => {
                 </TouchableOpacity>
               </View>
             )}
-          </View>
+          </Animated.View>
 
           {/* Footer Navigation */}
           {!isVerifying && (
-            <TouchableOpacity
-              style={styles.footerLink}
-              onPress={() => router.push('/(auth)/sign-up' as any)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.footerLinkText}>
-                Don&apos;t have an account?{' '}
-                <Text style={styles.footerLinkHighlight}>Sign up</Text>
-              </Text>
-            </TouchableOpacity>
+            <Animated.View entering={FadeInDown.delay(180).springify().damping(20)}>
+              <TouchableOpacity
+                style={styles.footerLink}
+                onPress={() => router.push('/(auth)/sign-up' as any)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.footerLinkText}>
+                  Don&apos;t have an account?{' '}
+                  <Text style={styles.footerLinkHighlight}>Sign up</Text>
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>

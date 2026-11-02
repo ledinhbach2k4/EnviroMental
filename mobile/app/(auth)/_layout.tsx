@@ -7,5 +7,14 @@ export default function AuthRoutesLayout() {
 
   if (isSignedIn) return <Redirect href={'/(tabs)/home' as any} />;
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        animationDuration: 250,
+        gestureEnabled: true,
+      }}
+    />
+  );
 }

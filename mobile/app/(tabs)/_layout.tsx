@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ENV } from '../../constants/api';
 import {
   TouchableOpacity,
+  Pressable,
   View,
   Text,
   FlatList,
@@ -15,9 +15,9 @@ import {
   Modal,
 } from 'react-native';
 import { Tabs } from 'expo-router';
-import { useSafeAreaInsets, EdgeInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, EdgeInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/expo';
-import axios from 'axios';
+import api from '../../utils/api';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -35,7 +35,84 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Markdown from 'react-native-markdown-display';
-import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import {
+  useColors,
+  useTypography,
+  useSpacing,
+  useRadii,
+  useShadows,
+  useAnimation,
+} from '@/src/design/hooks';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const AnimatedTabBarIcon = ({
+  name,
+  size,
+  color,
+  focused,
+}: {
+  name: string;
+  size: number;
+  color?: any;
+  focused: boolean;
+}) => {
+  const animation = useAnimation();
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    if (focused) {
+      scale.value = withSequence(
+        withSpring(1.18, animation.springs.bouncy),
+        withSpring(1.0, animation.springs.snappy)
+      );
+    } else {
+      scale.value = withSpring(1.0, animation.springs.subtle);
+    }
+  }, [focused, animation, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <FontAwesome5 name={name} size={size} color={color} solid />
+    </Animated.View>
+  );
+};
+
+const AnimatedTabBarButton = (props: any) => {
+  const animation = useAnimation();
+  const scale = useSharedValue(1);
+
+  const handlePressIn = (e: any) => {
+    scale.value = withSpring(animation.micro.tabPressScale, animation.springs.snappy);
+    props.onPressIn?.(e);
+  };
+
+  const handlePressOut = (e: any) => {
+    scale.value = withSpring(1, animation.springs.snappy);
+    props.onPressOut?.(e);
+  };
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const { style, ...restProps } = props;
+
+  return (
+    <AnimatedPressable
+      {...restProps}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[style, animatedStyle]}
+    >
+      {props.children}
+    </AnimatedPressable>
+  );
+};
 
 interface Message {
   id: string;
@@ -118,7 +195,6 @@ const TypewriterText = ({
   useEffect(() => {
     if (isComplete || forceComplete) return;
 
-    setDisplayedText('');
     let i = 0;
     const intervalId = setInterval(() => {
       if (i < text.length) {
@@ -132,7 +208,7 @@ const TypewriterText = ({
     }, 30);
 
     return () => clearInterval(intervalId);
-  }, [text, messageId, onComplete, forceComplete]);
+  }, [text, messageId, onComplete, forceComplete, isComplete]);
 
   if (forceComplete || isComplete) {
     return <Markdown>{text}</Markdown>;
@@ -288,8 +364,8 @@ export default function TabLayout() {
 
     try {
       const token = await getToken();
-      const res = await axios.post(
-        `${ENV.API_URL}/chat`,
+      const res = await api.post(
+        '/chat',
         { message: messageToSend },
         { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 }
       );
@@ -431,11 +507,13 @@ export default function TabLayout() {
           <Tabs
             screenOptions={({ route }) => ({
               headerShown: false,
+              animation: 'shift',
               tabBarActiveTintColor: colors.primary,
               tabBarInactiveTintColor: colors.textMuted,
               tabBarStyle: tabBarStyle,
               tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
-              tabBarIcon: ({ color, size }) => {
+              tabBarButton: (props) => <AnimatedTabBarButton {...props} />,
+              tabBarIcon: ({ color, size, focused }) => {
                 const icons: Record<string, string> = {
                   home: 'home',
                   mood: 'smile',
@@ -444,11 +522,11 @@ export default function TabLayout() {
                   mindfulness: 'leaf',
                 };
                 return (
-                  <FontAwesome5
+                  <AnimatedTabBarIcon
                     name={icons[route.name] || 'question'}
                     size={size}
                     color={color}
-                    solid
+                    focused={focused}
                   />
                 );
               },

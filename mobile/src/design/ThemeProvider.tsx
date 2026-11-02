@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode } from 'react';
 import {
   DesignSystemProvider,
   useDesignSystem,
@@ -38,8 +38,8 @@ interface ThemeProviderProps {
   initialTheme?: ThemeName;
 }
 
-export const ThemeProvider = ({ children, initialTheme = DEFAULT_THEME }: ThemeProviderProps) => {
-  const { theme, tokens, setTheme, availableThemes } = useDesignSystem();
+export const ThemeProvider = ({ children }: ThemeProviderProps) => {
+  const { theme, setTheme } = useDesignSystem();
 
   const legacyTheme = React.useMemo(
     () => ({

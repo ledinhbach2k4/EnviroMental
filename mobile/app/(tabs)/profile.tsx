@@ -14,6 +14,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Button from '../../components/Button';
 import { useLogout } from '../../hooks/useLogout';
@@ -22,7 +23,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { useSharedHabits } from '../../context/HabitsContext';
 import { ENV } from '../../constants/api';
 import { ProfileNotificationSection } from '@/components/ProfileNotificationSection';
-import { exportLogs } from '@/utils/logger';
 
 interface MoodEntry {
   createdAt: string;
@@ -371,7 +371,10 @@ export default function Profile() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={{ marginTop: spacing.xl, marginBottom: spacing.xxl, alignItems: 'center' }}>
+        <Animated.View
+          entering={FadeInDown.delay(50).springify().damping(20)}
+          style={{ marginTop: spacing.xl, marginBottom: spacing.xxl, alignItems: 'center' }}
+        >
           <View style={{ position: 'relative' }}>
             <TouchableOpacity
               onPress={pickImage}
@@ -395,15 +398,21 @@ export default function Profile() {
           </View>
           <Text style={[typography.h1, { color: colors.primary }]}>{userName}</Text>
           <Text style={typography.bodySmall}>Your wellness journey overview</Text>
-        </View>
+        </Animated.View>
 
-        <View style={[styles.card, { marginBottom: spacing.xxl }]}>
+        <Animated.View
+          entering={FadeInDown.delay(120).springify().damping(20)}
+          style={[styles.card, { marginBottom: spacing.xxl }]}
+        >
           <CardWrapper>
             <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Your Progress</Text>
             <View
               style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}
             >
-              <View style={[styles.cardSmall, { width: '48%', alignItems: 'center' }]}>
+              <Animated.View
+                entering={FadeInDown.delay(160).springify().damping(20)}
+                style={[styles.cardSmall, { width: '48%', alignItems: 'center' }]}
+              >
                 <CardWrapper>
                   <Icon
                     name="happy"
@@ -416,9 +425,12 @@ export default function Profile() {
                   </Text>
                   <Text style={typography.caption}>Mood Entries</Text>
                 </CardWrapper>
-              </View>
+              </Animated.View>
 
-              <View style={[styles.cardSmall, { width: '48%', alignItems: 'center' }]}>
+              <Animated.View
+                entering={FadeInDown.delay(200).springify().damping(20)}
+                style={[styles.cardSmall, { width: '48%', alignItems: 'center' }]}
+              >
                 <CardWrapper>
                   <Icon
                     name="flame"
@@ -431,9 +443,10 @@ export default function Profile() {
                   </Text>
                   <Text style={typography.caption}>Day Streak</Text>
                 </CardWrapper>
-              </View>
+              </Animated.View>
 
-              <View
+              <Animated.View
+                entering={FadeInDown.delay(240).springify().damping(20)}
                 style={[
                   styles.cardSmall,
                   { width: '48%', alignItems: 'center', marginTop: spacing.md },
@@ -451,9 +464,10 @@ export default function Profile() {
                   </Text>
                   <Text style={typography.caption}>Meditation Min</Text>
                 </CardWrapper>
-              </View>
+              </Animated.View>
 
-              <View
+              <Animated.View
+                entering={FadeInDown.delay(280).springify().damping(20)}
                 style={[
                   styles.cardSmall,
                   { width: '48%', alignItems: 'center', marginTop: spacing.md },
@@ -471,12 +485,15 @@ export default function Profile() {
                   </Text>
                   <Text style={typography.caption}>Habits Done</Text>
                 </CardWrapper>
-              </View>
+              </Animated.View>
             </View>
           </CardWrapper>
-        </View>
+        </Animated.View>
 
-        <View style={[styles.card, { marginBottom: spacing.xxl }]}>
+        <Animated.View
+          entering={FadeInDown.delay(340).springify().damping(20)}
+          style={[styles.card, { marginBottom: spacing.xxl }]}
+        >
           <CardWrapper>
             <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Settings</Text>
             <ProfileNotificationSection />
@@ -517,35 +534,13 @@ export default function Profile() {
                 </View>
               </CardWrapper>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.cardSmall, { marginBottom: spacing.md }]}
-              onPress={async () => {
-                const res = await exportLogs();
-                if (!res.success) {
-                  Alert.alert('Export Logs', res.message);
-                }
-              }}
-            >
-              <CardWrapper>
-                <View style={styles.spaceBetween}>
-                  <View style={styles.row}>
-                    <Icon
-                      name="bug"
-                      size={24}
-                      color={colors.primary}
-                      style={{ marginRight: spacing.md }}
-                    />
-                    <Text style={typography.body}>Export Error Logs</Text>
-                  </View>
-                  <Icon name="chevron-forward" size={20} color={colors.textMuted} />
-                </View>
-              </CardWrapper>
-            </TouchableOpacity>
           </CardWrapper>
-        </View>
+        </Animated.View>
 
-        <View style={[styles.card, { marginBottom: spacing.xxl }]}>
+        <Animated.View
+          entering={FadeInDown.delay(370).springify().damping(20)}
+          style={[styles.card, { marginBottom: spacing.xxl }]}
+        >
           <CardWrapper>
             <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Support</Text>
             <TouchableOpacity
@@ -605,9 +600,12 @@ export default function Profile() {
               </CardWrapper>
             </TouchableOpacity>
           </CardWrapper>
-        </View>
+        </Animated.View>
 
-        <View style={[styles.card, { marginBottom: spacing.xxl }]}>
+        <Animated.View
+          entering={FadeInDown.delay(400).springify().damping(20)}
+          style={[styles.card, { marginBottom: spacing.xxl }]}
+        >
           <CardWrapper>
             <Text style={[typography.h3, { color: colors.danger, marginBottom: spacing.lg }]}>
               Danger Zone
@@ -623,9 +621,12 @@ export default function Profile() {
               style={[{ backgroundColor: colors.danger, width: '100%' }]}
             />
           </CardWrapper>
-        </View>
+        </Animated.View>
 
-        <View style={[styles.card, { marginBottom: spacing.xxl }]}>
+        <Animated.View
+          entering={FadeInDown.delay(460).springify().damping(20)}
+          style={[styles.card, { marginBottom: spacing.xxl }]}
+        >
           <CardWrapper>
             <Button
               text="Log Out"
@@ -633,7 +634,7 @@ export default function Profile() {
               style={[{ backgroundColor: colors.secondary, width: '100%' }]}
             />
           </CardWrapper>
-        </View>
+        </Animated.View>
 
         <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
           <Text style={typography.caption}>EnviroMental v1.0.0</Text>

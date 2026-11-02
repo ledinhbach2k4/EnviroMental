@@ -1,4 +1,3 @@
-import { StyleSheet, ViewStyle, TextStyle, ImageStyle } from 'react-native';
 import { createStyles } from './index';
 
 export const createButtonStyles = createStyles(
@@ -178,7 +177,7 @@ export const createInputStyles = createStyles(
   })
 );
 
-export const createTabBarStyles = createStyles(({ colors, spacing, radii, shadows }) => ({
+export const createTabBarStyles = createStyles(({ colors, spacing, shadows }) => ({
   tabBar: {
     backgroundColor: colors.backgroundAlt,
     borderTopWidth: 1,
@@ -274,7 +273,7 @@ export const createListStyles = createStyles(({ colors, spacing, radii }) => ({
   },
 }));
 
-export const createAvatarStyles = createStyles(({ colors, spacing, radii }) => ({
+export const createAvatarStyles = createStyles(({ colors, radii }) => ({
   base: {
     borderRadius: radii.full,
     backgroundColor: colors.primaryLight,

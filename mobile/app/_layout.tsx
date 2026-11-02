@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { ClerkProvider, useAuth, ClerkLoaded } from '@clerk/expo';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
@@ -7,6 +7,10 @@ import * as SecureStore from 'expo-secure-store';
 import { DesignSystemProvider } from '@/src/design';
 import { ENV } from '../constants/api';
 import { initGlobalLogger } from '../utils/logger';
+import {
+  addNotificationResponseReceivedListener,
+  getLastNotificationResponseAsync,
+} from '../utils/notifications';
 
 // Token Cache configuration for Clerk - Bulletproof with verbose logging & corruption recovery
 const tokenCache = {
@@ -91,10 +95,64 @@ function InitialLayout() {
         router.replace('/(auth)/sign-in');
       }
     }, 0);
-  }, [isSignedIn, isLoaded, segments]);
+  }, [isSignedIn, isLoaded, segments, router]);
 
-  // Slot is critical: it initializes the root NavigationContainer
-  return <Slot />;
+  // Global Notification Deep-Linking Listener
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const handleNotificationResponse = (response: any) => {
+      const data = response?.notification?.request?.content?.data;
+      const targetUrl = data?.url || (data?.screen === 'mood' ? '/(tabs)/mood' : null);
+      if (targetUrl) {
+        console.log(`[Notification DeepLink] Navigating to: ${targetUrl}`);
+        if (isSignedIn) {
+          router.push(targetUrl as any);
+        }
+      }
+    };
+
+    const subscription = addNotificationResponseReceivedListener(handleNotificationResponse);
+
+    // If app was opened by tapping a notification from a quit state
+    const timer = setTimeout(() => {
+      getLastNotificationResponseAsync().then((response) => {
+        if (response) {
+          handleNotificationResponse(response);
+        }
+      });
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+      subscription.remove();
+    };
+  }, [isLoaded, isSignedIn, router]);
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" options={{ animation: 'none' }} />
+      <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
+      <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
+      <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+      <Stack.Screen
+        name="forum/index"
+        options={{
+          animation: 'slide_from_right',
+          animationDuration: 300,
+          gestureEnabled: true,
+        }}
+      />
+      <Stack.Screen
+        name="emergency"
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+          gestureEnabled: true,
+        }}
+      />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {

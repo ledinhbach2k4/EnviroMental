@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -21,8 +21,13 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  FadeIn,
+  FadeInDown,
+  FadeOut,
+  ZoomIn,
 } from 'react-native-reanimated';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { animationTokens } from '@/src/design/tokens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../components/Icon';
 
@@ -51,8 +56,12 @@ const INHALE_MS = 4000;
 const EXHALE_MS = 6000;
 const INHALE_SCALE = 1.25;
 
+const setSharedValue = <T,>(sv: { value: T }, val: T) => {
+  sv.value = val;
+};
+
 // Mock API call that saves mindfulness progress
-const saveMindfulnessProgress = (minutes: number): Promise<void> =>
+const saveMindfulnessProgress = (_minutes: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, 800));
 
 export default function Mindfulness() {
@@ -183,6 +192,35 @@ export default function Mindfulness() {
     };
   }, [isPlaying, timeRemaining]);
 
+  const stopBreathingAnimation = useCallback(() => {
+    cancelAnimation(scale);
+    setSharedValue(scale, 1);
+  }, [scale]);
+
+  const startBreathingAnimation = useCallback(() => {
+    cancelAnimation(scale);
+    setSharedValue(scale, 1);
+    setBreathPhase('inhale');
+    setSharedValue(
+      scale,
+      withRepeat(
+        withSequence(
+          withTiming(
+            INHALE_SCALE,
+            { duration: INHALE_MS, easing: Easing.inOut(Easing.quad) },
+            (finished) => {
+              if (finished) runOnJS(setBreathPhase)('exhale');
+            }
+          ),
+          withTiming(1, { duration: EXHALE_MS, easing: Easing.inOut(Easing.quad) }, (finished) => {
+            if (finished) runOnJS(setBreathPhase)('inhale');
+          })
+        ),
+        -1
+      )
+    );
+  }, [scale]);
+
   // Handle session completion once
   useEffect(() => {
     if (
@@ -198,7 +236,7 @@ export default function Mindfulness() {
       stopBreathingAnimation();
       setShowCompleteModal(true);
     }
-  }, [isPlaying, timeRemaining, currentSession, claimed]);
+  }, [isPlaying, timeRemaining, currentSession, claimed, stopBreathingAnimation]);
 
   // Drive the breathing phase text from the actual Reanimated animation.
   // The inhale/exhale phase is derived directly from the scale animation by
@@ -209,32 +247,6 @@ export default function Mindfulness() {
       cancelAnimation(scale);
     };
   }, [scale]);
-
-  const startBreathingAnimation = () => {
-    cancelAnimation(scale);
-    scale.value = 1;
-    setBreathPhase('inhale');
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(
-          INHALE_SCALE,
-          { duration: INHALE_MS, easing: Easing.inOut(Easing.quad) },
-          (finished) => {
-            if (finished) runOnJS(setBreathPhase)('exhale');
-          }
-        ),
-        withTiming(1, { duration: EXHALE_MS, easing: Easing.inOut(Easing.quad) }, (finished) => {
-          if (finished) runOnJS(setBreathPhase)('inhale');
-        })
-      ),
-      -1
-    );
-  };
-
-  const stopBreathingAnimation = () => {
-    cancelAnimation(scale);
-    scale.value = 1;
-  };
 
   const startSession = (session: MeditationSession) => {
     const duration = parseInt(session.duration) * 60;
@@ -323,214 +335,224 @@ export default function Mindfulness() {
         </View>
 
         {currentSession && (
-          <LinearGradient
-            colors={[sessionColor + '20', sessionColor + '08']}
-            style={[cardStyles.card, { marginBottom: spacing.xxl }]}
+          <Animated.View
+            entering={FadeInDown.duration(animationTokens.durations.normal)}
+            exiting={FadeOut.duration(animationTokens.durations.fast)}
           >
-            <CardWrapper>
-              <View style={{ alignItems: 'center' }}>
-                <Icon
-                  name={currentSession.icon}
-                  size={48}
-                  color={sessionColor}
-                  style={{ marginBottom: spacing.lg }}
-                />
-                <Text style={[typography.h3, { marginBottom: spacing.sm, textAlign: 'center' }]}>
-                  {currentSession.title}
-                </Text>
-                <Text
-                  style={[typography.caption, { marginBottom: spacing.xl, textAlign: 'center' }]}
-                >
-                  {currentSession.description}
-                </Text>
+            <LinearGradient
+              colors={[sessionColor + '20', sessionColor + '08']}
+              style={[cardStyles.card, { marginBottom: spacing.xxl }]}
+            >
+              <CardWrapper>
+                <View style={{ alignItems: 'center' }}>
+                  <Icon
+                    name={currentSession.icon}
+                    size={48}
+                    color={sessionColor}
+                    style={{ marginBottom: spacing.lg }}
+                  />
+                  <Text style={[typography.h3, { marginBottom: spacing.sm, textAlign: 'center' }]}>
+                    {currentSession.title}
+                  </Text>
+                  <Text
+                    style={[typography.caption, { marginBottom: spacing.xl, textAlign: 'center' }]}
+                  >
+                    {currentSession.description}
+                  </Text>
 
-                <Text style={[typography.h2, { color: sessionColor, marginBottom: spacing.md }]}>
-                  {formatTime(timeRemaining)}
-                </Text>
+                  <Text style={[typography.h2, { color: sessionColor, marginBottom: spacing.md }]}>
+                    {formatTime(timeRemaining)}
+                  </Text>
 
-                {/* Animated breathing circle */}
-                <View
-                  style={{
-                    width: 240,
-                    height: 240,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: spacing.lg,
-                  }}
-                >
+                  {/* Animated breathing circle */}
                   <View
                     style={{
-                      position: 'absolute',
                       width: 240,
                       height: 240,
-                      borderRadius: 120,
-                      backgroundColor: sessionColor + '10',
-                    }}
-                  />
-                  <Animated.View
-                    style={[
-                      {
-                        width: 200,
-                        height: 200,
-                        borderRadius: 100,
-                        backgroundColor: sessionColor + '20',
-                        borderWidth: 2,
-                        borderColor: sessionColor + '50',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      },
-                      animatedCircleStyle,
-                    ]}
-                  >
-                    <Text style={[typography.h2, { color: sessionColor }]}>
-                      {breathPhase === 'inhale' ? 'Breathe In...' : 'Breathe Out...'}
-                    </Text>
-                    <Text
-                      style={[
-                        typography.caption,
-                        { color: colors.textMuted, marginTop: spacing.xs },
-                      ]}
-                    >
-                      {breathPhase === 'inhale' ? '4 seconds' : '6 seconds'}
-                    </Text>
-                  </Animated.View>
-                </View>
-
-                <View style={{ flexDirection: 'row', gap: spacing.lg }}>
-                  <TouchableOpacity
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 28,
-                      backgroundColor: sessionColor,
                       alignItems: 'center',
                       justifyContent: 'center',
+                      marginBottom: spacing.lg,
                     }}
-                    onPress={pauseSession}
                   >
-                    <Icon
-                      name={isPlaying ? 'pause' : 'play'}
-                      size={24}
-                      color={colors.textInverse}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 28,
-                      backgroundColor: colors.border,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    onPress={stopSession}
-                  >
-                    <Icon name="stop" size={24} color={colors.text} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </CardWrapper>
-          </LinearGradient>
-        )}
-
-        {!currentSession && (
-          <View style={[cardStyles.card, { marginBottom: spacing.xxl }]}>
-            <CardWrapper>
-              <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Quick Start</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <TouchableOpacity
-                  style={[cardStyles.cardSmall, { width: '48%', alignItems: 'center' }]}
-                  onPress={() => startSession(meditationSessions[1])}
-                >
-                  <CardWrapper>
-                    <Icon
-                      name="leaf"
-                      size={32}
-                      color={colors.success}
-                      style={{ marginBottom: spacing.sm }}
-                    />
-                    <Text style={[typography.body, { textAlign: 'center' }]}>Quick Breathing</Text>
-                    <Text style={[typography.caption, { textAlign: 'center' }]}>5 min</Text>
-                  </CardWrapper>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[cardStyles.cardSmall, { width: '48%', alignItems: 'center' }]}
-                  onPress={() => startSession(meditationSessions[0])}
-                >
-                  <CardWrapper>
-                    <Icon
-                      name="sunny"
-                      size={32}
-                      color={colors.warning}
-                      style={{ marginBottom: spacing.sm }}
-                    />
-                    <Text style={[typography.body, { textAlign: 'center' }]}>Morning Focus</Text>
-                    <Text style={[typography.caption, { textAlign: 'center' }]}>10 min</Text>
-                  </CardWrapper>
-                </TouchableOpacity>
-              </View>
-            </CardWrapper>
-          </View>
-        )}
-
-        {!currentSession && (
-          <View style={[cardStyles.card, { marginBottom: spacing.xxl }]}>
-            <CardWrapper>
-              <Text style={[typography.h3, { marginBottom: spacing.lg }]}>All Sessions</Text>
-              {meditationSessions.map((session) => (
-                <TouchableOpacity
-                  key={session.id}
-                  style={[cardStyles.cardSmall, { marginBottom: spacing.md }]}
-                  onPress={() => startSession(session)}
-                >
-                  <CardWrapper>
                     <View
                       style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
+                        position: 'absolute',
+                        width: 240,
+                        height: 240,
+                        borderRadius: 120,
+                        backgroundColor: sessionColor + '10',
                       }}
+                    />
+                    <Animated.View
+                      style={[
+                        {
+                          width: 200,
+                          height: 200,
+                          borderRadius: 100,
+                          backgroundColor: sessionColor + '20',
+                          borderWidth: 2,
+                          borderColor: sessionColor + '50',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        },
+                        animatedCircleStyle,
+                      ]}
                     >
+                      <Text style={[typography.h2, { color: sessionColor }]}>
+                        {breathPhase === 'inhale' ? 'Breathe In...' : 'Breathe Out...'}
+                      </Text>
+                      <Text
+                        style={[
+                          typography.caption,
+                          { color: colors.textMuted, marginTop: spacing.xs },
+                        ]}
+                      >
+                        {breathPhase === 'inhale' ? '4 seconds' : '6 seconds'}
+                      </Text>
+                    </Animated.View>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: spacing.lg }}>
+                    <TouchableOpacity
+                      style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: 28,
+                        backgroundColor: sessionColor,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onPress={pauseSession}
+                    >
+                      <Icon
+                        name={isPlaying ? 'pause' : 'play'}
+                        size={24}
+                        color={colors.textInverse}
+                      />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: 28,
+                        backgroundColor: colors.border,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onPress={stopSession}
+                    >
+                      <Icon name="stop" size={24} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </CardWrapper>
+            </LinearGradient>
+          </Animated.View>
+        )}
+
+        {!currentSession && (
+          <Animated.View
+            entering={FadeIn.duration(animationTokens.durations.normal)}
+            exiting={FadeOut.duration(animationTokens.durations.fast)}
+          >
+            <View style={[cardStyles.card, { marginBottom: spacing.xxl }]}>
+              <CardWrapper>
+                <Text style={[typography.h3, { marginBottom: spacing.lg }]}>Quick Start</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <TouchableOpacity
+                    style={[cardStyles.cardSmall, { width: '48%', alignItems: 'center' }]}
+                    onPress={() => startSession(meditationSessions[1])}
+                  >
+                    <CardWrapper>
+                      <Icon
+                        name="leaf"
+                        size={32}
+                        color={colors.success}
+                        style={{ marginBottom: spacing.sm }}
+                      />
+                      <Text style={[typography.body, { textAlign: 'center' }]}>
+                        Quick Breathing
+                      </Text>
+                      <Text style={[typography.caption, { textAlign: 'center' }]}>5 min</Text>
+                    </CardWrapper>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[cardStyles.cardSmall, { width: '48%', alignItems: 'center' }]}
+                    onPress={() => startSession(meditationSessions[0])}
+                  >
+                    <CardWrapper>
+                      <Icon
+                        name="sunny"
+                        size={32}
+                        color={colors.warning}
+                        style={{ marginBottom: spacing.sm }}
+                      />
+                      <Text style={[typography.body, { textAlign: 'center' }]}>Morning Focus</Text>
+                      <Text style={[typography.caption, { textAlign: 'center' }]}>10 min</Text>
+                    </CardWrapper>
+                  </TouchableOpacity>
+                </View>
+              </CardWrapper>
+            </View>
+
+            <View style={[cardStyles.card, { marginBottom: spacing.xxl }]}>
+              <CardWrapper>
+                <Text style={[typography.h3, { marginBottom: spacing.lg }]}>All Sessions</Text>
+                {meditationSessions.map((session) => (
+                  <TouchableOpacity
+                    key={session.id}
+                    style={[cardStyles.cardSmall, { marginBottom: spacing.md }]}
+                    onPress={() => startSession(session)}
+                  >
+                    <CardWrapper>
                       <View
                         style={{
                           flexDirection: 'row',
                           alignItems: 'center',
-                          flexShrink: 1,
-                          marginRight: spacing.md,
+                          justifyContent: 'space-between',
                         }}
                       >
                         <View
                           style={{
-                            width: 48,
-                            height: 48,
-                            borderRadius: 24,
-                            backgroundColor: session.color + '20',
+                            flexDirection: 'row',
                             alignItems: 'center',
-                            justifyContent: 'center',
+                            flexShrink: 1,
                             marginRight: spacing.md,
                           }}
                         >
-                          <Icon name={session.icon} size={24} color={session.color} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={typography.body}>{session.title}</Text>
-                          <Text style={typography.caption}>{session.description}</Text>
-                          <View style={{ flexDirection: 'row', marginTop: spacing.xs }}>
-                            <Text style={[typography.caption, { color: session.color }]}>
-                              {session.type} • {session.duration}
-                            </Text>
+                          <View
+                            style={{
+                              width: 48,
+                              height: 48,
+                              borderRadius: 24,
+                              backgroundColor: session.color + '20',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginRight: spacing.md,
+                            }}
+                          >
+                            <Icon name={session.icon} size={24} color={session.color} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={typography.body}>{session.title}</Text>
+                            <Text style={typography.caption}>{session.description}</Text>
+                            <View style={{ flexDirection: 'row', marginTop: spacing.xs }}>
+                              <Text style={[typography.caption, { color: session.color }]}>
+                                {session.type} • {session.duration}
+                              </Text>
+                            </View>
                           </View>
                         </View>
+                        <Icon name="play" size={20} color={colors.textMuted} />
                       </View>
-                      <Icon name="play" size={20} color={colors.textMuted} />
-                    </View>
-                  </CardWrapper>
-                </TouchableOpacity>
-              ))}
-            </CardWrapper>
-          </View>
+                    </CardWrapper>
+                  </TouchableOpacity>
+                ))}
+              </CardWrapper>
+            </View>
+          </Animated.View>
         )}
 
         <LinearGradient
@@ -593,10 +615,12 @@ export default function Mindfulness() {
             padding: spacing.xl,
           }}
         >
-          <View
+          <Animated.View
+            entering={ZoomIn.duration(animationTokens.durations.normal).springify().damping(15)}
             style={[cardStyles.card, { width: '100%', alignItems: 'center', padding: spacing.xxl }]}
           >
-            <View
+            <Animated.View
+              entering={ZoomIn.delay(100).springify().damping(12).stiffness(180)}
               style={{
                 width: 80,
                 height: 80,
@@ -612,7 +636,7 @@ export default function Mindfulness() {
                 size={40}
                 color={claimed ? colors.success : colors.primary}
               />
-            </View>
+            </Animated.View>
 
             <Text
               style={[
@@ -680,7 +704,7 @@ export default function Mindfulness() {
                 </TouchableOpacity>
               </>
             )}
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>

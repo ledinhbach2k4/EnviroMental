@@ -1,16 +1,21 @@
-import { Text, TouchableOpacity, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import React from 'react';
+import { Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import { AnimatedPressable } from './motion';
+import { animationTokens } from '@/src/design/tokens';
 
-interface ButtonProps {
+export interface ButtonProps {
   text: string;
   onPress: () => void;
-  style?: ViewStyle | ViewStyle[];
+  style?: StyleProp<ViewStyle>;
   textStyle?: TextStyle;
   variant?: 'primary' | 'secondary' | 'outline' | 'accent' | 'danger' | 'ghost';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  accessibilityLabel?: string;
+  testID?: string;
 }
 
 export default function Button({
@@ -23,6 +28,8 @@ export default function Button({
   disabled = false,
   leftIcon,
   rightIcon,
+  accessibilityLabel,
+  testID,
 }: ButtonProps) {
   const colors = useColors();
   const typography = useTypography();
@@ -96,27 +103,32 @@ export default function Button({
     styles[size],
     disabled && styles.disabled,
     style,
-  ].filter(Boolean);
+  ];
 
   const textStyles = [
     variant === 'outline'
       ? styles.textOutline
       : variant === 'ghost'
-      ? styles.textGhost
-      : styles.text,
+        ? styles.textGhost
+        : styles.text,
     textStyle,
-  ].filter(Boolean);
+  ];
 
   return (
-    <TouchableOpacity
+    <AnimatedPressable
       style={buttonStyles}
       onPress={onPress}
       disabled={disabled}
-      activeOpacity={0.8}
+      scaleTo={animationTokens.micro.buttonPressScale}
+      opacityTo={animationTokens.micro.activeOpacity}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? text}
+      accessibilityState={{ disabled }}
+      testID={testID}
     >
       {leftIcon}
       <Text style={textStyles}>{text}</Text>
       {rightIcon}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }

@@ -16,6 +16,7 @@ import { useSignUp, useClerk, useAuth } from '@clerk/expo';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import VerifyEmail from './verify-email';
 
 const SignUpScreen = () => {
@@ -27,12 +28,11 @@ const SignUpScreen = () => {
   const router = useRouter();
 
   const clerkSignUp = useSignUp() as any;
-  const clerk = useClerk?.() as any;
+  useClerk?.();
   const { isLoaded: authLoaded } = useAuth();
 
   const signUp = clerkSignUp?.signUp || clerkSignUp;
   const isLoaded = clerkSignUp?.isLoaded ?? authLoaded;
-  const setActive = clerkSignUp?.setActive || clerk?.setActive;
 
   const [email, setEmail] = useState<string>('');
   const [firstName, setFirstName] = useState<string>('');
@@ -50,7 +50,14 @@ const SignUpScreen = () => {
     const trimmedLastName = lastName.trim();
     const trimmedUsername = username.trim();
 
-    if (!trimmedEmail || !trimmedFirstName || !trimmedLastName || !trimmedUsername || !password || !rePassword) {
+    if (
+      !trimmedEmail ||
+      !trimmedFirstName ||
+      !trimmedLastName ||
+      !trimmedUsername ||
+      !password ||
+      !rePassword
+    ) {
       Alert.alert('Missing Fields', 'Please fill in all required fields.');
       return;
     }
@@ -229,7 +236,10 @@ const SignUpScreen = () => {
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
-          <View style={styles.headerArea}>
+          <Animated.View
+            entering={FadeInDown.delay(50).springify().damping(20)}
+            style={styles.headerArea}
+          >
             <Image
               source={require('../../assets/images/i2.png')}
               style={styles.logoImage}
@@ -239,14 +249,22 @@ const SignUpScreen = () => {
             <Text style={styles.subtitle}>
               Begin your personalized mental wellness journey today.
             </Text>
-          </View>
+          </Animated.View>
 
           {/* Form Card */}
-          <View style={styles.card}>
+          <Animated.View
+            entering={FadeInDown.delay(120).springify().damping(20)}
+            style={styles.card}
+          >
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>First Name</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="person-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <Ionicons
+                  name="person-outline"
+                  size={20}
+                  color={colors.textMuted}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Enter first name"
@@ -262,7 +280,12 @@ const SignUpScreen = () => {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Last Name</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="person-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <Ionicons
+                  name="person-outline"
+                  size={20}
+                  color={colors.textMuted}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Enter last name"
@@ -278,7 +301,12 @@ const SignUpScreen = () => {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Username</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="at-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <Ionicons
+                  name="at-outline"
+                  size={20}
+                  color={colors.textMuted}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Choose a username"
@@ -294,7 +322,12 @@ const SignUpScreen = () => {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email Address</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <Ionicons
+                  name="mail-outline"
+                  size={20}
+                  color={colors.textMuted}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Enter email address"
@@ -311,7 +344,12 @@ const SignUpScreen = () => {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Password</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color={colors.textMuted}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Create password (min 8 chars)"
@@ -338,7 +376,12 @@ const SignUpScreen = () => {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Confirm Password</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color={colors.textMuted}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Re-enter your password"
@@ -364,19 +407,20 @@ const SignUpScreen = () => {
                 <Text style={styles.primaryButtonText}>Sign Up</Text>
               )}
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
           {/* Footer Navigation */}
-          <TouchableOpacity
-            style={styles.footerLink}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.footerLinkText}>
-              Already have an account?{' '}
-              <Text style={styles.footerLinkHighlight}>Sign In</Text>
-            </Text>
-          </TouchableOpacity>
+          <Animated.View entering={FadeInDown.delay(180).springify().damping(20)}>
+            <TouchableOpacity
+              style={styles.footerLink}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.footerLinkText}>
+                Already have an account? <Text style={styles.footerLinkHighlight}>Sign In</Text>
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

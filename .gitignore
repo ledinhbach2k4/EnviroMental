@@ -97,3 +97,12 @@ mobile/mcp-config.json
 EnviroMental - Function.txt
 CLAUDE.md
 GEMINI.md
+PROJECT.md
+TEST_INFRA.md
+TEST_READY.md
+
+# AI Agent Skills
+.agents/
+.skills/
+skills-lock.json
+

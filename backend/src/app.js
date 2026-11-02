@@ -29,6 +29,10 @@ import cortisolRoutes from './routes/cortisol.routes.js';
 import cortisolMockRoutes from './routes/cortisolMock.routes.js';
 
 const app = express();
+
+// Enable trust proxy for cloud deployments (e.g., Render) so req.ip reflects the real client IP
+app.set('trust proxy', 1);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -36,11 +40,36 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(helmet());
 app.use(compression());
 
+// Rate Limiter: Forgiving limits for development and shared NAT local networks
+const isDev = process.env.NODE_ENV !== 'production';
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  max: isDev ? 2000 : 600, // 2000 in dev, 600 in prod per window
+  standardHeaders: true, // Return rate limit info in standard RateLimit-* headers
+  legacyHeaders: false, // Disable legacy X-RateLimit-* headers
+  message: {
+    error: 'Too Many Requests',
+    message: 'Too many requests from this IP address. Please wait a few moments before trying again.',
+    retryAfter: 15 * 60,
+  },
+  skip: (req) => {
+    if (isDev) {
+      const rawIp = req.ip || req.socket?.remoteAddress || '';
+      // Whitelist localhost and private local network IP ranges in dev
+      return (
+        rawIp === '127.0.0.1' ||
+        rawIp === '::1' ||
+        rawIp.includes('127.0.0.1') ||
+        rawIp.startsWith('192.168.') ||
+        rawIp.startsWith('10.') ||
+        rawIp.startsWith('172.16.') ||
+        rawIp.includes('192.168.') ||
+        rawIp.includes('10.')
+      );
+    }
+    return false;
+  },
 });
 app.use(limiter);
 
