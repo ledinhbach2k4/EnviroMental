@@ -1,8 +1,9 @@
 import Icon from '@/components/Icon';
 import { useAuth, useUser } from '@clerk/expo';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   ScrollView,
@@ -104,6 +105,7 @@ export default function Profile() {
     meditationMinutes: 0,
     habitsCompleted: 0,
   });
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
 
   const { user } = useUser();
   const { getToken } = useAuth();
@@ -113,9 +115,35 @@ export default function Profile() {
 
   const { logout } = useLogout();
 
-  const loadUserStats = useCallback(async () => {
+  const habitsRef = useRef(habits);
+  const getTokenRef = useRef(getToken);
+  const lastFetchStatsTimeRef = useRef<number>(0);
+  const isFetchingStatsRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    habitsRef.current = habits;
+  }, [habits]);
+
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  const loadUserStats = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastFetchStatsTimeRef.current < 60000) {
+      setUserStats((prev) => ({
+        ...prev,
+        habitsCompleted: habitsRef.current.filter((habit) => habit.completedToday).length,
+      }));
+      return;
+    }
+    if (isFetchingStatsRef.current) return;
+
+    isFetchingStatsRef.current = true;
+    lastFetchStatsTimeRef.current = now;
+
     try {
-      const token = await getToken();
+      const token = await getTokenRef.current();
       if (!token) return;
 
       const res = await fetch(`${ENV.API_URL}/moods`, {
@@ -131,7 +159,7 @@ export default function Profile() {
 
       const totalMoodEntries = moodEntries.length;
       const currentStreak = calculateMoodStreak(moodEntries);
-      const habitsCompleted = habits.filter((habit) => habit.completedToday).length;
+      const habitsCompleted = habitsRef.current.filter((habit) => habit.completedToday).length;
       const meditationMinutes = 150;
 
       setUserStats({
@@ -148,8 +176,10 @@ export default function Profile() {
         meditationMinutes: 0,
         habitsCompleted: 0,
       });
+    } finally {
+      isFetchingStatsRef.current = false;
     }
-  }, [getToken, habits]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -240,7 +270,7 @@ export default function Profile() {
                 throw new Error('Failed to delete all data from the server.');
               }
 
-              await loadUserStats();
+              await loadUserStats(true);
 
               Alert.alert('Data Cleared', 'All your data has been cleared successfully.');
             } catch (error) {
@@ -301,6 +331,52 @@ export default function Profile() {
       'This feature would export your data to a file. In a real app, this would generate a downloadable file with your wellness data.',
       [{ text: 'OK' }]
     );
+  };
+
+  const handleCheckForUpdates = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert('Notice', 'Updates are not available on web.');
+      return;
+    }
+
+    if (isCheckingUpdate) return;
+    setIsCheckingUpdate(true);
+    try {
+      // Conditionally require expo-updates only on native platforms (iOS/Android)
+      // to completely isolate it from the web bundler and avoid OOM issues.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Updates = require('expo-updates');
+
+      if (__DEV__ || !Updates.isEnabled) {
+        Alert.alert('Notice', 'Updates are only available in built apps.');
+        return;
+      }
+      const update = await Updates.checkForUpdateAsync();
+      if (update.isAvailable) {
+        Alert.alert('Update Available', 'Do you want to download and install it?', [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Yes',
+            onPress: async () => {
+              try {
+                await Updates.fetchUpdateAsync();
+                await Updates.reloadAsync();
+              } catch (fetchErr) {
+                console.error('Error downloading update:', fetchErr);
+                Alert.alert('Error', 'Failed to download the update. Please try again later.');
+              }
+            },
+          },
+        ]);
+      } else {
+        Alert.alert('Notice', 'You are already on the latest version.');
+      }
+    } catch (error) {
+      console.log('Error checking for updates:', error);
+      Alert.alert('Notice', 'Updates are only available in built apps.');
+    } finally {
+      setIsCheckingUpdate(false);
+    }
   };
 
   const contactSupport = () => {
@@ -529,6 +605,41 @@ export default function Profile() {
                       style={{ marginRight: spacing.md }}
                     />
                     <Text style={typography.body}>Export Data</Text>
+                  </View>
+                  <Icon name="chevron-forward" size={20} color={colors.textMuted} />
+                </View>
+              </CardWrapper>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.cardSmall, { marginBottom: spacing.md }]}
+              onPress={handleCheckForUpdates}
+              disabled={isCheckingUpdate}
+            >
+              <CardWrapper>
+                <View style={styles.spaceBetween}>
+                  <View style={styles.row}>
+                    {isCheckingUpdate ? (
+                      <View
+                        style={{
+                          width: 24,
+                          height: 24,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          marginRight: spacing.md,
+                        }}
+                      >
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      </View>
+                    ) : (
+                      <Icon
+                        name="cloud-download"
+                        size={24}
+                        color={colors.primary}
+                        style={{ marginRight: spacing.md }}
+                      />
+                    )}
+                    <Text style={typography.body}>Check for Updates</Text>
                   </View>
                   <Icon name="chevron-forward" size={20} color={colors.textMuted} />
                 </View>

@@ -16,6 +16,8 @@ export default () => ({
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           'To display local weather information based on your current location',
+        NSCameraUsageDescription:
+          'EnviroMental uses the camera to detect posture and breathing movement.',
       },
     },
 
@@ -29,6 +31,7 @@ export default () => ({
       // NOTE: This should be disabled in production in favor of HTTPS.
       usesCleartextTraffic: true,
       permissions: [
+        'android.permission.CAMERA',
         'android.permission.ACCESS_FINE_LOCATION',
         'android.permission.ACCESS_COARSE_LOCATION',
         'android.permission.POST_NOTIFICATIONS',
@@ -62,6 +65,24 @@ export default () => ({
       'expo-image',
       'expo-status-bar',
       'expo-web-browser',
+      [
+        'react-native-vision-camera',
+        {
+          cameraPermissionText: '$(PRODUCT_NAME) uses the camera to detect breathing movement.',
+          enableMicrophonePermission: false,
+        },
+      ],
+      [
+        'expo-build-properties',
+        {
+          android: {
+            minSdkVersion: 26,
+          },
+          ios: {
+            deploymentTarget: '16.4',
+          },
+        },
+      ],
     ],
 
     experiments: {

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { ClerkProvider, useAuth, ClerkLoaded } from '@clerk/expo';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { DesignSystemProvider } from '@/src/design';
@@ -171,14 +172,16 @@ export default function RootLayout() {
   );
 
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <ClerkLoaded>
-        <DesignSystemProvider>
-          <SafeAreaProvider>
-            <InitialLayout />
-          </SafeAreaProvider>
-        </DesignSystemProvider>
-      </ClerkLoaded>
-    </ClerkProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+        <ClerkLoaded>
+          <DesignSystemProvider>
+            <SafeAreaProvider>
+              <InitialLayout />
+            </SafeAreaProvider>
+          </DesignSystemProvider>
+        </ClerkLoaded>
+      </ClerkProvider>
+    </GestureHandlerRootView>
   );
 }

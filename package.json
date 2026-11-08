@@ -24,9 +24,5 @@
       "cd mobile && eslint --fix",
       "cd mobile && prettier --write"
     ]
-  },
-  "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
-    "expo-router": "~57.0.29"
   }
 }

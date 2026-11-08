@@ -129,7 +129,8 @@ export const AnimatedCard: React.FC<AnimatedCardProps> = ({
     );
   }
 
-  const staticStyle = typeof style === 'function' ? style({ pressed: false }) : style;
+  const defaultState: PressableStateCallbackType = { pressed: false, hovered: false };
+  const staticStyle = typeof style === 'function' ? style(defaultState) : style;
   const { testID, accessible, accessibilityRole, accessibilityLabel, ...viewProps } = rest;
 
   return (
@@ -144,7 +145,7 @@ export const AnimatedCard: React.FC<AnimatedCardProps> = ({
       accessibilityLabel={accessibilityLabel}
       {...(viewProps as any)}
     >
-      {typeof children === 'function' ? children({ pressed: false }) : children}
+      {typeof children === 'function' ? children(defaultState) : children}
     </Animated.View>
   );
 };

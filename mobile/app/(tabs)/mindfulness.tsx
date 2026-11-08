@@ -30,6 +30,7 @@ import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/sr
 import { animationTokens } from '@/src/design/tokens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../components/Icon';
+import BreathingCameraView from '../../components/BreathingCameraView';
 
 interface MeditationSession {
   id: string;
@@ -86,6 +87,15 @@ export default function Mindfulness() {
   const scale = useSharedValue(1);
   const meditationSessions = useMemo(
     (): MeditationSession[] => [
+      {
+        id: 'camera-breathing',
+        title: 'Camera-Assisted Breathing',
+        duration: '5 min',
+        type: 'Camera Guided',
+        description: 'Front-camera posture and breathing alignment',
+        icon: 'videocam',
+        color: colors.accent,
+      },
       {
         id: '1',
         title: 'Morning Mindfulness',
@@ -153,6 +163,7 @@ export default function Mindfulness() {
           ...shadows.xs,
         },
         container: {
+          flex: 1,
           backgroundColor: colors.background,
           width: '100%',
           height: '100%',
@@ -257,7 +268,9 @@ export default function Mindfulness() {
     setShowCompleteModal(false);
     setIsPlaying(true);
     setBreathPhase('inhale');
-    startBreathingAnimation();
+    if (session.id !== 'camera-breathing') {
+      startBreathingAnimation();
+    }
     console.log(`Starting meditation session: ${session.title}`);
   };
 
@@ -265,7 +278,9 @@ export default function Mindfulness() {
     setIsPlaying((prev) => {
       const next = !prev;
       if (next) {
-        startBreathingAnimation();
+        if (currentSession?.id !== 'camera-breathing') {
+          startBreathingAnimation();
+        }
       } else {
         stopBreathingAnimation();
       }
@@ -309,7 +324,12 @@ export default function Mindfulness() {
   const CardWrapper = Platform.OS === 'android' ? AndroidCardContent : CardContent;
 
   return (
-    <View style={[cardStyles.container, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        cardStyles.container,
+        currentSession?.id !== 'camera-breathing' && { paddingTop: insets.top },
+      ]}
+    >
       <ScrollView style={cardStyles.content} showsVerticalScrollIndicator={false}>
         <View
           style={{
@@ -334,7 +354,7 @@ export default function Mindfulness() {
           )}
         </View>
 
-        {currentSession && (
+        {currentSession && currentSession.id !== 'camera-breathing' && (
           <Animated.View
             entering={FadeInDown.duration(animationTokens.durations.normal)}
             exiting={FadeOut.duration(animationTokens.durations.fast)}
@@ -707,6 +727,17 @@ export default function Mindfulness() {
           </Animated.View>
         </View>
       </Modal>
+      {/* Camera-Assisted Breathing Overlay (Phase 1) */}
+      {currentSession?.id === 'camera-breathing' && (
+        <BreathingCameraView
+          onClose={stopSession}
+          onFallbackToStandard={() => {
+            const standardBreathing =
+              meditationSessions.find((s) => s.id === '2') || meditationSessions[1];
+            startSession(standardBreathing);
+          }}
+        />
+      )}
     </View>
   );
 }
