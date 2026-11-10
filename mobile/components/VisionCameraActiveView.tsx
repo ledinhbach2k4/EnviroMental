@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
   AppState,
-  AppStateStatus,
+  LayoutChangeEvent,
   Linking,
   Platform,
   StyleSheet,
@@ -20,13 +20,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import {
   Camera,
   useCameraDevice,
   useCameraPermission,
-  CameraRuntimeError,
+  VisionCamera,
 } from 'react-native-vision-camera';
 import Icon from '@/components/Icon';
 import Button from '@/components/Button';
@@ -42,7 +41,7 @@ export interface VisionCameraActiveViewProps {
 
 /**
  * VisionCameraActiveView handles active front camera streaming and alignment UI
- * once NativeModules.CameraView is confirmed to be available.
+ * using VisionCamera v5 (Nitro Modules).
  */
 export const VisionCameraActiveView: React.FC<VisionCameraActiveViewProps> = ({
   onClose,
@@ -55,13 +54,22 @@ export const VisionCameraActiveView: React.FC<VisionCameraActiveViewProps> = ({
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
-  // Navigation & AppState tracking for camera lifecycle
-  const isFocused = useIsFocused();
-  const [appState, setAppState] = useState<AppStateStatus>(
-    (AppState.currentState as AppStateStatus) ?? 'active'
+  // Container layout dimensions measured from onLayout (not just window dimensions)
+  const [containerLayout, setContainerLayout] = useState<{ width: number; height: number } | null>(
+    null
   );
 
-  // Camera permissions & device selection
+  const handleContainerLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setContainerLayout({ width, height });
+    }
+  }, []);
+
+  // AppState tracking for camera lifecycle (replaces React Navigation useIsFocused)
+  const [appIsActive, setAppIsActive] = useState(AppState.currentState === 'active');
+
+  // Camera permissions & device selection (VisionCamera v5)
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('front');
   const hasRequestedPermissionRef = useRef(false);
@@ -85,10 +93,20 @@ export const VisionCameraActiveView: React.FC<VisionCameraActiveViewProps> = ({
     };
   }, []);
 
-  // Update AppState listener
+  // Re-read Camera permission and sync appIsActive when AppState changes
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
-      setAppState(nextAppState);
+      setAppIsActive(nextAppState === 'active');
+      if (nextAppState === 'active') {
+        try {
+          const status = VisionCamera.cameraPermissionStatus;
+          if (status === 'authorized') {
+            setIsPermissionDenied(false);
+          }
+        } catch {
+          // Native module not initialized
+        }
+      }
     });
     return () => subscription.remove();
   }, []);
@@ -142,12 +160,15 @@ export const VisionCameraActiveView: React.FC<VisionCameraActiveViewProps> = ({
     AccessibilityInfo.announceForAccessibility(announcement);
   }, [isAligned]);
 
-  // Sizing for head-and-shoulders oval guide
-  const guideWidth = Math.min(Math.max(windowWidth * 0.72, 220), 320);
+  // Sizing for head-and-shoulders oval guide based on container onLayout dimensions
+  const layoutWidth = containerLayout?.width ?? windowWidth;
+  const layoutHeight = containerLayout?.height ?? windowHeight;
+
+  const guideWidth = Math.min(Math.max(layoutWidth * 0.72, 220), 320);
   const guideHeight = guideWidth * 1.38;
   const guideRadius = guideWidth / 2;
-  const guideX = (windowWidth - guideWidth) / 2;
-  const guideY = (windowHeight - guideHeight) / 2 - 25;
+  const guideX = (layoutWidth - guideWidth) / 2;
+  const guideY = (layoutHeight - guideHeight) / 2 - 25;
 
   // Animated styles for oval border
   const animatedBorderStyle = useAnimatedStyle(() => {
@@ -166,9 +187,8 @@ export const VisionCameraActiveView: React.FC<VisionCameraActiveViewProps> = ({
     opacity: progress.value,
   }));
 
-  // Camera isActive rule: screen is focused, app is active, has permission, and no fatal error
-  const isCameraActive =
-    isComponentMounted && isFocused && appState === 'active' && hasPermission && !cameraError;
+  // Camera isActive rule: component is mounted, app is active, has permission, and no fatal error
+  const isCameraActive = isComponentMounted && appIsActive && hasPermission && !cameraError;
 
   // Gracefully stop camera before triggering parent unmount
   const handleClose = () => {
@@ -333,22 +353,23 @@ export const VisionCameraActiveView: React.FC<VisionCameraActiveViewProps> = ({
 
   // 4. Main Camera View + Dimmed Oval Cutout + Alignment Guide
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={handleContainerLayout}>
       {/* Native Camera Preview */}
       <Camera
         device={device}
         isActive={isCameraActive}
+        implementationMode="compatible"
         style={[StyleSheet.absoluteFill, styles.camera]}
-        onError={(err: CameraRuntimeError) => {
+        onError={(err: Error) => {
           console.error('[VisionCameraActiveView] Camera runtime error:', err);
           setCameraError(err.message);
         }}
       />
 
-      {/* Dimmed backdrop with transparent cutout oval */}
+      {/* Dimmed backdrop with transparent cutout oval sized from container layout */}
       <Svg
-        width={windowWidth}
-        height={windowHeight}
+        width={layoutWidth}
+        height={layoutHeight}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       >
@@ -357,11 +378,11 @@ export const VisionCameraActiveView: React.FC<VisionCameraActiveViewProps> = ({
             id="guideCutoutMask"
             x="0"
             y="0"
-            width={windowWidth}
-            height={windowHeight}
+            width={layoutWidth}
+            height={layoutHeight}
             maskUnits="userSpaceOnUse"
           >
-            <Rect x="0" y="0" width={windowWidth} height={windowHeight} fill="#FFFFFF" />
+            <Rect x="0" y="0" width={layoutWidth} height={layoutHeight} fill="#FFFFFF" />
             <Rect
               x={guideX}
               y={guideY}
@@ -376,8 +397,8 @@ export const VisionCameraActiveView: React.FC<VisionCameraActiveViewProps> = ({
         <Rect
           x="0"
           y="0"
-          width={windowWidth}
-          height={windowHeight}
+          width={layoutWidth}
+          height={layoutHeight}
           fill="rgba(0, 0, 0, 0.65)"
           mask="url(#guideCutoutMask)"
         />
@@ -428,7 +449,7 @@ export const VisionCameraActiveView: React.FC<VisionCameraActiveViewProps> = ({
         </View>
       </View>
 
-      {/* Instruction Pill (Semi-transparent dark pill with cross-fading text) */}
+      {/* Instruction Pill (Fixed width and height so absolute text doesn't collapse it) */}
       <View
         style={[
           styles.pillContainer,
@@ -463,26 +484,44 @@ export const VisionCameraActiveView: React.FC<VisionCameraActiveViewProps> = ({
         </View>
       </View>
 
-      {/* Development Debug Toggle Button */}
+      {/* Development Debug Info & Toggle */}
       {__DEV__ && (
-        <TouchableOpacity
+        <View
           style={[
-            styles.debugButton,
+            styles.debugContainer,
             {
               bottom: insets.bottom + spacing.lg,
-              backgroundColor: isAligned ? 'rgba(16, 185, 129, 0.9)' : 'rgba(245, 158, 11, 0.9)',
-              borderRadius: radii.full,
             },
           ]}
-          onPress={toggleAlignment}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Toggle alignment mock"
+          pointerEvents="box-none"
         >
-          <Text style={[typography.caption, { color: '#FFFFFF', fontWeight: '700' }]}>
-            DEBUG: Toggle Alignment ({isAligned ? 'ALIGNED' : 'NOT ALIGNED'})
-          </Text>
-        </TouchableOpacity>
+          <View style={styles.debugInfoCard}>
+            <Text style={styles.debugInfoText}>
+              hasPermission: {String(hasPermission)} | device.id: {device?.id ?? 'none'} |
+              isCameraActive: {String(isCameraActive)} | size:{' '}
+              {containerLayout
+                ? `${Math.round(containerLayout.width)}x${Math.round(containerLayout.height)}`
+                : 'measuring...'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[
+              styles.debugButton,
+              {
+                backgroundColor: isAligned ? 'rgba(16, 185, 129, 0.9)' : 'rgba(245, 158, 11, 0.9)',
+                borderRadius: radii.full,
+              },
+            ]}
+            onPress={toggleAlignment}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle alignment mock"
+          >
+            <Text style={[typography.caption, { color: '#FFFFFF', fontWeight: '700' }]}>
+              DEBUG: Toggle Alignment ({isAligned ? 'ALIGNED' : 'NOT ALIGNED'})
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -536,24 +575,47 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    minHeight: 42,
+    width: 320,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    maxWidth: '85%',
   },
   textCrossfadeWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 22,
-    width: '100%',
+    width: 280,
+    height: 28,
   },
   instructionText: {
     textAlign: 'center',
     fontWeight: '700',
     position: 'absolute',
+    left: 0,
+    right: 0,
+  },
+  debugContainer: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  debugInfoCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    marginBottom: 8,
+  },
+  debugInfoText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    textAlign: 'center',
   },
   debugButton: {
-    position: 'absolute',
     alignSelf: 'center',
     paddingHorizontal: 18,
     paddingVertical: 10,
@@ -562,7 +624,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
-    zIndex: 10,
   },
   fallbackContainer: {
     ...StyleSheet.absoluteFill,

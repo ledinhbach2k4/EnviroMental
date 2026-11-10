@@ -11,6 +11,13 @@ export default () => ({
     userInterfaceStyle: 'automatic',
     newArchEnabled: true,
 
+    updates: {
+      url: 'https://u.expo.dev/1e322b19-fa5a-41d3-a84b-d7e27f016f6b',
+    },
+    runtimeVersion: {
+      policy: 'appVersion',
+    },
+
     ios: {
       supportsTablet: true,
       infoPlist: {
@@ -65,13 +72,6 @@ export default () => ({
       'expo-image',
       'expo-status-bar',
       'expo-web-browser',
-      [
-        'react-native-vision-camera',
-        {
-          cameraPermissionText: '$(PRODUCT_NAME) uses the camera to detect breathing movement.',
-          enableMicrophonePermission: false,
-        },
-      ],
       [
         'expo-build-properties',
         {

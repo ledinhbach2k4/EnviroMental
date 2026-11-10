@@ -28,9 +28,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useColors, useTypography, useSpacing, useRadii, useShadows } from '@/src/design/hooks';
 import { animationTokens } from '@/src/design/tokens';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from '../../components/Icon';
-import BreathingCameraView from '../../components/BreathingCameraView';
+import cameraSupport from '@/utils/cameraSupport';
 
 interface MeditationSession {
   id: string;
@@ -64,6 +64,116 @@ const setSharedValue = <T,>(sv: { value: T }, val: T) => {
 // Mock API call that saves mindfulness progress
 const saveMindfulnessProgress = (_minutes: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, 800));
+
+const CameraFallbackView = ({
+  reason,
+  onClose,
+  onFallbackToStandard,
+}: {
+  reason: 'expo-go' | 'native-module-missing';
+  onClose: () => void;
+  onFallbackToStandard: () => void;
+}) => {
+  const colors = useColors();
+  const typography = useTypography();
+  const spacing = useSpacing();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      style={[
+        StyleSheet.absoluteFill,
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top + spacing.lg,
+          paddingBottom: insets.bottom + spacing.lg,
+          paddingHorizontal: spacing.xl,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+      ]}
+    >
+      <TouchableOpacity
+        style={{
+          alignSelf: 'flex-start',
+          width: 44,
+          height: 44,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 20,
+        }}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close camera session"
+      >
+        <Icon name="close" size={24} color={colors.text} />
+      </TouchableOpacity>
+
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+        <View
+          style={{
+            width: 88,
+            height: 88,
+            borderRadius: 44,
+            backgroundColor: colors.warning + '20',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: spacing.lg,
+          }}
+        >
+          <Icon name="videocam-off" size={44} color={colors.warning} />
+        </View>
+
+        <Text
+          style={[
+            typography.h2,
+            { color: colors.text, textAlign: 'center', marginBottom: spacing.sm },
+          ]}
+        >
+          Development Build Required
+        </Text>
+
+        <Text
+          style={[
+            typography.body,
+            {
+              color: colors.textMuted,
+              textAlign: 'center',
+              marginBottom: spacing.xxl,
+              lineHeight: 22,
+            },
+          ]}
+        >
+          {reason === 'expo-go'
+            ? 'Camera-Assisted Breathing uses high-performance native VisionCamera C++ modules which cannot run inside Expo Go.'
+            : 'The native Camera module is missing from this build binary.'}
+          {'\n\n'}
+          To enable camera breathing, run a development build on your device:
+          {'\n'}
+          <Text style={{ fontWeight: '700', color: colors.text }}>npx expo run:android</Text>
+          {'\n\n'}
+          Alternatively, you can practice with our standard guided breathing exercise below.
+        </Text>
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: colors.primary,
+            width: '100%',
+            paddingVertical: spacing.md,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onPress={onFallbackToStandard}
+        >
+          <Text style={[typography.button, { color: colors.textInverse }]}>
+            Use Standard Breathing Instead
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 export default function Mindfulness() {
   const colors = useColors();
@@ -324,13 +434,12 @@ export default function Mindfulness() {
   const CardWrapper = Platform.OS === 'android' ? AndroidCardContent : CardContent;
 
   return (
-    <View
-      style={[
-        cardStyles.container,
-        currentSession?.id !== 'camera-breathing' && { paddingTop: insets.top },
-      ]}
-    >
-      <ScrollView style={cardStyles.content} showsVerticalScrollIndicator={false}>
+    <View style={cardStyles.container}>
+      <ScrollView
+        style={cardStyles.content}
+        contentContainerStyle={{ paddingTop: insets.top }}
+        showsVerticalScrollIndicator={false}
+      >
         <View
           style={{
             marginTop: spacing.xl,
@@ -482,7 +591,10 @@ export default function Mindfulness() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <TouchableOpacity
                     style={[cardStyles.cardSmall, { width: '48%', alignItems: 'center' }]}
-                    onPress={() => startSession(meditationSessions[1])}
+                    onPress={() => {
+                      const session = meditationSessions.find((s) => s.id === '2');
+                      if (session) startSession(session);
+                    }}
                   >
                     <CardWrapper>
                       <Icon
@@ -500,7 +612,10 @@ export default function Mindfulness() {
 
                   <TouchableOpacity
                     style={[cardStyles.cardSmall, { width: '48%', alignItems: 'center' }]}
-                    onPress={() => startSession(meditationSessions[0])}
+                    onPress={() => {
+                      const session = meditationSessions.find((s) => s.id === '1');
+                      if (session) startSession(session);
+                    }}
                   >
                     <CardWrapper>
                       <Icon
@@ -727,16 +842,41 @@ export default function Mindfulness() {
           </Animated.View>
         </View>
       </Modal>
-      {/* Camera-Assisted Breathing Overlay (Phase 1) */}
-      {currentSession?.id === 'camera-breathing' && (
-        <BreathingCameraView
-          onClose={stopSession}
-          onFallbackToStandard={() => {
-            const standardBreathing =
-              meditationSessions.find((s) => s.id === '2') || meditationSessions[1];
-            startSession(standardBreathing);
-          }}
-        />
+      {/* Full-Screen Camera-Assisted Breathing Overlay */}
+      {currentSession?.id === 'camera-breathing' && !showCompleteModal && (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              zIndex: 999,
+              elevation: 99,
+              backgroundColor: '#000000',
+            },
+          ]}
+        >
+          <SafeAreaProvider>
+            {cameraSupport.ok ? (
+              <cameraSupport.Component
+                onClose={stopSession}
+                onFallbackToStandard={() => {
+                  const standardBreathing =
+                    meditationSessions.find((s) => s.id === '2') || meditationSessions[1];
+                  if (standardBreathing) startSession(standardBreathing);
+                }}
+              />
+            ) : (
+              <CameraFallbackView
+                reason={cameraSupport.reason}
+                onClose={stopSession}
+                onFallbackToStandard={() => {
+                  const standardBreathing =
+                    meditationSessions.find((s) => s.id === '2') || meditationSessions[1];
+                  if (standardBreathing) startSession(standardBreathing);
+                }}
+              />
+            )}
+          </SafeAreaProvider>
+        </View>
       )}
     </View>
   );
